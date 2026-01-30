@@ -1,0 +1,58 @@
+<resources>
+    <string name="app_name">Distribuidora</string>
+
+    <!-- Login UI -->
+    <string name="login_title">Bienvenido</string>
+    <string name="login_subtitle">Inicia sesión para continuar</string>
+    <string name="login_email_hint">Correo</string>
+    <string name="login_password_hint">Contraseña</string>
+    <string name="login_button">Entrar</string>
+
+    <!-- Login errors (humanos) -->
+    <string name="login_error_invalid_credentials">Correo o contraseña incorrectos</string>
+    <string name="login_error_network">Sin conexión. Intenta de nuevo</string>
+    <string name="login_error_unknown">Ocurrió un error. Contacta al administrador</string>
+
+    <!-- Home bottom navigation -->
+    <string name="nav_home">Reportes</string>
+    <string name="nav_inventory">Inventario</string>
+    <string name="nav_orders">Pedidos</string>
+    <string name="nav_clients">Clientes</string>
+    <string name="nav_create_order">Crear pedido</string>
+
+    <!-- Inventory -->
+    <string name="inventory_empty">No hay productos en el inventario</string>
+    <string name="product_image">Imagen del producto</string>
+    <string name="inventory_price">Precio: %1$s</string>
+    <string name="inventory_stock">Stock: %1$d</string>
+
+    <!-- Inventory Header (búsqueda + nuevo) -->
+    <string name="inventory_search_hint">Buscar producto</string>
+    <string name="inventory_new_product">Nuevo producto</string>
+
+    <!-- Clients Header (búsqueda + nuevo) -->
+    <string name="clients_search_hint">Buscar ruta</string>
+    <string name="clients_new_client">Nueva ruta</string>
+
+    <!-- Dialogo nueva ruta -->
+    <string name="route_dialog_title">Nueva ruta</string>
+    <string name="route_name_hint">Nombre de la ruta</string>
+    <string name="route_day_hint">Día de visita</string>
+    <string name="route_create_action">Crear</string>
+    <string name="route_cancel_action">Cancelar</string>
+    <string name="route_created_success">Ruta creada correctamente</string>
+    <string name="route_created_error">Error al crear ruta</string>
+
+    <!-- Dias de la semana -->
+    <string name="day_monday">Lunes</string>
+    <string name="day_tuesday">Martes</string>
+    <string name="day_wednesday">Miércoles</string>
+    <string name="day_thursday">Jueves</string>
+    <string name="day_friday">Viernes</string>
+    <string name="day_saturday">Sábado</string>
+    <string name="day_sunday">Domingo</string>
+
+    <!-- Dashboard Headers -->
+    <string name="section_active_routes">Rutas Activas</string>
+    <string name="section_pending_accounts">Cuentas Pendientes</string>
+</resources>

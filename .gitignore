@@ -1,0 +1,76 @@
+# =========================
+# Android / Gradle
+# =========================
+.gradle/
+build/
+*/build/
+local.properties
+.gradle-cache/
+
+# Generated files
+captures/
+.externalNativeBuild/
+.cxx/
+
+# =========================
+# IDE (Android Studio / IntelliJ)
+# =========================
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VSCode
+.vscode/
+
+# =========================
+# OS files
+# =========================
+.DS_Store
+Thumbs.db
+
+# =========================
+# Logs
+# =========================
+*.log
+
+# =========================
+# Keystore files (MUY IMPORTANTE)
+# =========================
+*.jks
+*.keystore
+
+# =========================
+# Firebase / Google Services
+# =========================
+google-services.json
+
+# Si usas diferentes flavors:
+app/google-services.json
+
+# =========================
+# Environment / Secrets
+# =========================
+*.env
+.env
+secrets.properties
+keystore.properties
+
+# =========================
+# Room (schemas opcional)
+# =========================
+# Si estás exportando schemas para versionado:
+# No ignores si quieres versionarlos
+# app/schemas/
+
+# =========================
+# Kotlin
+# =========================
+*.class
+*.jar
+*.war
+
+# =========================
+# NDK
+# =========================
+obj/

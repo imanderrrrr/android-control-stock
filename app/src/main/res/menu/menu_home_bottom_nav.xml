@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/nav_home"
+        android:icon="@drawable/ic_home_outline"
+        android:title="@string/nav_home" />
+
+    <item
+        android:id="@+id/nav_inventory"
+        android:icon="@drawable/ic_inventory_outline"
+        android:title="@string/nav_inventory" />
+
+    <!-- Slot central: se muestra/usa el FAB, este item solo mantiene simetría visual -->
+    <item
+        android:id="@+id/nav_placeholder"
+        android:enabled="false"
+        android:title="" />
+
+    <item
+        android:id="@+id/nav_orders"
+        android:icon="@drawable/ic_orders_outline"
+        android:title="@string/nav_orders" />
+
+    <item
+        android:id="@+id/nav_clients"
+        android:icon="@drawable/ic_clients_outline"
+        android:title="@string/nav_clients" />
+
+</menu>

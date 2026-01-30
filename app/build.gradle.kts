@@ -1,0 +1,115 @@
+plugins {
+    alias(libs.plugins.android.application)
+    alias(libs.plugins.kotlin.android)
+    id("org.jetbrains.kotlin.kapt")
+    alias(libs.plugins.hilt.android)
+}
+
+apply(plugin = "com.google.gms.google-services")
+
+android {
+    namespace = "com.are.distribuidora"
+    compileSdk {
+        version = release(36)
+    }
+
+    defaultConfig {
+        applicationId = "com.are.distribuidora"
+        minSdk = 30
+        targetSdk = 36
+        versionCode = 1
+        versionName = "1.0"
+
+        // Runner para Hilt en instrumented tests
+        testInstrumentationRunner = "com.are.distribuidora.HiltTestRunner"
+        // Ya no usamos runnerBuilder porque en este setup no existe la clase en el classpath del device.
+        testInstrumentationRunnerArguments.remove("runnerBuilder")
+    }
+
+    buildTypes {
+        release {
+            // Activar R8/Proguard en release para reducir tamano y detectar issues de shrink temprano.
+            isMinifyEnabled = true
+            isShrinkResources = true
+
+            // Util para debuggear crashes en release con mapping.txt
+            isDebuggable = false
+
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
+    }
+    compileOptions {
+        sourceCompatibility = JavaVersion.VERSION_11
+        targetCompatibility = JavaVersion.VERSION_11
+    }
+    kotlinOptions {
+        jvmTarget = "11"
+    }
+
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = false
+            isReturnDefaultValues = true
+        }
+    }
+}
+
+kapt {
+    correctErrorTypes = true
+    arguments {
+        arg("room.schemaLocation", "$projectDir/schemas")
+        arg("room.incremental", "true")
+        arg("room.expandProjection", "true")
+    }
+}
+
+dependencies {
+    implementation(libs.androidx.core.ktx)
+    implementation(libs.androidx.appcompat)
+    implementation(libs.material)
+
+    // UI base para Fragments + ConstraintLayout (Home con bottom nav + fragment container)
+    implementation("androidx.fragment:fragment-ktx:1.8.5")
+    implementation("androidx.constraintlayout:constraintlayout:2.2.0")
+
+    implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
+    implementation("com.google.firebase:firebase-auth-ktx:23.1.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+
+    // Hilt - DI
+    implementation("com.google.dagger:hilt-android:2.51")
+    kapt("com.google.dagger:hilt-android-compiler:2.51")
+
+    // Room
+    implementation("androidx.room:room-runtime:2.6.1")
+    implementation("androidx.room:room-ktx:2.6.1")
+    kapt("androidx.room:room-compiler:2.6.1")
+
+    // DataStore (persistencia local para sesión)
+    implementation("androidx.datastore:datastore-preferences:1.1.1")
+
+    // ViewModel + viewModelScope
+    implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7")
+
+    // by viewModels() en ComponentActivity
+    implementation("androidx.activity:activity-ktx:1.9.3")
+
+    // Unit tests (JVM) sin dependencias de Android
+    testImplementation(libs.junit)
+    testImplementation(libs.kotlinx.coroutines.test)
+
+    // Android instrumented tests separados
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+
+    // Hilt en androidTest
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.51")
+    kaptAndroidTest("com.google.dagger:hilt-android-compiler:2.51")
+
+    // Glide (carga de imágenes en UI)
+    implementation("com.github.bumptech.glide:glide:4.16.0")
+    kapt("com.github.bumptech.glide:compiler:4.16.0")
+}

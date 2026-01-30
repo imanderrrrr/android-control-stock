@@ -1,0 +1,63 @@
+<resources>
+    <!-- Base application theme. -->
+    <style name="Theme.Distribuidora" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+        <!-- Brand -->
+        <item name="colorPrimary">@color/brand_blue</item>
+        <item name="colorPrimaryVariant">@color/brand_blue_dark</item>
+        <item name="colorOnPrimary">@color/on_brand</item>
+
+        <item name="colorSecondary">@color/brand_blue</item>
+        <item name="colorSecondaryVariant">@color/brand_blue_dark</item>
+        <item name="colorOnSecondary">@color/on_brand</item>
+
+        <!-- Background / surfaces -->
+        <item name="android:windowBackground">@color/login_background</item>
+        <item name="android:statusBarColor">@color/login_background</item>
+        <item name="android:windowLightStatusBar">true</item>
+
+        <!-- Material default component styling (keeps typography default) -->
+        <item name="textInputStyle">@style/Widget.Distribuidora.TextInputLayout</item>
+        <item name="materialButtonStyle">@style/Widget.Distribuidora.LoginButton</item>
+    </style>
+
+    <!-- ===== Login styles (UI-only) ===== -->
+
+    <style name="TextAppearance.Distribuidora.LoginTitle" parent="TextAppearance.MaterialComponents.Headline5">
+        <item name="android:textColor">@color/login_text_primary</item>
+        <item name="android:textStyle">bold</item>
+    </style>
+
+    <style name="TextAppearance.Distribuidora.LoginSubtitle" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/login_text_secondary</item>
+    </style>
+
+    <style name="TextAppearance.Distribuidora.Error" parent="TextAppearance.MaterialComponents.Body2">
+        <item name="android:textColor">@color/login_error</item>
+    </style>
+
+    <style name="Widget.Distribuidora.TextInputLayout" parent="Widget.MaterialComponents.TextInputLayout.OutlinedBox">
+        <item name="boxBackgroundMode">outline</item>
+        <item name="boxStrokeColor">@color/brand_blue</item>
+        <item name="boxStrokeWidth">1dp</item>
+        <item name="boxStrokeWidthFocused">2dp</item>
+        <item name="boxCornerRadiusTopStart">16dp</item>
+        <item name="boxCornerRadiusTopEnd">16dp</item>
+        <item name="boxCornerRadiusBottomStart">16dp</item>
+        <item name="boxCornerRadiusBottomEnd">16dp</item>
+        <item name="hintTextColor">@color/login_text_secondary</item>
+    </style>
+
+    <style name="Widget.Distribuidora.LoginButton" parent="Widget.MaterialComponents.Button">
+        <item name="android:insetTop">0dp</item>
+        <item name="android:insetBottom">0dp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="cornerRadius">18dp</item>
+        <item name="android:textColor">@color/on_brand</item>
+        <item name="backgroundTint">@color/brand_blue</item>
+        <item name="iconPadding">8dp</item>
+        <item name="android:elevation">0dp</item>
+    </style>
+
+    <!-- ProgressBar estándar (no Material3 ProgressIndicator) -->
+    <style name="Widget.Distribuidora.Progress" parent="@android:style/Widget.ProgressBar" />
+</resources>
