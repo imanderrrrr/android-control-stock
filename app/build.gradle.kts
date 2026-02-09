@@ -78,6 +78,7 @@ dependencies {
     implementation("com.google.firebase:firebase-firestore-ktx:25.1.0")
     implementation("com.google.firebase:firebase-auth-ktx:23.1.0")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+    implementation("com.google.android.gms:play-services-location:21.0.1")
 
     // Hilt - DI
     implementation("com.google.dagger:hilt-android:2.51")
@@ -97,13 +98,19 @@ dependencies {
     // by viewModels() en ComponentActivity
     implementation("androidx.activity:activity-ktx:1.9.3")
 
-    // Unit tests (JVM) sin dependencias de Android
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    testImplementation("io.mockk:mockk:1.13.12")
+    testImplementation("org.robolectric:robolectric:4.11.1")
+    testImplementation("androidx.test:core:1.6.1")
+    kaptTest("androidx.room:room-compiler:2.6.1")
 
     // Android instrumented tests separados
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+
+    // MockK para Android tests
+    androidTestImplementation("io.mockk:mockk-android:1.13.12")
 
     // Hilt en androidTest
     androidTestImplementation("com.google.dagger:hilt-android-testing:2.51")
@@ -112,4 +119,7 @@ dependencies {
     // Glide (carga de imágenes en UI)
     implementation("com.github.bumptech.glide:glide:4.16.0")
     kapt("com.github.bumptech.glide:compiler:4.16.0")
+
+    // Test helpers for coroutines in androidTest
+    androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
 }

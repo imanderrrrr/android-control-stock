@@ -11,6 +11,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.client.presentation.RouteClientsFragment
 import com.are.distribuidora.presentation.home.dialog.AddRouteDialog
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -40,7 +41,13 @@ class ClientsFragment : Fragment() {
         // Setup Carousel
         val carousel = view.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.routesCarousel)
         val adapter = com.are.distribuidora.presentation.home.adapter.RouteCarouselAdapter { route ->
-            // Handle click later
+            parentFragmentManager.beginTransaction()
+                .replace(
+                    R.id.fragmentContainer,
+                    RouteClientsFragment.newInstance(route.id, route.name)
+                )
+                .addToBackStack(null)
+                .commit()
         }
         carousel.adapter = adapter
         
@@ -72,6 +79,11 @@ class ClientsFragment : Fragment() {
                 }
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        viewModel.loadRoutes()
     }
 
     private fun showAddRouteDialog() {

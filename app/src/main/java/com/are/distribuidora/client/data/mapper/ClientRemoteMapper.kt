@@ -16,26 +16,74 @@ class ClientRemoteMapper @Inject constructor() {
         Client(
             id = dto.id,
             name = dto.name,
+            phone = dto.phone,
             address = dto.address,
+            latitude = dto.latitude,
+            longitude = dto.longitude,
+            maxOrderAmountInCents = dto.maxOrderAmountInCents,
+            isActive = dto.isActive,
+            isDeleted = dto.isDeleted,
+            routeId = dto.routeId.orEmpty(),
+            syncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED,
             createdAt = dto.createdAt,
-            routeId = dto.routeId,
+            updatedAt = dto.updatedAt,
+            createdBy = dto.auditCreatedBy,
+            lastModifiedBy = dto.auditLastModifiedBy
         )
 
-    fun toEntity(domain: Client, routeId: String? = null): ClientEntity =
+    fun toEntity(domain: Client): ClientEntity =
         ClientEntity(
             id = domain.id,
             name = domain.name,
+            phone = domain.phone,
             address = domain.address,
+            latitude = domain.latitude,
+            longitude = domain.longitude,
+            maxOrderAmountInCents = domain.maxOrderAmountInCents,
+            isActive = domain.isActive,
+            isDeleted = domain.isDeleted,
+            routeId = domain.routeId,
+            syncStatus = domain.syncStatus,
             createdAt = domain.createdAt,
-            routeId = routeId ?: domain.routeId,
+            updatedAt = domain.updatedAt,
+            createdBy = domain.createdBy,
+            lastModifiedBy = domain.lastModifiedBy
         )
 
     fun toEntity(dto: ClientDto): ClientEntity =
         ClientEntity(
             id = dto.id,
             name = dto.name,
+            phone = dto.phone,
             address = dto.address,
+            latitude = dto.latitude,
+            longitude = dto.longitude,
+            maxOrderAmountInCents = dto.maxOrderAmountInCents,
+            isActive = dto.isActive,
+            isDeleted = dto.isDeleted,
+            routeId = dto.routeId.orEmpty(),
+            syncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED,
             createdAt = dto.createdAt,
-            routeId = dto.routeId,
+            updatedAt = dto.updatedAt,
+            createdBy = dto.auditCreatedBy,
+            lastModifiedBy = dto.auditLastModifiedBy
+        )
+
+    fun toDto(domain: Client): ClientDto =
+        ClientDto(
+            id = domain.id,
+            name = domain.name,
+            phone = domain.phone,
+            address = domain.address,
+            latitude = domain.latitude,
+            longitude = domain.longitude,
+            maxOrderAmountInCents = domain.maxOrderAmountInCents,
+            isActive = domain.isActive,
+            isDeleted = domain.isDeleted,
+            auditCreatedBy = domain.createdBy,
+            auditLastModifiedBy = domain.lastModifiedBy,
+            createdAt = domain.createdAt,
+            updatedAt = domain.updatedAt,
+            routeId = domain.routeId
         )
 }

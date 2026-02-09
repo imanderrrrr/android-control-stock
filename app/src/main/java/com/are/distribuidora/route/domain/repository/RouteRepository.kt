@@ -11,6 +11,8 @@ interface RouteRepository {
     /** Actualiza el día de entrega de una ruta. */
     suspend fun updateDeliveryDay(routeId: String, deliveryDay: Int): Result<Unit>
 
-    /** Asigna un cliente a una ruta (o null para quitarle la ruta). */
-    suspend fun assignClientToRoute(clientId: String, routeId: String?): Result<Unit>
+    /** Asigna un cliente a una ruta. */
+    suspend fun assignClientToRoute(clientId: String, routeId: String): Result<Unit>
+
+    suspend fun existsById(routeId: String): Boolean
 }

@@ -34,7 +34,7 @@ class OfflineFirstRouteRepository @Inject constructor(
             // 2) Best-effort remoto: si funciona, marcamos synced=true local.
             try {
                 remote.upsertRoute(route.toDto(synced = true))
-                local.markSynced(routeId = route.id, synced = true)
+                local.markSynced(routeId = route.id, syncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED)
             } catch (_: Exception) {
                 // mantener synced=false
             }
@@ -78,11 +78,11 @@ class OfflineFirstRouteRepository @Inject constructor(
         return try {
             local.updateDeliveryDay(routeId = routeId, deliveryDay = deliveryDay, updatedAt = now)
             // Cambio local => puede requerir re-sync si falla remoto
-            local.markSynced(routeId = routeId, synced = false)
+            local.markSynced(routeId = routeId, syncStatus = com.are.distribuidora.data.local.SyncStatus.PENDING)
 
             try {
                 remote.updateRouteDeliveryDay(routeId = routeId, deliveryDay = deliveryDay, updatedAt = now)
-                local.markSynced(routeId = routeId, synced = true)
+                local.markSynced(routeId = routeId, syncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED)
             } catch (_: Exception) {
                 // mantener synced=false
             }
@@ -93,9 +93,9 @@ class OfflineFirstRouteRepository @Inject constructor(
         }
     }
 
-    override suspend fun assignClientToRoute(clientId: String, routeId: String?): Result<Unit> {
+    override suspend fun assignClientToRoute(clientId: String, routeId: String): Result<Unit> {
         if (clientId.isBlank()) return Result.Error(Failure.ValidationError("clientId requerido"))
-        if (routeId != null && routeId.isBlank()) return Result.Error(Failure.ValidationError("routeId inválido"))
+        if (routeId.isBlank()) return Result.Error(Failure.ValidationError("routeId inválido"))
 
         return try {
             local.assignClientToRoute(clientId = clientId, routeId = routeId)
@@ -108,5 +108,10 @@ class OfflineFirstRouteRepository @Inject constructor(
         } catch (_: Exception) {
             Result.Error(Failure.DatabaseError)
         }
+    }
+
+    override suspend fun existsById(routeId: String): Boolean {
+        // Consultar directamente Room
+        return local.getRouteById(routeId) != null
     }
 }

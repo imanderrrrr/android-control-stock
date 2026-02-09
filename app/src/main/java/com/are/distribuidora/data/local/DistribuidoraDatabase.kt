@@ -39,7 +39,7 @@ import com.are.distribuidora.route.data.local.entity.RouteEntity
         OrderItemEntity::class,
         OrderItemStagingEntity::class,
     ],
-    version = 8,
+    version = 12,
     exportSchema = true,
 )
 abstract class DistribuidoraDatabase : RoomDatabase() {
