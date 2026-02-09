@@ -350,4 +350,231 @@ object DistribuidoraMigrations {
             // Nota: no se crean índices adicionales porque el Entity no los define.
         }
     }
+
+    /**
+     * v8 -> v9
+     * - Reemplaza `routes.synced` (INTEGER) por `routes.syncStatus` (TEXT) mapeando:
+     *     1 -> 'SYNCED'
+     *     0 -> 'PENDING'
+     * - Reconstruye `clients` para que `routeId` sea NOT NULL y exista FK -> routes(id)
+     *   (ON DELETE RESTRICT, ON UPDATE NO ACTION). Si existen clientes sin routeId se crea una
+     *   ruta placeholder '__unassigned__' para preservar integridad referencial y datos.
+     */
+    val MIGRATION_8_9: Migration = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1) Rebuild routes table with syncStatus TEXT NOT NULL
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS routes_new (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    deliveryDay INTEGER NOT NULL,
+                    syncStatus TEXT NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+
+            // 2) Copy data from old routes, mapping synced -> syncStatus
+            db.execSQL(
+                """
+                INSERT INTO routes_new (id, name, deliveryDay, syncStatus, createdAt, updatedAt)
+                SELECT id, name, deliveryDay,
+                    CASE WHEN COALESCE(synced, 0) = 1 THEN 'SYNCED' ELSE 'PENDING' END AS syncStatus,
+                    createdAt, updatedAt
+                FROM routes
+                """.trimIndent()
+            )
+
+            // 3) Drop old routes and rename
+            db.execSQL("DROP INDEX IF EXISTS index_routes_name")
+            db.execSQL("DROP TABLE IF EXISTS routes")
+            db.execSQL("ALTER TABLE routes_new RENAME TO routes")
+
+            // 4) Ensure placeholder route exists if any client has NULL routeId or routeId missing
+            var needsPlaceholder = false
+            db.query("SELECT COUNT(*) AS cnt FROM clients WHERE routeId IS NULL").use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val idx = cursor.getColumnIndex("cnt")
+                    if (idx >= 0 && cursor.getInt(idx) > 0) needsPlaceholder = true
+                }
+            }
+
+            // Also handle case when clients table did not have routeId column previously
+            var clientsHaveRouteIdColumn = false
+            db.query("PRAGMA table_info(`clients`)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                while (cursor.moveToNext()) {
+                    if (cursor.getString(nameIndex) == "routeId") {
+                        clientsHaveRouteIdColumn = true
+                        break
+                    }
+                }
+            }
+
+            if (!clientsHaveRouteIdColumn) {
+                // If clients had no routeId column, but there are rows, we need placeholder
+                db.query("SELECT COUNT(*) AS cnt FROM clients").use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        val idx = cursor.getColumnIndex("cnt")
+                        if (idx >= 0 && cursor.getInt(idx) > 0) needsPlaceholder = true
+                    }
+                }
+            }
+
+            if (needsPlaceholder) {
+                // Insert placeholder if not exists
+                db.query("SELECT id FROM routes WHERE id = '__unassigned__'").use { cursor ->
+                    if (!cursor.moveToFirst()) {
+                        db.execSQL(
+                            "INSERT INTO routes (id, name, deliveryDay, syncStatus, createdAt, updatedAt) VALUES ('__unassigned__', 'UNASSIGNED', 1, 'SYNCED', 0, 0)"
+                        )
+                    }
+                }
+            }
+
+            // 5) Rebuild clients table to have routeId NOT NULL and FK -> routes(id)
+            //    Create clients_new using COALESCE(routeId, '__unassigned__') when routeId column exists,
+            //    otherwise set '__unassigned__' for all rows.
+            val clientsColumns = mutableSetOf<String>()
+            db.query("PRAGMA table_info(`clients`)").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                while (cursor.moveToNext()) {
+                    clientsColumns += cursor.getString(nameIndex)
+                }
+            }
+
+            val hasRouteId = clientsColumns.contains("routeId")
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS clients_new (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    address TEXT,
+                    createdAt INTEGER NOT NULL,
+                    routeId TEXT NOT NULL,
+                    FOREIGN KEY(routeId) REFERENCES routes(id) ON DELETE RESTRICT ON UPDATE NO ACTION
+                )
+                """.trimIndent()
+            )
+
+            if (hasRouteId) {
+                db.execSQL(
+                    """
+                    INSERT INTO clients_new (id, name, address, createdAt, routeId)
+                    SELECT id, name, address, createdAt, COALESCE(routeId, '__unassigned__') AS routeId FROM clients
+                    """.trimIndent()
+                )
+            } else {
+                db.execSQL(
+                    """
+                    INSERT INTO clients_new (id, name, address, createdAt, routeId)
+                    SELECT id, name, address, createdAt, '__unassigned__' AS routeId FROM clients
+                    """.trimIndent()
+                )
+            }
+
+            // 6) Replace clients table
+            db.execSQL("DROP TABLE IF EXISTS clients")
+            db.execSQL("ALTER TABLE clients_new RENAME TO clients")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_clients_routeId ON clients(routeId)")
+        }
+    }
+
+    /**
+     * v9 -> v10
+     * - Reconstruye tabla `clients` para agregar nuevos campos:
+     *   phone, latitude, longitude, creditLimit, isActive, syncStatus, updatedAt, createdBy, lastModifiedBy.
+     *
+     * - Mantiene FK a routes(id) y índice routeId.
+     * - Asigna valores por defecto:
+     *   phone=NULL, lat=NULL, long=NULL, creditLimit=0.0, isActive=1, syncStatus='SYNCED',
+     *   updatedAt=createdAt, createdBy='system_migration', lastModifiedBy='system_migration'.
+     */
+    val MIGRATION_9_10: Migration = object : Migration(9, 10) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS clients_new (
+                    id TEXT NOT NULL,
+                    name TEXT NOT NULL,
+                    phone TEXT,
+                    address TEXT,
+                    latitude REAL,
+                    longitude REAL,
+                    maxOrderAmountInCents INTEGER,
+                    isActive INTEGER NOT NULL,
+                    routeId TEXT NOT NULL,
+                    syncStatus TEXT NOT NULL,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL,
+                    createdBy TEXT NOT NULL,
+                    lastModifiedBy TEXT NOT NULL,
+                    PRIMARY KEY(id),
+                    FOREIGN KEY(routeId) REFERENCES routes(id)
+                        ON DELETE RESTRICT
+                        ON UPDATE NO ACTION
+                )
+                """.trimIndent()
+            )
+
+            db.execSQL(
+                """
+                INSERT INTO clients_new (
+                    id, name, phone, address, latitude, longitude, maxOrderAmountInCents,
+                    isActive, routeId, syncStatus, createdAt, updatedAt, createdBy, lastModifiedBy
+                )
+                SELECT
+                    id,
+                    name,
+                    NULL AS phone,
+                    address,
+                    NULL AS latitude,
+                    NULL AS longitude,
+                    NULL AS maxOrderAmountInCents,
+                    1 AS isActive,
+                    routeId,
+                    'SYNCED' AS syncStatus,
+                    createdAt,
+                    createdAt AS updatedAt,
+                    'system_migration' AS createdBy,
+                    'system_migration' AS lastModifiedBy
+                FROM clients
+                """.trimIndent()
+            )
+
+            db.execSQL("DROP TABLE IF EXISTS clients")
+            db.execSQL("ALTER TABLE clients_new RENAME TO clients")
+
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_clients_routeId ON clients(routeId)"
+            )
+        }
+    }
+
+    /**
+     * v10 -> v11
+     * - Agrega columna lastSyncedAt a la tabla clients para soporte de delta sync.
+     */
+    val MIGRATION_10_11: Migration = object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Agregar columna lastSyncedAt a la tabla clients
+            db.execSQL("ALTER TABLE clients ADD COLUMN lastSyncedAt INTEGER")
+        }
+    }
+
+    /**
+     * v11 -> v12
+     * - Agrega columna isDeleted a la tabla clients para soporte de soft delete.
+     * - Por defecto 0 (false) para registros existentes.
+     */
+    val MIGRATION_11_12: Migration = object : Migration(11, 12) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Agregar columna isDeleted a la tabla clients, por defecto 0 (false)
+            db.execSQL("ALTER TABLE clients ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+        }
+    }
 }

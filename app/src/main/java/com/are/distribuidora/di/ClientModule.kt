@@ -1,8 +1,10 @@
 package com.are.distribuidora.di
 
+import com.are.distribuidora.auth.domain.repository.AuthRepository
 import com.are.distribuidora.client.domain.repository.ClientRepository
 import com.are.distribuidora.client.domain.repository.ClientSyncRepository
 import com.are.distribuidora.client.domain.usecase.CreateClientUseCase
+import com.are.distribuidora.client.domain.usecase.DeleteClientUseCase
 import com.are.distribuidora.client.domain.usecase.GetClientByIdUseCase
 import com.are.distribuidora.client.domain.usecase.GetClientsUseCase
 import com.are.distribuidora.client.domain.usecase.SyncClientsUseCase
@@ -17,8 +19,12 @@ import dagger.hilt.components.SingletonComponent
 object ClientModule {
 
     @Provides
-    fun provideCreateClientUseCase(repository: ClientRepository): CreateClientUseCase =
-        CreateClientUseCase(repository)
+    fun provideCreateClientUseCase(
+        clientRepository: ClientRepository,
+        routeRepository: com.are.distribuidora.route.domain.repository.RouteRepository,
+        authRepository: AuthRepository,
+    ): CreateClientUseCase =
+        CreateClientUseCase(clientRepository, routeRepository, authRepository)
 
     @Provides
     fun provideGetClientsUseCase(repository: ClientRepository): GetClientsUseCase =
@@ -29,9 +35,14 @@ object ClientModule {
         GetClientByIdUseCase(repository)
 
     @Provides
+    fun provideDeleteClientUseCase(repository: ClientRepository): DeleteClientUseCase =
+        DeleteClientUseCase(repository)
+
+    @Provides
     fun provideSyncClientsUseCase(
         repository: ClientSyncRepository,
+        routeSyncRepository: com.are.distribuidora.route.domain.repository.RouteSyncRepository,
         networkMonitor: NetworkMonitor,
     ): SyncClientsUseCase =
-        SyncClientsUseCase(repository, networkMonitor)
+        SyncClientsUseCase(repository, routeSyncRepository, networkMonitor)
 }

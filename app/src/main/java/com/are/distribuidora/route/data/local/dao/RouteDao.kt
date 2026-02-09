@@ -5,14 +5,15 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.are.distribuidora.route.data.local.entity.RouteEntity
+import com.are.distribuidora.data.local.SyncStatus
 
 @Dao
 interface RouteDao {
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @androidx.room.Upsert
     suspend fun upsert(entity: RouteEntity)
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    @androidx.room.Upsert
     suspend fun upsertAll(entities: List<RouteEntity>)
 
     @Query("DELETE FROM routes")
@@ -30,9 +31,9 @@ interface RouteDao {
     @Query("UPDATE routes SET deliveryDay = :deliveryDay, updatedAt = :updatedAt WHERE id = :id")
     suspend fun updateDeliveryDay(id: String, deliveryDay: Int, updatedAt: Long)
 
-    @Query("UPDATE routes SET synced = :synced WHERE id = :routeId")
-    suspend fun markSynced(routeId: String, synced: Boolean)
+    @Query("UPDATE routes SET syncStatus = :syncStatus WHERE id = :routeId")
+    suspend fun markSynced(routeId: String, syncStatus: SyncStatus)
 
-    @Query("SELECT * FROM routes WHERE synced = 0 ORDER BY updatedAt ASC LIMIT :limit")
-    suspend fun getPendingSync(limit: Int): List<RouteEntity>
+    @Query("SELECT * FROM routes WHERE syncStatus = :pendingStatus ORDER BY updatedAt ASC LIMIT :limit")
+    suspend fun getPendingSync(pendingStatus: SyncStatus, limit: Int): List<RouteEntity>
 }

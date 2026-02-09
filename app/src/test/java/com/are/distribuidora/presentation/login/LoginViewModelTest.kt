@@ -4,6 +4,8 @@ import com.are.distribuidora.auth.domain.model.Session
 import com.are.distribuidora.auth.domain.repository.AuthRepository
 import com.are.distribuidora.core.result.Failure
 import com.are.distribuidora.core.result.Result
+import com.are.distribuidora.route.domain.repository.RouteSyncRepository
+import com.are.distribuidora.route.domain.usecase.DownloadRoutesUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -34,7 +36,10 @@ class LoginViewModelTest {
 
     @Test
     fun submitLogin_whenEmptyCredentials_setsError_andDoesNotNavigate() = runTest {
-        val vm = LoginViewModel(FakeAuthRepository())
+        val vm = LoginViewModel(
+            authRepository = FakeAuthRepository(),
+            downloadRoutesUseCase = DownloadRoutesUseCase(FakeRouteSyncRepository()),
+        )
 
         vm.onEmailChange("")
         vm.onPasswordChange("")
@@ -48,7 +53,10 @@ class LoginViewModelTest {
 
     @Test
     fun submitLogin_whenSuccess_setsNavigateToHome() = runTest {
-        val vm = LoginViewModel(FakeAuthRepository(loginResult = Result.Success(sampleSession())))
+        val vm = LoginViewModel(
+            authRepository = FakeAuthRepository(loginResult = Result.Success(sampleSession())),
+            downloadRoutesUseCase = DownloadRoutesUseCase(FakeRouteSyncRepository()),
+        )
 
         vm.onEmailChange("user@example.com")
         vm.onPasswordChange("pass")
@@ -65,7 +73,8 @@ class LoginViewModelTest {
     @Test
     fun submitLogin_whenError_setsMessage_andDoesNotNavigate() = runTest {
         val vm = LoginViewModel(
-            FakeAuthRepository(loginResult = Result.Error(Failure.ValidationError("bad credentials")))
+            authRepository = FakeAuthRepository(loginResult = Result.Error(Failure.ValidationError("bad credentials"))),
+            downloadRoutesUseCase = DownloadRoutesUseCase(FakeRouteSyncRepository()),
         )
 
         vm.onEmailChange("user@example.com")
@@ -98,5 +107,10 @@ class LoginViewModelTest {
         override suspend fun getCurrentSession(): Session? = null
 
         override suspend fun isSessionActive(): Boolean = false
+    }
+
+    private class FakeRouteSyncRepository : RouteSyncRepository {
+        override suspend fun syncPending(limit: Int) = Unit
+        override suspend fun pullRemote() = Unit
     }
 }

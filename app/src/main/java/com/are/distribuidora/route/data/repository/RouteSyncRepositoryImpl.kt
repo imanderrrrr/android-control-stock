@@ -5,6 +5,7 @@ import com.are.distribuidora.route.data.mapper.toDto
 import com.are.distribuidora.route.data.mapper.toEntity
 import com.are.distribuidora.route.data.remote.RouteRemoteDataSource
 import com.are.distribuidora.route.domain.repository.RouteSyncRepository
+import com.are.distribuidora.data.local.SyncStatus
 import javax.inject.Inject
 
 class RouteSyncRepositoryImpl @Inject constructor(
@@ -24,12 +25,12 @@ class RouteSyncRepositoryImpl @Inject constructor(
                     name = entity.name,
                     deliveryDay = entity.deliveryDay,
                     clientsCount = 0,
-                    synced = true,
+                    synced = (entity.syncStatus == SyncStatus.SYNCED),
                     createdAt = entity.createdAt,
                     updatedAt = entity.updatedAt,
                 ).toDto(synced = true)
             )
-            local.markSynced(routeId = entity.id, synced = true)
+            local.markSynced(routeId = entity.id, syncStatus = SyncStatus.SYNCED)
         }
     }
 

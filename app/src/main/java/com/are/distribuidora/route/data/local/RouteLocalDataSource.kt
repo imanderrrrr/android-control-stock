@@ -4,6 +4,7 @@ import com.are.distribuidora.client.data.local.dao.ClientDao
 import com.are.distribuidora.data.local.DistribuidoraDatabase
 import com.are.distribuidora.route.data.local.dao.RouteDao
 import com.are.distribuidora.route.data.local.entity.RouteEntity
+import com.are.distribuidora.data.local.SyncStatus
 
 class RouteLocalDataSource(
     private val db: DistribuidoraDatabase,
@@ -32,14 +33,14 @@ class RouteLocalDataSource(
     suspend fun updateDeliveryDay(routeId: String, deliveryDay: Int, updatedAt: Long) =
         routeDao.updateDeliveryDay(id = routeId, deliveryDay = deliveryDay, updatedAt = updatedAt)
 
-    suspend fun markSynced(routeId: String, synced: Boolean) = routeDao.markSynced(routeId, synced)
+    suspend fun markSynced(routeId: String, syncStatus: SyncStatus) = routeDao.markSynced(routeId, syncStatus)
 
-    suspend fun getPendingRoutes(limit: Int): List<RouteEntity> = routeDao.getPendingSync(limit)
+    suspend fun getPendingRoutes(limit: Int): List<RouteEntity> = routeDao.getPendingSync(SyncStatus.PENDING, limit)
 
     suspend fun countClientsByRoute(routeId: String): Int =
         clientDao.countByRoute(routeId)
 
-    suspend fun assignClientToRoute(clientId: String, routeId: String?) {
+    suspend fun assignClientToRoute(clientId: String, routeId: String) {
         db.runInTransaction {
             clientDao.updateRoute(clientId = clientId, routeId = routeId)
         }

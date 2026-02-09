@@ -6,7 +6,9 @@ import com.are.distribuidora.client.data.remote.ClientRemoteDataSourceImpl
 import com.are.distribuidora.client.data.repository.ClientRepositoryImpl
 import com.are.distribuidora.client.domain.repository.ClientRepository
 import com.are.distribuidora.client.domain.repository.ClientSyncRepository
+import com.are.distribuidora.client.sync.ClientSyncCoordinator
 import com.are.distribuidora.data.local.DistribuidoraDatabase
+import com.are.distribuidora.client.domain.validator.ClientValidator
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -33,10 +35,14 @@ object ClientRepositoryModule {
         local: ClientLocalDataSource,
         remote: ClientRemoteDataSource,
         sync: ClientSyncRepository,
+        validator: ClientValidator,
+        coordinator: ClientSyncCoordinator,
     ): ClientRepository =
         ClientRepositoryImpl(
             local = local,
             remote = remote,
             sync = sync,
+            validator = validator,
+            coordinator = coordinator,
         )
 }

@@ -13,4 +13,5 @@ import com.are.distribuidora.client.domain.model.Client
 interface ClientSyncRepository {
     suspend fun fetchRemoteClients(): List<Client>
     suspend fun saveLocalClients(clients: List<Client>)
+    suspend fun uploadPendingClients()
 }

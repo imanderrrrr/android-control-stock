@@ -15,9 +15,15 @@ class QuantityTest {
     }
 
     @Test
-    fun `of throws for zero or negative`() {
-        assertThrows(IllegalArgumentException::class.java) { Quantity.of(0) }
+    fun `of throws for negative`() {
         assertThrows(IllegalArgumentException::class.java) { Quantity.of(-1) }
+    }
+
+    @Test
+    fun `of allows zero`() {
+        val q = Quantity.of(0)
+        assertEquals(0, q.value)
+        assertTrue(q.isZero())
     }
 
     @Test
