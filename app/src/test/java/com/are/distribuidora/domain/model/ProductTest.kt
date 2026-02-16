@@ -13,6 +13,7 @@ import java.math.BigDecimal
 class ProductTest {
 
     private val defaultPrice = Money.of(BigDecimal("10.00"))
+    private val defaultTimestamp = System.currentTimeMillis()
 
     @Test
     fun `sell reduces stock`() {
@@ -20,7 +21,9 @@ class ProductTest {
             id = ProductId.of("ABC123"),
             name = "Test Product",
             stock = Quantity.of(10),
-            price = defaultPrice
+            price = defaultPrice,
+            createdAt = defaultTimestamp,
+            updatedAt = defaultTimestamp
         )
 
         val updated = product.sell(Quantity.of(3))
@@ -34,7 +37,9 @@ class ProductTest {
             id = ProductId.of("ABC123"),
             name = "Test Product",
             stock = Quantity.of(10),
-            price = defaultPrice
+            price = defaultPrice,
+            createdAt = defaultTimestamp,
+            updatedAt = defaultTimestamp
         )
 
         val updated = product.reserve(Quantity.of(3))
@@ -48,7 +53,9 @@ class ProductTest {
             id = ProductId.of("ABC123"),
             name = "Test Product",
             stock = Quantity.of(5),
-            price = defaultPrice
+            price = defaultPrice,
+            createdAt = defaultTimestamp,
+            updatedAt = defaultTimestamp
         )
 
         val updated = product.release(Quantity.of(2))
@@ -62,7 +69,9 @@ class ProductTest {
             id = ProductId.of("ABC123"),
             name = "Test Product",
             stock = Quantity.of(5),
-            price = defaultPrice
+            price = defaultPrice,
+            createdAt = defaultTimestamp,
+            updatedAt = defaultTimestamp
         )
 
         assertTrue(product.canSell(Quantity.of(5)))
@@ -75,7 +84,9 @@ class ProductTest {
             id = ProductId.of("ABC123"),
             name = "Test Product",
             stock = Quantity.of(5),
-            price = defaultPrice
+            price = defaultPrice,
+            createdAt = defaultTimestamp,
+            updatedAt = defaultTimestamp
         )
 
         assertFalse(product.canSell(Quantity.of(6)))
@@ -87,7 +98,9 @@ class ProductTest {
             id = ProductId.of("ABC123"),
             name = "Test Product",
             stock = Quantity.of(2),
-            price = defaultPrice
+            price = defaultPrice,
+            createdAt = defaultTimestamp,
+            updatedAt = defaultTimestamp
         )
 
         assertThrows(IllegalArgumentException::class.java) {

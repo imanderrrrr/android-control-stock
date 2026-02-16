@@ -14,4 +14,8 @@ object ProductModule {
     @Provides
     fun provideObserveProductsUseCase(repository: ProductRepository): ObserveProductsUseCase =
         ObserveProductsUseCase(repository)
+
+    @Provides
+    fun provideObserveProductByIdUseCase(repository: ProductRepository): com.are.distribuidora.domain.product.ObserveProductByIdUseCase =
+        com.are.distribuidora.domain.product.ObserveProductByIdUseCase(repository)
 }

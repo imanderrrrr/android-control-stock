@@ -41,6 +41,15 @@ fun ProductEntity.toDomainOrNull(): Product? {
             name = normalizedName,
             price = Money.of(price.toBigDecimal()),
             stock = Quantity.of(safeStock),
+            description = this.description,
+            category = this.category,
+            imageUrl = this.imageUrl,
+            barcode = this.barcode,
+            isActive = this.isActive,
+            isDeleted = this.isDeleted,
+            createdAt = this.createdAt,
+
+            updatedAt = this.updatedAt,
         )
     } catch (e: Exception) {
         Log.e(
@@ -52,10 +61,21 @@ fun ProductEntity.toDomainOrNull(): Product? {
     }
 }
 
-fun Product.toEntity(): ProductEntity =
-    ProductEntity(
+fun Product.toEntity(syncStatus: com.are.distribuidora.data.local.SyncStatus): ProductEntity {
+    return ProductEntity(
         id = this.id.value,
         name = this.name,
+        description = this.description,
+        category = this.category,
         price = this.price.amount.toDouble(),
+        imageUrl = this.imageUrl,
+        barcode = this.barcode,
         stock = this.stock.value,
+        isActive = this.isActive,
+        isDeleted = this.isDeleted,
+        syncStatus = syncStatus,
+        createdAt = this.createdAt,
+        updatedAt = this.updatedAt,
+        lastSyncedAt = null
     )
+}

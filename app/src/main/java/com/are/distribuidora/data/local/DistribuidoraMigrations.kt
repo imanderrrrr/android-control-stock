@@ -577,4 +577,98 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE clients ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
         }
     }
+
+    /**
+     * v12 -> v13
+     * - Expande la tabla products con nuevos campos para sincronización completa:
+     *   description, category, imageUrl, barcode, createdAt, updatedAt.
+     */
+    val MIGRATION_12_13: Migration = object : Migration(12, 13) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE products ADD COLUMN description TEXT")
+            db.execSQL("ALTER TABLE products ADD COLUMN category TEXT")
+            db.execSQL("ALTER TABLE products ADD COLUMN imageUrl TEXT")
+            db.execSQL("ALTER TABLE products ADD COLUMN barcode TEXT")
+            db.execSQL("ALTER TABLE products ADD COLUMN createdAt INTEGER")
+            db.execSQL("ALTER TABLE products ADD COLUMN updatedAt INTEGER")
+        }
+    }
+
+    /**
+     * v13 -> v14
+     * - Rebuilds `products` table to support full sync architecture (Client-like).
+     * - Changes:
+     *   - `isActive` added (default 1)
+     *   - `isDeleted` added (default 0)
+     *   - `syncStatus` added (default 'SYNCED')
+     *   - `createdAt` / `updatedAt` enforced NOT NULL (default 0 if null)
+     *   - `lastSyncedAt` added (nullable)
+     * - Recreates index on `name`.
+     */
+    val MIGRATION_13_14: Migration = object : Migration(13, 14) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1. Create new table
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `products_new` (
+                    `id` TEXT NOT NULL, 
+                    `name` TEXT NOT NULL, 
+                    `description` TEXT, 
+                    `category` TEXT, 
+                    `price` REAL NOT NULL, 
+                    `imageUrl` TEXT, 
+                    `barcode` TEXT, 
+                    `stock` INTEGER NOT NULL, 
+                    `isActive` INTEGER NOT NULL DEFAULT 1, 
+                    `isDeleted` INTEGER NOT NULL DEFAULT 0, 
+                    `syncStatus` TEXT NOT NULL DEFAULT 'SYNCED', 
+                    `createdAt` INTEGER NOT NULL DEFAULT 0, 
+                    `updatedAt` INTEGER NOT NULL DEFAULT 0, 
+                    `lastSyncedAt` INTEGER, 
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+
+            // 2. Copy data with defaults
+            db.execSQL(
+                """
+                INSERT INTO products_new (id, name, description, category, price, imageUrl, barcode, stock, createdAt, updatedAt)
+                SELECT 
+                    id, name, description, category, price, imageUrl, barcode, stock,
+                    COALESCE(createdAt, 0),
+                    COALESCE(updatedAt, 0)
+                FROM products
+                """.trimIndent()
+            )
+
+            // 3. Swap tables
+            db.execSQL("DROP TABLE products")
+            db.execSQL("ALTER TABLE products_new RENAME TO products")
+
+            // 4. Recreate Index
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_products_name` ON `products` (`name`)")
+        }
+    }
+    /**
+     * v14 -> v15
+     * - Crea tabla `product_conflicts` para manejo de conflictos de sincronización.
+     */
+    val MIGRATION_14_15: Migration = object : Migration(14, 15) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `product_conflicts` (
+                    `id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, 
+                    `productId` TEXT NOT NULL, 
+                    `remoteJson` TEXT NOT NULL, 
+                    `remoteUpdatedAt` INTEGER NOT NULL, 
+                    `conflictDetectedAt` INTEGER NOT NULL, 
+                    FOREIGN KEY(`productId`) REFERENCES `products`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_conflicts_productId` ON `product_conflicts` (`productId`)")
+        }
+    }
 }

@@ -2,6 +2,8 @@ package com.are.distribuidora
 
 import android.app.Application
 import android.util.Log
+import androidx.hilt.work.HiltWorkerFactory
+import androidx.work.Configuration
 import com.are.distribuidora.client.sync.ClientSyncCoordinator
 import com.are.distribuidora.domain.product.SyncProductsUseCase
 import com.are.distribuidora.route.domain.usecase.DownloadRoutesUseCase
@@ -14,9 +16,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @HiltAndroidApp
-class DistribuidoraApplication : Application() {
+class DistribuidoraApplication : Application(), Configuration.Provider {
+
+    @Inject lateinit var workerFactory: HiltWorkerFactory
+    @Inject lateinit var productSyncScheduler: com.are.distribuidora.workers.ProductSyncScheduler
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -28,8 +34,19 @@ class DistribuidoraApplication : Application() {
         fun clientSyncCoordinator(): ClientSyncCoordinator
     }
 
+    override val workManagerConfiguration: Configuration
+        get() {
+            Log.d("WorkManagerConfig", "workManagerConfiguration called, workerFactory=$workerFactory")
+            return Configuration.Builder()
+                .setWorkerFactory(workerFactory)
+                .setMinimumLoggingLevel(Log.DEBUG)
+                .build()
+        }
+
     override fun onCreate() {
         super.onCreate()
+
+        Log.d("DistribuidoraApplication", "onCreate() started, workerFactory injected: ${::workerFactory.isInitialized}")
 
         // IMPORTANTE (2026-01): durante el arranque no debemos ejecutar flujos de debug que puedan
         // disparar UI (Toast/chooser/dialog) desde Dispatchers.IO/Default.
@@ -37,48 +54,34 @@ class DistribuidoraApplication : Application() {
         Log.i("DistribuidoraApplication", "DebugSaleRunner deshabilitado en startup")
 
         // Instanciar ClientSyncCoordinator inmediatamente al arrancar la app.
-        // Esto fuerza:
-        // 1. La ejecución de su bloque init {}
-        // 2. El registro del Flow de conectividad (networkMonitor.isOnline)
-        // 3. La sincronización inicial si el dispositivo está online
-        //
-        // POR QUÉ FUNCIONA:
-        // - ClientSyncCoordinator tiene @Inject constructor, por lo que Hilt puede crearlo.
-        // - Al acceder via EntryPoint desde Application.onCreate(), Hilt crea la instancia
-        //   como Singleton (está en SingletonComponent) y la mantiene viva durante toda la app.
-        // - El init {} se ejecuta automáticamente al crear la instancia.
-        // - No es un hack: es el patrón correcto para inicializar componentes "eager" en Hilt.
         val entryPoint = EntryPointAccessors.fromApplication(
             this@DistribuidoraApplication,
             ProductSyncEntryPoint::class.java,
         )
 
-        // Esta línea fuerza la creación del Singleton.
-        // No necesitamos guardar la referencia porque Hilt la mantiene viva.
         entryPoint.clientSyncCoordinator()
         Log.d("ClientSync", "ClientSyncCoordinator instanciado y registrado al arranque")
 
-        // Sync de catálogo (productos) en background, sin UI.
-        // ORDEN CRÍTICO: Routes -> Products -> Clients
-        // - Routes no tiene FK a nada
-        // - Products tiene FK a Routes
-        // - Clients tiene FK a Routes
-        // - Inventario solo lee Room.
+        // Enqueue Workers (Enterprise-Grade Background Sync)
+        // Use Scheduler to keep consistency
+        productSyncScheduler.schedulePeriodic()
+
+        // Sync manual logic for Routes (could be moved to Worker too in future)
+        // Leaving it here to ensure Routes are present before Products if possible,
+        // though Worker is async.
         appScope.launch {
             try {
-                Log.d("Sync", "=== Iniciando sincronización de datos en startup ===")
+                Log.d("Sync", "=== Iniciando sincronización de startup ===")
 
-                // 1. PRIMERO: Descargar rutas (sin FK dependencies)
+                // 1. Descargar rutas
                 Log.d("RouteSync", "Descargando rutas desde Firestore...")
                 entryPoint.downloadRoutesUseCase().invoke()
                 Log.d("RouteSync", "Rutas descargadas exitosamente")
 
-                // 2. SEGUNDO: Sincronizar productos (dependen de Routes)
-                Log.d("ProductSync", "Sincronizando productos desde Firestore...")
-                entryPoint.syncProductsUseCase().invoke()
-                Log.d("ProductSync", "Productos sincronizados exitosamente")
+                // Products are now handled by WorkManager
+                Log.d("Sync", "WorkManager encargado de ProductSync")
 
-                Log.d("Sync", "=== Sincronización de startup completada ===")
+                Log.d("Sync", "=== Sincronización de startup completada (Rutas ok, Productos en background) ===")
 
             } catch (e: Exception) {
                 Log.e("Sync", "Error durante sincronización de startup", e)

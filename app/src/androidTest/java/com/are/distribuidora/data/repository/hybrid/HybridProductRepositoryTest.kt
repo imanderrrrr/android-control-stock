@@ -33,10 +33,11 @@ class HybridProductRepositoryTest {
     fun `syncProducts guarda 450 productos integros y consistentes`() = runBlocking {
         // DADO: data source fake con 450 productos
         val remote = FakeFirestoreProductDataSource()
-        val repo = ProductSyncRepositoryImpl(db.productDao(), remote)
+        val repo = ProductSyncRepositoryImpl(remote, db.productDao(), db)
 
-        // CUANDO: sincronizamos (remoto -> local)
-        repo.syncProductsRemoteToLocal()
+        // CUANDO: sincronizamos (remoto -> local) usando nueva interfaz
+        val products = repo.fetchRemoteProducts()
+        repo.saveLocalProducts(products)
 
         // ENTONCES: 450 productos en Room
         val all = db.productDao().observeProducts().first()

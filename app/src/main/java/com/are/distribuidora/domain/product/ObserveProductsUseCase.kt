@@ -9,8 +9,10 @@ import kotlinx.coroutines.flow.Flow
  * - No toca Room/Firestore.
  * - Solo delega al contrato [ProductRepository].
  */
+import androidx.paging.PagingData
+
 class ObserveProductsUseCase(
     private val repo: ProductRepository,
 ) {
-    operator fun invoke(): Flow<List<Product>> = repo.getProducts()
+    operator fun invoke(query: String? = null): Flow<PagingData<Product>> = repo.getProductsStream(query)
 }

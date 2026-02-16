@@ -15,10 +15,12 @@ import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.presentation.product.AddProductFragment
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.collectLatest
 
 @AndroidEntryPoint
 class InventoryFragment : Fragment() {
@@ -49,31 +51,82 @@ class InventoryFragment : Fragment() {
         }
 
         newProductButton.setOnClickListener {
-            // Placeholder: más adelante puede navegar a NewProductFragment.
-            Log.i("Inventory", "Nuevo producto (+) presionado")
+            parentFragmentManager.beginTransaction()
+                .replace(
+                    R.id.fragmentContainer,
+                    AddProductFragment.newInstance()
+                )
+                .addToBackStack(null)
+                .commit()
         }
 
-        val adapter = InventoryAdapter { product ->
-            // Punto real de confirmación (placeholder): vender 1 unidad al tocar el producto.
-            // Regla: la mutación real ocurre en dominio vía SellProductUseCase.
-            viewModel.confirmSale(productId = product.id.value, quantity = 1)
+        val adapter = InventoryAdapter()
+
+        adapter.onProductClick = { productId ->
+            parentFragmentManager.beginTransaction()
+                .replace(
+                    R.id.fragmentContainer,
+                    com.are.distribuidora.presentation.productdetail.ProductDetailFragment.newInstance(
+                        productId = productId
+                    )
+                )
+                .addToBackStack(null)
+                .commit()
         }
+
+        // Conectar el callback de editar
+        adapter.onEditClick = { uiModel ->
+            parentFragmentManager.beginTransaction()
+                .replace(
+                    R.id.fragmentContainer,
+                    com.are.distribuidora.presentation.product.EditProductFragment.newInstance(
+                        productId = uiModel.product.id.value
+                    )
+                )
+                .addToBackStack(null)
+                .commit()
+        }
+
+        // Las acciones de editar/eliminar se manejan ahora desde el menuButton (3 puntos)
+        // en cada tarjeta, no desde el click en toda la tarjeta
+        
+        adapter.onDeleteClick = { uiModel ->
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Eliminar Producto")
+                .setMessage("¿Estás seguro de que deseas eliminar '${uiModel.product.name}'? Esta acción no se puede deshacer.")
+                .setPositiveButton("Eliminar") { _, _ ->
+                    viewModel.deleteProduct(uiModel.product.id.value)
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
+        }
+
         recycler.adapter = adapter
+
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                // 1. Collect Paging Data
                 launch {
-                    viewModel.uiState.collect { state ->
-                        progress.visibility = if (state.isLoading) View.VISIBLE else View.GONE
-
-                        val hasItems = state.products.isNotEmpty()
-                        recycler.visibility = if (!state.isLoading && hasItems) View.VISIBLE else View.GONE
-                        empty.visibility = if (!state.isLoading && !hasItems) View.VISIBLE else View.GONE
-
-                        adapter.submitList(state.products)
+                    viewModel.products.collectLatest { pagingData ->
+                        adapter.submitData(pagingData)
                     }
                 }
 
+                // 2. Loading State from Adapter
+                launch {
+                    adapter.loadStateFlow.collect { loadStates ->
+                         // Simple loading check (refresh)
+                         val isListEmpty = loadStates.refresh is androidx.paging.LoadState.NotLoading && adapter.itemCount == 0
+                         val isLoading = loadStates.source.refresh is androidx.paging.LoadState.Loading
+
+                         progress.visibility = if (isLoading) View.VISIBLE else View.GONE
+                         recycler.visibility = if (!isLoading && !isListEmpty) View.VISIBLE else View.GONE
+                         empty.visibility = if (!isLoading && isListEmpty) View.VISIBLE else View.GONE
+                    }
+                }
+
+                // 3. Events
                 launch {
                     viewModel.events.collect { event ->
                         when (event) {

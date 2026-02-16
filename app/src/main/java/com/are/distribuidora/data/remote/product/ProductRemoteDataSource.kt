@@ -10,21 +10,19 @@ package com.are.distribuidora.data.remote.product
  * - El Inventario NO descarga productos. Solo lee de Room.
  * - La sincronización (remoto -> local) debe consumir este contrato desde la capa data.
  */
+import com.are.distribuidora.data.remote.model.RemoteProduct
+
 interface ProductRemoteDataSource {
 
-    data class RemoteProduct(
-        val id: String,
-        val name: String,
-        val description: String?,
-        val category: String?,
-        val price: Double?,
-        val imageUrl: String?,
-        val barcode: String?,
-        val stock: Int?,
-        val comprometido: Int?,
-        val createdRemoteAt: Long?,
-        val updatedRemoteAt: Long?,
-    )
+    /**
+     * Descarga productos paginados mediante un Flow.
+     * @param timestamp Timestamp de corte (updatedAt >= timestamp).
+     * @param lastId ID del último documento sincronizado (para cursor compuesto explícito).
+     * @param batchSize Tamaño de página (default 500).
+     */
+    fun fetchProductsFlow(timestamp: Long, lastId: String? = null, batchSize: Long = 500): kotlinx.coroutines.flow.Flow<List<RemoteProduct>>
 
-    suspend fun fetchAllProducts(): List<RemoteProduct>
+    suspend fun uploadProduct(product: RemoteProduct)
+
+    suspend fun softDeleteProduct(id: String, timestamp: Long)
 }
