@@ -671,4 +671,15 @@ object DistribuidoraMigrations {
             db.execSQL("CREATE INDEX IF NOT EXISTS `index_product_conflicts_productId` ON `product_conflicts` (`productId`)")
         }
     }
+
+    /**
+     * v15 -> v16
+     * - Agrega columna `routeId` a la tabla `pedidos`.
+     * - Default '' para registros existentes.
+     */
+    val MIGRATION_15_16: Migration = object : Migration(15, 16) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pedidos ADD COLUMN routeId TEXT NOT NULL DEFAULT ''")
+        }
+    }
 }
