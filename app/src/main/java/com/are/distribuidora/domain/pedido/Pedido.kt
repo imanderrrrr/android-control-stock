@@ -7,6 +7,7 @@ package com.are.distribuidora.domain.pedido
 data class Pedido(
     val id: String,                    // DocID de Firestore
     val vendedorId: String,
+    val routeId: String,               // Ruta del cliente
     val clienteId: String?,
     val items: List<PedidoItem>,
     val subtotal: Double,

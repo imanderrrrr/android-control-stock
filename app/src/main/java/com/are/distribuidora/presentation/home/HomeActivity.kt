@@ -2,53 +2,78 @@ package com.are.distribuidora.presentation.home
 
 import android.os.Bundle
 import android.util.Log
+import android.view.View
 import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.lifecycleScope
 import com.are.distribuidora.R
+import com.are.distribuidora.data.local.dao.ProductDao
 import com.google.android.material.bottomnavigation.BottomNavigationView
+import com.google.android.material.card.MaterialCardView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import dagger.hilt.android.AndroidEntryPoint
-
-import androidx.activity.viewModels
-import com.are.distribuidora.client.presentation.CreateClientFragment
-import com.are.distribuidora.client.presentation.RouteClientsFragment
+import kotlinx.coroutines.launch
+import javax.inject.Inject
 
 @AndroidEntryPoint
 class HomeActivity : FragmentActivity() {
 
     private val viewModel: HomeViewModel by viewModels()
 
-    private val tag = "HomeActivity"
+    @Inject lateinit var productDao: ProductDao
+
+    private val tag = "HOME_CHROME"
+
+    private lateinit var bottomNavPill: MaterialCardView
+    private lateinit var bottomNav: BottomNavigationView
+    private lateinit var fab: FloatingActionButton
+
+    private fun isTopLevel(fragment: Fragment?): Boolean {
+        return fragment is HomeFragment ||
+                fragment is InventoryFragment ||
+                fragment is OrdersFragment ||
+                fragment is ClientsFragment
+    }
+
+    private fun currentFragment(): Fragment? =
+        supportFragmentManager.findFragmentById(R.id.fragmentContainer)
+
+    private fun logState(source: String, fragment: Fragment?) {
+        val name = fragment?.javaClass?.name ?: "null"
+        val backCount = supportFragmentManager.backStackEntryCount
+        Log.d(tag, "[$source] current=$name, isTopLevel=${isTopLevel(fragment)}, backStackCount=$backCount")
+    }
+
+    private fun updateChrome(fragment: Fragment?, source: String) {
+        val show = isTopLevel(fragment)
+
+        bottomNavPill.visibility = if (show) View.VISIBLE else View.GONE
+        fab.visibility = if (show) View.VISIBLE else View.GONE
+
+        logState(source, fragment)
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
-        val bottomNavPill = findViewById<com.google.android.material.card.MaterialCardView>(R.id.bottomNavPill)
-        val bottomNav = findViewById<BottomNavigationView>(R.id.bottomNavigation)
-        val fab = findViewById<FloatingActionButton>(R.id.fabCreateOrder)
-
-        fun updateChromeForFragment(fragment: Fragment?) {
-            val hide = fragment is RouteClientsFragment ||
-                fragment is CreateClientFragment
-
-            bottomNavPill.visibility = if (hide) android.view.View.GONE else android.view.View.VISIBLE
-            fab.visibility = if (hide) android.view.View.GONE else android.view.View.VISIBLE
-        }
+        bottomNavPill = findViewById(R.id.bottomNavPill)
+        bottomNav = findViewById(R.id.bottomNavigation)
+        fab = findViewById(R.id.fabCreateOrder)
 
         supportFragmentManager.addOnBackStackChangedListener {
-            updateChromeForFragment(supportFragmentManager.findFragmentById(R.id.fragmentContainer))
+            updateChrome(currentFragment(), "OnBackStackChanged")
         }
 
-        // Cargar fragment por defecto al iniciar.
         if (savedInstanceState == null) {
             openRootFragment(HomeFragment())
             bottomNav.selectedItemId = R.id.nav_home
+        } else {
+            // Estado restaurado (rotación). Aplicar chrome al fragment actual real.
+            updateChrome(currentFragment(), "onCreate-restore")
         }
-
-        // Estado inicial
-        updateChromeForFragment(supportFragmentManager.findFragmentById(R.id.fragmentContainer))
 
         bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
@@ -56,49 +81,50 @@ class HomeActivity : FragmentActivity() {
                     openRootFragment(HomeFragment())
                     true
                 }
-
                 R.id.nav_inventory -> {
                     openRootFragment(InventoryFragment())
                     true
                 }
-
                 R.id.nav_orders -> {
                     openRootFragment(OrdersFragment())
                     true
                 }
-
                 R.id.nav_clients -> {
                     openRootFragment(ClientsFragment())
                     true
                 }
-
-                // Slot central, lo maneja el FAB.
                 R.id.nav_placeholder -> false
-
                 else -> false
             }
         }
 
         fab.setOnClickListener {
-            // Acción placeholder: Crear Pedido
-            Log.i(tag, "Crear pedido (+)")
             Toast.makeText(this, getString(R.string.nav_create_order), Toast.LENGTH_SHORT).show()
         }
     }
 
+    override fun onResume() {
+        super.onResume()
+        // DEBUG opcional
+        lifecycleScope.launch {
+            try {
+                val count = productDao.countAll()
+                Log.d(tag, "Local DB product count = $count")
+            } catch (e: Exception) {
+                Log.e(tag, "Error counting products", e)
+            }
+        }
+        // Re-aplicar por seguridad al volver al foreground
+        updateChrome(currentFragment(), "onResume")
+    }
+
     private fun openRootFragment(fragment: Fragment) {
+        // commitNow: garantiza que el fragment ya sea el current cuando actualices chrome.
         supportFragmentManager
             .beginTransaction()
             .replace(R.id.fragmentContainer, fragment)
-            .commit()
+            .commitNow()
 
-        val bottomNavPill = findViewById<com.google.android.material.card.MaterialCardView>(R.id.bottomNavPill)
-        val fab = findViewById<FloatingActionButton>(R.id.fabCreateOrder)
-
-        val hide = fragment is RouteClientsFragment ||
-            fragment is CreateClientFragment
-
-        bottomNavPill.visibility = if (hide) android.view.View.GONE else android.view.View.VISIBLE
-        fab.visibility = if (hide) android.view.View.GONE else android.view.View.VISIBLE
+        updateChrome(fragment, "openRootFragment")
     }
 }

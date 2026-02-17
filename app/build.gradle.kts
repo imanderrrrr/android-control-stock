@@ -87,6 +87,7 @@ dependencies {
     // Room
     implementation("androidx.room:room-runtime:2.6.1")
     implementation("androidx.room:room-ktx:2.6.1")
+    implementation("androidx.room:room-paging:2.6.1")
     kapt("androidx.room:room-compiler:2.6.1")
 
     // DataStore (persistencia local para sesión)
@@ -97,6 +98,11 @@ dependencies {
 
     // by viewModels() en ComponentActivity
     implementation("androidx.activity:activity-ktx:1.9.3")
+
+    // WorkManager
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
+    implementation("androidx.hilt:hilt-work:1.2.0")
+    kapt("androidx.hilt:hilt-compiler:1.2.0")
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
@@ -122,4 +128,11 @@ dependencies {
 
     // Test helpers for coroutines in androidTest
     androidTestImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3")
+
+    // Paging 3
+    implementation("androidx.paging:paging-runtime-ktx:3.3.0")
+    implementation("androidx.paging:paging-compose:3.3.0")
+
+    implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
+    implementation("com.google.firebase:firebase-storage-ktx")
 }

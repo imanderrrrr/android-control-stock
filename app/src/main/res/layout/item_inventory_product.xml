@@ -15,6 +15,33 @@
         android:layout_height="wrap_content"
         android:padding="12dp">
 
+        <ImageButton
+            android:id="@+id/menuButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Más opciones"
+            android:src="@drawable/ic_more_vert"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/syncIndicatorText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintEnd_toEndOf="parent" />
+
+        <TextView
+            android:id="@+id/activeIndicatorText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            app:layout_constraintTop_toBottomOf="@id/syncIndicatorText"
+            app:layout_constraintEnd_toEndOf="parent" />
+
         <ImageView
             android:id="@+id/productImage"
             android:layout_width="56dp"
@@ -34,9 +61,10 @@
             android:maxLines="1"
             android:ellipsize="end"
             app:layout_constraintStart_toEndOf="@id/productImage"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/syncIndicatorText"
             app:layout_constraintTop_toTopOf="parent"
-            android:layout_marginStart="12dp" />
+            android:layout_marginStart="12dp"
+            android:layout_marginEnd="8dp" />
 
         <TextView
             android:id="@+id/productPrice"
@@ -45,9 +73,10 @@
             android:textSize="14sp"
             android:textColor="#0F172A"
             app:layout_constraintStart_toStartOf="@id/productName"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/syncIndicatorText"
             app:layout_constraintTop_toBottomOf="@id/productName"
-            android:layout_marginTop="4dp" />
+            android:layout_marginTop="4dp"
+            android:layout_marginEnd="8dp" />
 
         <TextView
             android:id="@+id/productStock"
@@ -56,9 +85,10 @@
             android:textSize="13sp"
             android:textColor="#64748B"
             app:layout_constraintStart_toStartOf="@id/productName"
-            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/syncIndicatorText"
             app:layout_constraintTop_toBottomOf="@id/productPrice"
-            android:layout_marginTop="2dp" />
+            android:layout_marginTop="2dp"
+            android:layout_marginEnd="8dp" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

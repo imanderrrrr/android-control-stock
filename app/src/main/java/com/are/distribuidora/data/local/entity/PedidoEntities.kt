@@ -13,6 +13,7 @@ import com.are.distribuidora.data.local.SyncStatus
 data class PedidoEntity(
     @PrimaryKey val id: String,
     val vendedorId: String,
+    val routeId: String,
     val clienteId: String?,
     val subtotal: Double,
     val descuentoGlobal: Double,

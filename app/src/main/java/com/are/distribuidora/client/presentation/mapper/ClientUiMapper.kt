@@ -14,6 +14,7 @@ fun Client.toUiModel(): ClientUiModel {
         SyncStatus.PENDING_DELETE,
         SyncStatus.FAILED,
         SyncStatus.ERROR,
+        SyncStatus.CONFLICT
         -> "🔴 No sincronizado"
     }
 

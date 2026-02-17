@@ -1,0 +1,91 @@
+> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:processDebugNavigationResources UP-TO-DATE
+> Task :app:compileDebugNavigationResources UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest UP-TO-DATE
+> Task :app:processDebugManifest UP-TO-DATE
+> Task :app:processDebugManifestForPackage UP-TO-DATE
+> Task :app:processDebugResources UP-TO-DATE
+> Task :app:kaptGenerateStubsDebugKotlin UP-TO-DATE
+> Task :app:kaptDebugKotlin UP-TO-DATE
+
+> Task :app:compileDebugKotlin FAILED
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/di/RepositoryModule.kt:5:52 Unresolved reference 'LocalProductRepository'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/domain/product/GetProductsUseCase.kt:4:23 Unresolved reference 'ProductRepository'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/domain/product/GetProductsUseCase.kt:6:28 Unresolved reference 'Flow'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/domain/product/GetProductsUseCase.kt:6:44 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/domain/product/GetProductsUseCase.kt:6:61 Unresolved reference 'getProductsStream'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:13:34 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:14:23 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:14:32 Type argument is not within its bounds: should be subtype of 'androidx.recyclerview.widget.RecyclerView.ViewHolder'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:14:60 Argument type mismatch: actual type is 'com.are.distribuidora.presentation.home.<anonymous>', but 'androidx.recyclerview.widget.DiffUtil.ItemCallback<T>' was expected.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:18:22 Unresolved reference 'R'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:23:28 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:23:28 Unresolved reference. None of the following candidates is applicable because of a receiver type mismatch:
+fun <T, R> T.let(block: (T) -> R): R
+    [R|Contract description]
+     <
+        CallsInPlace(block, EXACTLY_ONCE)
+    >
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:23:32 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:28:38 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:29:9 Unresolved reference 'RecyclerView'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:30:62 Unresolved reference 'R'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:31:60 Unresolved reference 'R'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:32:61 Unresolved reference 'R'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:33:61 Unresolved reference 'R'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:35:24 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:36:56 Unresolved reference 'name'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:38:13 Unresolved reference 'itemView'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:42:30 Unresolved reference 'name'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:44:22 Unresolved reference 'Locale'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:45:22 Unresolved reference 'NumberFormat'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:46:27 Unresolved reference 'Currency'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:47:44 Unresolved reference 'price'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:48:26 Unresolved reference 'itemView'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:48:53 Unresolved reference 'R'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:50:26 Unresolved reference 'itemView'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:50:53 Unresolved reference 'R'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:50:84 Unresolved reference 'stock'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:52:13 Unresolved reference 'Glide'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:54:29 Unresolved reference 'DrawableTransitionOptions'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:61:28 Class '<anonymous>' is not abstract and does not implement abstract base class member 'areItemsTheSame'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:61:59 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:62:13 'areItemsTheSame' overrides nothing.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:62:51 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:62:69 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:63:25 Unresolved reference 'id'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:63:39 Unresolved reference 'id'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:65:13 'areContentsTheSame' overrides nothing.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:65:54 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryAdapter.kt:65:72 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryFragment.kt:57:42 Unresolved reference 'Product'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryFragment.kt:60:55 Unresolved reference 'id'.
+e: file:///C:/Users/ander/AndroidStudioProjects/Distribuidora/app/src/main/java/com/are/distribuidora/presentation/home/InventoryViewModel.kt:52:36 Too many arguments for 'fun invoke(): Flow<PagingData<Product>>'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to get full insights.
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 7s
+19 actionable tasks: 1 executed, 18 up-to-date

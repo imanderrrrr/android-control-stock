@@ -55,4 +55,64 @@
     <!-- Dashboard Headers -->
     <string name="section_active_routes">Rutas Activas</string>
     <string name="section_pending_accounts">Cuentas Pendientes</string>
+    
+    <!-- Edit Product -->
+    <string name="edit_product_name_hint">Nombre *</string>
+    <string name="edit_product_description_hint">Descripción</string>
+    <string name="edit_product_category_hint">Categoría</string>
+    <string name="edit_product_price_hint">Precio (Q) *</string>
+    <string name="edit_product_stock_hint">Stock *</string>
+    <string name="edit_product_barcode_hint">Código de Barras</string>
+    <string name="edit_product_active_label">Producto Activo</string>
+    <string name="edit_product_save_button">Guardar Cambios</string>
+
+    <!-- Add Product -->
+    <string name="add_product_title">Agregar Producto</string>
+    <string name="add_product_save_button">Guardar</string>
+    <string name="add_product_saving">Guardando...</string>
+    <string name="add_product_success">Producto creado correctamente</string>
+
+    <!-- Product Image -->
+    <string name="product_pick_image">Seleccionar imagen</string>
+    <string name="product_image_required">La imagen es obligatoria</string>
+
+    <!-- Product Detail -->
+    <string name="product_detail_not_found">Producto no encontrado</string>
+    <string name="product_detail_no_description">Sin descripción</string>
+    <string name="product_detail_no_category">Sin categoría</string>
+    <string name="product_detail_no_barcode">Sin código de barras</string>
+
+    <string name="product_detail_stock">Stock: %1$d</string>
+    <string name="product_detail_price">Precio: %1$s</string>
+
+    <string name="product_detail_active">Estado: Activo</string>
+    <string name="product_detail_inactive">Estado: Inactivo</string>
+
+    <string name="product_detail_sync_unknown">Sync: (desconocido)</string>
+    <string name="product_detail_sync_synced">Sync: Sincronizado</string>
+    <string name="product_detail_sync_syncing">Sync: Sincronizando…</string>
+    <string name="product_detail_sync_pending_create">Sync: Pendiente (crear)</string>
+    <string name="product_detail_sync_pending_update">Sync: Pendiente (actualizar)</string>
+    <string name="product_detail_sync_pending_delete">Sync: Pendiente (eliminar)</string>
+    <string name="product_detail_sync_conflict">Sync: Conflicto</string>
+    <string name="product_detail_sync_pending">Sync: Pendiente</string>
+    <string name="product_detail_sync_failed">Sync: Falló</string>
+
+    <!-- Product Detail (Premium UI labels/sections) -->
+    <string name="section_summary">Resumen</string>
+    <string name="section_details">Detalles</string>
+
+    <string name="label_description">Descripción</string>
+    <string name="label_stock">Stock</string>
+    <string name="label_price">Precio</string>
+    <string name="label_category">Categoría</string>
+    <string name="label_barcode">Código de barras</string>
+    <string name="label_unit">Unidad / Medida</string>
+
+    <string name="value_no_description">Sin descripción</string>
+    <string name="value_no_barcode">Sin código de barras</string>
+    <string name="value_not_available">—</string>
+
+    <string name="chip_status_active">Activo</string>
+    <string name="chip_status_inactive">Inactivo</string>
 </resources>

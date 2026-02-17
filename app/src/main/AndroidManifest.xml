@@ -19,6 +19,18 @@
         android:theme="@style/Theme.Distribuidora"
         tools:targetApi="31">
 
+        <!-- Deshabilitar inicialización automática de WorkManager para usar HiltWorkerFactory -->
+        <provider
+            android:name="androidx.startup.InitializationProvider"
+            android:authorities="${applicationId}.androidx-startup"
+            android:exported="false"
+            tools:node="merge">
+            <meta-data
+                android:name="androidx.work.WorkManagerInitializer"
+                android:value="androidx.startup"
+                tools:node="remove" />
+        </provider>
+
         <activity
             android:name=".presentation.home.HomeActivity"
             android:exported="false" />

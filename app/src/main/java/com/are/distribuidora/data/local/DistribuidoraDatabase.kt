@@ -32,6 +32,7 @@ import com.are.distribuidora.route.data.local.entity.RouteEntity
         PedidoEntity::class,
         PedidoItemEntity::class,
         ClientEntity::class,
+        com.are.distribuidora.data.local.entity.ProductConflictEntity::class,
         // Routes
         RouteEntity::class,
         // Orders (nuevo módulo)
@@ -39,7 +40,7 @@ import com.are.distribuidora.route.data.local.entity.RouteEntity
         OrderItemEntity::class,
         OrderItemStagingEntity::class,
     ],
-    version = 12,
+    version = 16,
     exportSchema = true,
 )
 abstract class DistribuidoraDatabase : RoomDatabase() {

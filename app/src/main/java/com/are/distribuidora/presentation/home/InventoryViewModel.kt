@@ -2,25 +2,34 @@ package com.are.distribuidora.presentation.home
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.paging.PagingData
+import androidx.paging.cachedIn
+import androidx.paging.map
 import com.are.distribuidora.domain.model.Product
+import com.are.distribuidora.domain.product.ObserveProductSyncStatusesUseCase
 import com.are.distribuidora.domain.product.ObserveProductsUseCase
 import com.are.distribuidora.domain.sale.SellProductUseCase
+import com.are.distribuidora.presentation.home.mapper.toUiModel
+import com.are.distribuidora.presentation.home.model.ProductUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
 
+// UI State simplificado, Paging maneja su propio estado de carga/lista
 data class InventoryUiState(
-    val products: List<Product> = emptyList(),
-    val isLoading: Boolean = true,
+    // val products: Flow<PagingData<ProductUiModel>> // Mejor expuesto directo en VM
+    val isLoading: Boolean = false, // Placeholder, usar LoadState de Paging en UI
 )
 
 sealed interface InventoryEvent {
@@ -28,59 +37,47 @@ sealed interface InventoryEvent {
     data class SaleError(val productId: String, val message: String) : InventoryEvent
 }
 
+@OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
 @HiltViewModel
 class InventoryViewModel @Inject constructor(
-    observeProductsUseCase: ObserveProductsUseCase,
+    private val observeProductsUseCase: ObserveProductsUseCase,
+    observeProductSyncStatusesUseCase: ObserveProductSyncStatusesUseCase,
     private val sellProductUseCase: SellProductUseCase,
+    private val deleteProductUseCase: com.are.distribuidora.domain.product.DeleteProductUseCase,
 ) : ViewModel() {
 
-    /**
-     * Stream reactivo de productos (fuente de verdad), proveniente de un UseCase.
-     * No hay load manual.
-     */
-    val products: StateFlow<List<Product>> = observeProductsUseCase()
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = emptyList(),
-        )
-
-    // Query actual de búsqueda (estado UI). Se actualiza desde la UI.
+    // Query de búsqueda
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
-    // Productos filtrados en memoria (case-insensitive) a partir de la lista ya observada.
-    private val filteredProducts: StateFlow<List<Product>> = combine(
-        products,
-        searchQuery,
-    ) { products, query ->
-        val q = query.trim()
-        if (q.isEmpty()) {
-            products
-        } else {
-            val qLower = q.lowercase()
-            products.filter { p ->
-                p.name.lowercase().contains(qLower)
-            }
+    /**
+     * Stream paginado de productos (Raw Domain).
+     * Se mantiene cachedIn aquí para preservar el estado del Pager de Room.
+     */
+    private val productPaging: Flow<PagingData<Product>> = _searchQuery
+        .debounce(300)
+        .flatMapLatest { query ->
+            observeProductsUseCase(query)
         }
-    }.stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = emptyList(),
-    )
+        .cachedIn(viewModelScope)
 
-    val uiState: StateFlow<InventoryUiState> = filteredProducts
-        .map { items ->
-            InventoryUiState(
-                products = items,
-                isLoading = false,
-            )
+    /**
+     * Stream combinado: PagingData + SyncStatus (Side-channel).
+     * Se actualiza en tiempo real cuando cambia el estado de sincronización.
+     */
+    val products: Flow<PagingData<ProductUiModel>> = combine(
+        productPaging,
+        observeProductSyncStatusesUseCase(),
+    ) { pagingData, syncStatuses ->
+        pagingData.map { product ->
+            val status = syncStatuses[product.id.value]
+
+            product.toUiModel(status)
         }
-        .stateIn(
-            scope = viewModelScope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = InventoryUiState(isLoading = true),
-        )
+    }
+
+    // UI State para otros estados (si fuera necesario)
+    // Por ahora Paging se maneja con 'products.collectAsLazyPagingItems()' en UI
 
     private val _events = MutableSharedFlow<InventoryEvent>()
     val events = _events.asSharedFlow()
@@ -93,6 +90,8 @@ class InventoryViewModel @Inject constructor(
     fun confirmSale(productId: String, quantity: Int) {
         viewModelScope.launch {
             try {
+                // TODO: Update sell logic to handle ID correctly if needed, but here we just pass ID.
+                // Note: The UI now binds ProductUiModel, but the click listener might still pass Product or we just use ID.
                 val updated = sellProductUseCase.execute(productId = productId, quantity = quantity)
                 _events.emit(InventoryEvent.SaleSuccess(productId = productId, newStock = updated.stock.value))
             } catch (t: Throwable) {
@@ -102,6 +101,20 @@ class InventoryViewModel @Inject constructor(
                         message = t.message ?: "Error desconocido",
                     ),
                 )
+            }
+        }
+    }
+
+    fun deleteProduct(productId: String) {
+        viewModelScope.launch {
+            try {
+                // Delegation to UseCase -> Repository -> DAO (soft delete)
+                // The repository handles marking logic: isDeleted=1, syncStatus=PENDING_DELETE
+                deleteProductUseCase(productId)
+                android.util.Log.d("InventoryViewModel", "Product deleted: $productId")
+            } catch (e: Exception) {
+                android.util.Log.e("InventoryViewModel", "Error deleting product: $productId", e)
+                // Optional: Emit error event if needed
             }
         }
     }

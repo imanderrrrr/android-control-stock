@@ -28,4 +28,12 @@ enum class SyncStatus {
      */
     @Deprecated("Usar FAILED")
     ERROR,
+
+    /**
+     * Conflicto detectado: la entidad fue modificada localmente Y remotamente.
+     * Se requiere intervención manual o resolución por política (UI).
+     * La versión local se mantiene en `products` con este estado.
+     * La versión remota conflictiva se guarda en `product_conflicts`.
+     */
+    CONFLICT,
 }

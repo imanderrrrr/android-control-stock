@@ -1,6 +1,8 @@
 package com.are.distribuidora.di
 
 import com.are.distribuidora.data.repository.ProductSyncRepositoryImpl
+import com.are.distribuidora.domain.core.ConnectivityChecker
+import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.domain.product.ProductSyncRepository
 import com.are.distribuidora.domain.product.SyncProductsUseCase
 import dagger.Binds
@@ -25,6 +27,10 @@ object ProductSyncUseCaseModule {
 
     @Provides
     @Singleton
-    fun provideSyncProductsUseCase(repository: ProductSyncRepository): SyncProductsUseCase =
-        SyncProductsUseCase(repository)
+    fun provideSyncProductsUseCase(
+        repository: ProductSyncRepository,
+        connectivityChecker: ConnectivityChecker,
+        logger: Logger
+    ): SyncProductsUseCase =
+        SyncProductsUseCase(repository, connectivityChecker, logger)
 }

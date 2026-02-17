@@ -69,6 +69,7 @@ object NetworkModule {
 
             val request = android.net.NetworkRequest.Builder()
                 .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+                .addCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
                 .build()
 
             connectivityManager.registerNetworkCallback(request, callback)
@@ -86,7 +87,8 @@ object NetworkModule {
                 ?: return false
             val network = cm.activeNetwork ?: return false
             val caps = cm.getNetworkCapabilities(network) ?: return false
-            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
+            return caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+                   caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
         }
     }
 }
