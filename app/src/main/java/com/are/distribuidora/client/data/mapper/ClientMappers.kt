@@ -3,6 +3,9 @@ package com.are.distribuidora.client.data.mapper
 import com.are.distribuidora.client.data.local.entity.ClientEntity
 import com.are.distribuidora.client.data.remote.dto.ClientDto
 import com.are.distribuidora.client.domain.model.Client
+import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.data.local.toSyncState
+import com.are.distribuidora.domain.core.SyncState
 
 private const val PLACEHOLDER_ROUTE_ID = "__unassigned__"
 
@@ -10,6 +13,7 @@ private const val PLACEHOLDER_ROUTE_ID = "__unassigned__"
  * Mappers de capa data para Client.
  *
  * Regla: Client (dominio) es el modelo soberano.
+ * El mapeo SyncStatus ↔ SyncState ocurre aquí, en la frontera data↔domain.
  */
 internal fun Client.toEntity(): ClientEntity =
     ClientEntity(
@@ -23,7 +27,7 @@ internal fun Client.toEntity(): ClientEntity =
         isActive = isActive,
         isDeleted = isDeleted,
         routeId = routeId,
-        syncStatus = syncStatus,
+        syncStatus = syncState.toSyncStatus(),
         createdAt = createdAt,
         updatedAt = updatedAt,
         createdBy = createdBy,
@@ -42,7 +46,7 @@ internal fun ClientEntity.toDomain(): Client =
         isActive = isActive,
         isDeleted = isDeleted,
         routeId = routeId,
-        syncStatus = syncStatus,
+        syncState = syncStatus.toSyncState(),
         createdAt = createdAt,
         updatedAt = updatedAt,
         createdBy = createdBy,
@@ -79,9 +83,19 @@ internal fun ClientDto.toEntity(): ClientEntity =
         isActive = isActive,
         isDeleted = isDeleted,
         routeId = routeId!!,
-        syncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED, // From remote => SYNCED
+        syncStatus = SyncStatus.SYNCED, // From remote => SYNCED
         createdAt = createdAt,
         updatedAt = updatedAt,
         createdBy = auditCreatedBy,
         lastModifiedBy = auditLastModifiedBy
     )
+
+/** Mapeo inverso SyncState → SyncStatus para persistir en Room. */
+internal fun SyncState.toSyncStatus(): SyncStatus = when (this) {
+    SyncState.SYNCED   -> SyncStatus.SYNCED
+    SyncState.SYNCING  -> SyncStatus.SYNCING
+    SyncState.CONFLICT -> SyncStatus.CONFLICT
+    SyncState.FAILED   -> SyncStatus.FAILED
+    SyncState.PENDING  -> SyncStatus.PENDING
+}
+

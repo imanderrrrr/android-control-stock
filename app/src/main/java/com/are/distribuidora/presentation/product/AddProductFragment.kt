@@ -89,6 +89,11 @@ class AddProductFragment : Fragment() {
         toolbar.setTitle(R.string.add_product_title)
         toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
 
+        // Pre-rellenar barcode si viene del flujo "Agregar stock → producto no encontrado"
+        arguments?.getString("arg_barcode")?.let { barcode ->
+            if (barcode.isNotBlank()) barcodeInput.setText(barcode)
+        }
+
         // Placeholder preview
         Glide.with(imagePreview).load(R.drawable.ic_add_centered).into(imagePreview)
 
@@ -164,6 +169,19 @@ class AddProductFragment : Fragment() {
     }
 
     companion object {
+        private const val ARG_BARCODE = "arg_barcode"
+
         fun newInstance(): AddProductFragment = AddProductFragment()
+
+        /**
+         * Crea la pantalla de "Agregar producto" con el código de barras pre-cargado.
+         * Usado desde el flujo "Agregar stock" cuando el producto no existe.
+         */
+        fun newInstanceWithBarcode(barcode: String): AddProductFragment =
+            AddProductFragment().apply {
+                arguments = android.os.Bundle().apply {
+                    putString(ARG_BARCODE, barcode)
+                }
+            }
     }
 }

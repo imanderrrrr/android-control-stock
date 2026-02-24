@@ -89,6 +89,7 @@ class LoginViewModel @Inject constructor(
             Failure.DatabaseError -> "Error local. Intenta de nuevo."
             Failure.NotFound -> "Usuario no encontrado."
             is Failure.ValidationError -> this.message.ifBlank { "Credenciales inválidas" }
+            is Failure.DuplicateOrder -> "Error inesperado"
             Failure.UnknownError -> "Error inesperado"
         }
     }

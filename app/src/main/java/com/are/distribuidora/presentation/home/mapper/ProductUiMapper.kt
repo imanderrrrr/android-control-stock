@@ -1,23 +1,18 @@
 package com.are.distribuidora.presentation.home.mapper
 
-import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.presentation.home.model.ProductUiModel
 
-fun Product.toUiModel(syncStatus: SyncStatus?): ProductUiModel {
-    val status = syncStatus ?: SyncStatus.SYNCED
+fun Product.toUiModel(syncState: SyncState?): ProductUiModel {
+    val state = syncState ?: SyncState.SYNCED
 
-    val syncIndicatorText = when (status) {
-        SyncStatus.SYNCED -> "🟢 Sincronizado"
-        SyncStatus.SYNCING -> "🟡 Sincronizando"
-        SyncStatus.PENDING,
-        SyncStatus.PENDING_UPDATE,
-        SyncStatus.PENDING_CREATE,
-        SyncStatus.PENDING_DELETE,
-        SyncStatus.FAILED,
-        SyncStatus.ERROR
-        -> "🔴 No sincronizado"
-        SyncStatus.CONFLICT -> "🔴 Conflicto"
+    val syncIndicatorText = when (state) {
+        SyncState.SYNCED   -> "🟢 Sincronizado"
+        SyncState.SYNCING  -> "🟡 Sincronizando"
+        SyncState.PENDING  -> "🔴 No sincronizado"
+        SyncState.FAILED   -> "🔴 No sincronizado"
+        SyncState.CONFLICT -> "🔴 Conflicto"
     }
 
     val activeIndicatorText = if (isActive) {
@@ -29,8 +24,8 @@ fun Product.toUiModel(syncStatus: SyncStatus?): ProductUiModel {
     return ProductUiModel(
         product = this,
         isActive = isActive,
-        syncStatus = status,
-        rawSyncStatus = syncStatus,
+        syncState = state,
+        rawSyncState = syncState,
         syncIndicatorText = syncIndicatorText,
         activeIndicatorText = activeIndicatorText
     )

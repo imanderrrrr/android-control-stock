@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Product card – Material3 style
+  • FrameLayout de imagen fija (100dp) con fondo surfaceVariant
+  • ShapeableImageView full-bleed (centerCrop) cuando hay imagen
+  • ic_product_placeholder centrado cuando no hay imagen
+  • Nombre 2 líneas, BodyMedium bold
+  • Precio colorPrimary, LabelLarge
+  • Botón "+" circular en esquina inferior-derecha
+-->
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/cardRoot"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:foreground="?attr/selectableItemBackground"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="2dp"
+    app:cardUseCompatPadding="true"
+    app:strokeWidth="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- ── Bloque imagen (altura fija 160dp ≈ cuadrado en grid 2col) ── -->
+        <FrameLayout
+            android:id="@+id/imageContainer"
+            android:layout_width="match_parent"
+            android:layout_height="160dp"
+            android:background="?attr/colorSurface">
+
+            <!-- Imagen del producto (full-bleed, visible cuando hay URL) -->
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/imageProduct"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:contentDescription="@string/product_image"
+                android:scaleType="centerCrop"
+                app:shapeAppearance="@style/ShapeAppearance.Distribuidora.ImageTop" />
+
+            <!-- Placeholder: ícono caja centrado, visible cuando NO hay imagen -->
+            <ImageView
+                android:id="@+id/imagePlaceholder"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_product_placeholder"
+                android:alpha="0.55"
+                android:visibility="visible"
+                android:contentDescription="@null" />
+
+        </FrameLayout>
+
+        <!-- ── Contenido de texto ── -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            android:paddingTop="10dp"
+            android:paddingBottom="12dp">
+
+            <!-- Nombre del producto -->
+            <TextView
+                android:id="@+id/textName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="2"
+                android:minLines="2"
+                android:textAppearance="?attr/textAppearanceBody2"
+                android:textStyle="bold"
+                android:textColor="?attr/colorOnSurface" />
+
+            <!-- Fila inferior: precio + botón add / stepper -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
+
+                <!-- Precio -->
+                <TextView
+                    android:id="@+id/textPrice"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:textAppearance="?attr/textAppearanceSubtitle2"
+                    android:textColor="?attr/colorPrimary"
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
+
+                <!-- Botón "+" circular (visible cuando qty == 0) -->
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/buttonAdd"
+                    style="@style/Widget.MaterialComponents.Button.Icon"
+                    android:layout_width="36dp"
+                    android:layout_height="36dp"
+                    android:contentDescription="Agregar producto"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/ic_add_centered"
+                    app:iconSize="20dp"
+                    app:iconPadding="0dp"
+                    app:iconGravity="textStart"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Distribuidora.Circle"
+                    android:minWidth="36dp"
+                    android:minHeight="36dp" />
+
+                <!-- Stepper (visible cuando qty > 0, inicialmente GONE) -->
+                <LinearLayout
+                    android:id="@+id/stepperContainer"
+                    android:layout_width="wrap_content"
+                    android:layout_height="36dp"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:visibility="gone"
+                    android:alpha="0"
+                    android:scaleX="0.5"
+                    android:scaleY="0.5">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonDecrement"
+                        style="@style/Widget.MaterialComponents.Button.Icon"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:contentDescription="Disminuir cantidad"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:padding="0dp"
+                        app:icon="@drawable/ic_remove"
+                        app:iconSize="16dp"
+                        app:iconPadding="0dp"
+                        app:iconGravity="textStart"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Distribuidora.Circle"
+                        android:minWidth="32dp"
+                        android:minHeight="32dp" />
+
+                    <TextView
+                        android:id="@+id/textQuantity"
+                        android:layout_width="28dp"
+                        android:layout_height="wrap_content"
+                        android:gravity="center"
+                        android:textAppearance="?attr/textAppearanceBody2"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface"
+                        android:text="0" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/buttonIncrement"
+                        style="@style/Widget.MaterialComponents.Button.Icon"
+                        android:layout_width="32dp"
+                        android:layout_height="32dp"
+                        android:contentDescription="Aumentar cantidad"
+                        android:insetTop="0dp"
+                        android:insetBottom="0dp"
+                        android:padding="0dp"
+                        app:icon="@drawable/ic_add_centered"
+                        app:iconSize="16dp"
+                        app:iconPadding="0dp"
+                        app:iconGravity="textStart"
+                        app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Distribuidora.Circle"
+                        android:minWidth="32dp"
+                        android:minHeight="32dp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+
+        </LinearLayout>
+
+    </LinearLayout>
+
+</com.google.android.material.card.MaterialCardView>

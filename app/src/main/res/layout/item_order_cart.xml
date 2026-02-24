@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Item del carrito. El FrameLayout raíz es el contenedor para ItemTouchHelper.
+     Los fondos de swipe se pintan en Canvas (SwipeCallback), NO en XML. -->
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginStart="16dp"
+    android:layout_marginEnd="16dp"
+    android:layout_marginTop="6dp"
+    android:layout_marginBottom="6dp">
+
+    <!-- Tarjeta deslizable (foreground) -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cartItemCard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        app:cardBackgroundColor="@color/app_card_surface"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="0dp">
+
+        <androidx.constraintlayout.widget.ConstraintLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="14dp">
+
+            <!-- Imagen del producto -->
+            <FrameLayout
+                android:id="@+id/imageContainer"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:background="@drawable/bg_image_container"
+                app:layout_constraintStart_toStartOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent">
+
+                <com.google.android.material.imageview.ShapeableImageView
+                    android:id="@+id/imageCartProduct"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:visibility="invisible"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Distribuidora.ImageRounded" />
+
+                <ImageView
+                    android:id="@+id/imageCartPlaceholder"
+                    android:layout_width="28dp"
+                    android:layout_height="28dp"
+                    android:layout_gravity="center"
+                    android:src="@drawable/ic_product_placeholder"
+                    android:alpha="0.45"
+                    android:contentDescription="@null" />
+
+            </FrameLayout>
+
+            <!-- Nombre del producto -->
+            <TextView
+                android:id="@+id/textCartItemName"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="8dp"
+                android:textAppearance="?attr/textAppearanceSubtitle2"
+                android:textStyle="bold"
+                android:textColor="?attr/colorOnSurface"
+                android:maxLines="2"
+                android:ellipsize="end"
+                app:layout_constraintStart_toEndOf="@id/imageContainer"
+                app:layout_constraintEnd_toStartOf="@id/rightColumn"
+                app:layout_constraintTop_toTopOf="@id/imageContainer" />
+
+            <!-- Subtotal -->
+            <TextView
+                android:id="@+id/textCartItemSubtotal"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginTop="4dp"
+                android:textAppearance="?attr/textAppearanceBody2"
+                android:textColor="?attr/colorPrimary"
+                android:textStyle="bold"
+                android:maxLines="1"
+                app:layout_constraintStart_toEndOf="@id/imageContainer"
+                app:layout_constraintEnd_toStartOf="@id/rightColumn"
+                app:layout_constraintTop_toBottomOf="@id/textCartItemName" />
+
+            <!-- Precio base (solo visible cuando hay descuento) -->
+            <TextView
+                android:id="@+id/textCartItemUnitPrice"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginTop="2dp"
+                android:textSize="11sp"
+                android:textColor="?attr/colorOnSurface"
+                android:alpha="0.55"
+                android:maxLines="1"
+                android:visibility="gone"
+                app:layout_constraintStart_toEndOf="@id/imageContainer"
+                app:layout_constraintEnd_toStartOf="@id/rightColumn"
+                app:layout_constraintTop_toBottomOf="@id/textCartItemSubtotal" />
+
+            <!-- Notas del item -->
+            <TextView
+                android:id="@+id/textCartItemNotes"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="8dp"
+                android:layout_marginTop="3dp"
+                android:textSize="11sp"
+                android:textColor="?attr/colorOnSurface"
+                android:alpha="0.6"
+                android:maxLines="2"
+                android:ellipsize="end"
+                android:visibility="gone"
+                app:layout_constraintStart_toEndOf="@id/imageContainer"
+                app:layout_constraintEnd_toStartOf="@id/rightColumn"
+                app:layout_constraintTop_toBottomOf="@id/textCartItemUnitPrice" />
+
+            <!-- Columna derecha: badge cantidad + badge descuento -->
+            <LinearLayout
+                android:id="@+id/rightColumn"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center_horizontal"
+                android:minWidth="56dp"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent"
+                app:layout_constraintBottom_toBottomOf="parent">
+
+                <!-- Badge de cantidad -->
+                <TextView
+                    android:id="@+id/chipCartQty"
+                    android:layout_width="wrap_content"
+                    android:layout_height="32dp"
+                    android:gravity="center"
+                    android:paddingStart="12dp"
+                    android:paddingEnd="12dp"
+                    android:textSize="13sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/palette_900"
+                    android:background="@drawable/bg_badge_qty" />
+
+                <!-- Badge de descuento (visible solo cuando hay descuento activo) -->
+                <TextView
+                    android:id="@+id/chipCartDiscount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="28dp"
+                    android:gravity="center"
+                    android:paddingStart="10dp"
+                    android:paddingEnd="10dp"
+                    android:layout_marginTop="4dp"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="@android:color/white"
+                    android:background="@drawable/bg_badge_discount"
+                    android:visibility="gone" />
+
+            </LinearLayout>
+
+        </androidx.constraintlayout.widget.ConstraintLayout>
+
+    </com.google.android.material.card.MaterialCardView>
+
+</FrameLayout>

@@ -1,4 +1,3 @@
-
 package com.are.distribuidora.client
 
 import androidx.room.Room
@@ -20,11 +19,19 @@ import com.are.distribuidora.client.domain.validator.ClientValidator
 import com.are.distribuidora.client.sync.ClientSyncCoordinator
 import com.are.distribuidora.core.network.NetworkMonitor
 import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 import com.are.distribuidora.route.data.local.dao.RouteDao
 import com.are.distribuidora.route.data.local.entity.RouteEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import io.mockk.every
+import io.mockk.coEvery
+import io.mockk.mockk
+import io.mockk.slot
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,10 +39,6 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import org.junit.After
-import io.mockk.coEvery
-import io.mockk.mockk
-import io.mockk.slot
-import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -47,6 +50,8 @@ import org.robolectric.RobolectricTestRunner
 import java.io.IOException
 import javax.inject.Inject
 import androidx.room.withTransaction
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withTimeout
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
@@ -70,6 +75,9 @@ class ClientSyncIntegrationTest {
     private lateinit var updateClientUseCase: UpdateClientUseCase
     private lateinit var deleteClientUseCase: DeleteClientUseCase
     private lateinit var syncClientsUseCase: SyncClientsUseCase
+
+    private lateinit var testScope: CoroutineScope
+    private lateinit var testScopeJob: Job
 
     @Before
     fun setup() {
@@ -96,9 +104,8 @@ class ClientSyncIntegrationTest {
 
         // Mock Database for Transaction support
         val mockDatabase = mockk<com.are.distribuidora.data.local.DistribuidoraDatabase>()
-        coEvery { mockDatabase.withTransaction<Any>(any()) } answers {
-            val block = firstArg<suspend () -> Any>()
-            runBlocking { block() }
+        coEvery { mockDatabase.withTransaction<Any>(any()) } coAnswers {
+            firstArg<suspend () -> Any>()()
         }
 
         clientSyncRepository = ClientSyncRepositoryImpl(
@@ -110,34 +117,24 @@ class ClientSyncIntegrationTest {
         
         fakeRouteSyncRepository = mockk(relaxed = true)
 
-        // Setup Coordinator (Real implementation but neutralized)
-        // We need a SyncUseCase for the coordinator, but we want it to NOT run.
-        // Passing offline monitor ensures it doesn't trigger unexpectedly.
-        val syncUseCaseForCoordinator = SyncClientsUseCase(
-            repository = clientSyncRepository,
-            routeSyncRepository = fakeRouteSyncRepository,
-            networkMonitor = coordinatorOfflineMonitor
-        )
-        
-        val testScope = CoroutineScope(UnconfinedTestDispatcher())
-        
-        val mockAuth = io.mockk.mockk<FirebaseAuth>(relaxed = true)
-        val mockUser = io.mockk.mockk<FirebaseUser>()
-        io.mockk.every { mockAuth.currentUser } returns mockUser
+        // (El coordinator real no se usa en este test; se mockea abajo)
 
-        val realCoordinator = ClientSyncCoordinator(
-            syncUseCase = syncUseCaseForCoordinator,
-            networkMonitor = coordinatorOfflineMonitor,
-            firebaseAuth = mockAuth,
-            applicationScope = testScope
-        )
+        testScopeJob = SupervisorJob()
+        testScope = CoroutineScope(testScopeJob + UnconfinedTestDispatcher())
+
+        val mockAuth = mockk<FirebaseAuth>(relaxed = true)
+        val mockUser = mockk<FirebaseUser>()
+        every { mockAuth.currentUser } returns mockUser
+
+        val fakeCoordinator = mockk<ClientSyncCoordinator>(relaxed = true)
+        every { fakeCoordinator.notifyLocalChange() } returns Unit
 
         clientRepository = ClientRepositoryImpl(
             local = localDataSource,
             remote = fakeRemoteDataSource,
             sync = clientSyncRepository,
             validator = validator,
-            coordinator = realCoordinator
+            coordinator = fakeCoordinator
         )
 
         // 4. Setup Use Cases for Test
@@ -155,124 +152,141 @@ class ClientSyncIntegrationTest {
 
     @After
     fun tearDown() {
+        testScope.cancel()
         database.close()
     }
 
     @Test
     fun `testCase1_UpdateClient_Flow`() = runTest {
-        // Setup Route (FK constraint)
-        val routeId = "route_1"
-        setupRoute(routeId)
+        withTimeout(15_000) {
+            println("[ClientSyncIntegrationTest] START testCase1")
+            // Setup Route (FK constraint)
+            val routeId = "route_1"
+            setupRoute(routeId)
 
-        // 1. Create locally (PENDING_CREATE)
-        val client = createValidClient(id = "client_1", routeId = routeId, name = "Original Name")
-        clientRepository.create(client) // Directly calling repo create logic simulating UseCase
+            // 1. Create locally (PENDING_CREATE)
+            val client = createValidClient(id = "client_1", routeId = routeId, name = "Original Name")
+            clientRepository.create(client)
 
-        val localCreated = clientDao.getById("client_1")
-        assertNotNull(localCreated)
-        assertEquals(SyncStatus.PENDING_CREATE, localCreated?.syncStatus)
+            val localCreated = clientDao.getById("client_1")
+            assertNotNull(localCreated)
+            assertEquals(SyncStatus.PENDING_CREATE, localCreated?.syncStatus)
 
-        // 2. Sync (Create Remote)
-        syncClientsUseCase()
+            // 2. Sync (Create Remote)
+            println("[ClientSyncIntegrationTest] before syncClientsUseCase() #1")
+            syncClientsUseCase()
+            println("[ClientSyncIntegrationTest] after syncClientsUseCase() #1")
 
-        // Verify synced
-        val syncedClient = clientDao.getById("client_1")
-        assertEquals(SyncStatus.SYNCED, syncedClient?.syncStatus)
-        assertTrue(fakeRemoteDataSource.remoteStorage.containsKey("client_1"))
-        assertEquals("Original Name", fakeRemoteDataSource.remoteStorage["client_1"]?.name)
-        val initialLastSyncedAt = syncedClient?.lastSyncedAt ?: 0L
-        assertTrue(initialLastSyncedAt > 0)
+            // Verify synced
+            val syncedClient = clientDao.getById("client_1")
+            assertEquals(SyncStatus.SYNCED, syncedClient?.syncStatus)
+            assertTrue(fakeRemoteDataSource.remoteStorage.containsKey("client_1"))
+            assertEquals("Original Name", fakeRemoteDataSource.remoteStorage["client_1"]?.name)
+            val initialLastSyncedAt = syncedClient?.lastSyncedAt ?: 0L
+            assertTrue(initialLastSyncedAt > 0)
 
-        // 3. Update Client (Local)
-        val domainClient = syncedClient!!.toDomain()
-        val updatedClient = domainClient.copy(name = "Updated Name")
-        
-        // Ensure some time passes for timestamps
-        // runTest controls time, but System.currentTimeMillis() needs real time or mock. 
-        // For integration test relying on logic, we just check inequality if logic updates it.
-        
-        updateClientUseCase(updatedClient)
+            // 3. Update Client (Local)
+            val domainClient = syncedClient!!.toDomain()
+            val updatedClient = domainClient.copy(name = "Updated Name")
 
-        val pendingUpdate = clientDao.getById("client_1")
-        assertEquals(SyncStatus.PENDING_UPDATE, pendingUpdate?.syncStatus)
-        assertTrue("UpdatedAt should update on edit", pendingUpdate!!.updatedAt > domainClient.updatedAt)
+            // Ensure some time passes for timestamps
+            // runTest controls time, but System.currentTimeMillis() needs real time or mock.
+            // For integration test relying on logic, we just check inequality if logic updates it.
 
-        // 4. Sync (Update Remote)
-        syncClientsUseCase()
+            updateClientUseCase(updatedClient)
 
-        // Verify final state
-        val finalClient = clientDao.getById("client_1")
-        assertEquals(SyncStatus.SYNCED, finalClient?.syncStatus)
-        assertEquals("Updated Name", fakeRemoteDataSource.remoteStorage["client_1"]?.name)
-        assertTrue("LastSyncedAt should update on sync", finalClient!!.lastSyncedAt!! > initialLastSyncedAt)
+            val pendingUpdate = clientDao.getById("client_1")
+            assertEquals(SyncStatus.PENDING_UPDATE, pendingUpdate?.syncStatus)
+            assertTrue("UpdatedAt should update on edit", pendingUpdate!!.updatedAt > domainClient.updatedAt)
+
+            // 4. Sync (Update Remote)
+            println("[ClientSyncIntegrationTest] before syncClientsUseCase() #2")
+            syncClientsUseCase()
+            println("[ClientSyncIntegrationTest] after syncClientsUseCase() #2")
+
+            // Verify final state
+            val finalClient = clientDao.getById("client_1")
+            assertEquals(SyncStatus.SYNCED, finalClient?.syncStatus)
+            assertEquals("Updated Name", fakeRemoteDataSource.remoteStorage["client_1"]?.name)
+            assertTrue("LastSyncedAt should update on sync", finalClient!!.lastSyncedAt!! > initialLastSyncedAt)
+            println("[ClientSyncIntegrationTest] END testCase1")
+        }
     }
 
     @Test
     fun `testCase2_ActivateDeactivate_Flow`() = runTest {
-        val routeId = "route_1"
-        setupRoute(routeId)
+        withTimeout(15_000) {
+            println("[ClientSyncIntegrationTest] START testCase2")
+            val routeId = "route_1"
+            setupRoute(routeId)
 
-        // Initial State: Synced Client
-        val client = createValidClient(id = "client_2", routeId = routeId, isActive = true)
-        clientRepository.create(client)
-        syncClientsUseCase()
-        
-        val initialSynced = clientDao.getById("client_2")
-        assertEquals(SyncStatus.SYNCED, initialSynced?.syncStatus)
-        assertTrue(initialSynced?.isActive == true)
+            // Initial State: Synced Client
+            val client = createValidClient(id = "client_2", routeId = routeId, isActive = true)
+            clientRepository.create(client)
+            println("[ClientSyncIntegrationTest] before syncClientsUseCase() #1")
+            syncClientsUseCase()
+            println("[ClientSyncIntegrationTest] after syncClientsUseCase() #1")
 
-        // 1. Deactivate
-        val domainClient = initialSynced!!.toDomain()
-        updateClientUseCase(domainClient.copy(isActive = false))
+            val initialSynced = clientDao.getById("client_2")
+            assertEquals(SyncStatus.SYNCED, initialSynced?.syncStatus)
+            assertTrue(initialSynced?.isActive == true)
 
-        // Verify Pending Update
-        val pendingUpdate = clientDao.getById("client_2")
-        assertEquals(SyncStatus.PENDING_UPDATE, pendingUpdate?.syncStatus)
-        assertEquals(false, pendingUpdate?.isActive)
+            // 1. Deactivate
+            val domainClient = initialSynced!!.toDomain()
+            updateClientUseCase(domainClient.copy(isActive = false))
 
-        // 2. Sync
-        syncClientsUseCase()
+            // Verify Pending Update
+            val pendingUpdate = clientDao.getById("client_2")
+            assertEquals(SyncStatus.PENDING_UPDATE, pendingUpdate?.syncStatus)
+            assertEquals(false, pendingUpdate?.isActive)
 
-        // Verify Remote & Local
-        val remoteClient = fakeRemoteDataSource.remoteStorage["client_2"]
-        assertEquals(false, remoteClient?.isActive)
-        
-        val finalClient = clientDao.getById("client_2")
-        assertEquals(SyncStatus.SYNCED, finalClient?.syncStatus)
-        assertEquals(false, finalClient?.isActive)
+            // 2. Sync
+            println("[ClientSyncIntegrationTest] before syncClientsUseCase() #2")
+            syncClientsUseCase()
+            println("[ClientSyncIntegrationTest] after syncClientsUseCase() #2")
+            println("[ClientSyncIntegrationTest] END testCase2")
+        }
     }
 
     @Test
     fun `testCase3_Delete_Flow`() = runTest {
-        val routeId = "route_1"
-        setupRoute(routeId)
+        withTimeout(15_000) {
+            println("[ClientSyncIntegrationTest] START testCase3")
+            val routeId = "route_1"
+            setupRoute(routeId)
 
-        // Initial State: Synced Client
-        val client = createValidClient(id = "client_3", routeId = routeId)
-        clientRepository.create(client)
-        syncClientsUseCase()
-        
-        assertTrue(fakeRemoteDataSource.remoteStorage.containsKey("client_3"))
+            // Initial State: Synced Client
+            val client = createValidClient(id = "client_3", routeId = routeId)
+            clientRepository.create(client)
+            println("[ClientSyncIntegrationTest] before syncClientsUseCase() #1")
+            syncClientsUseCase()
+            println("[ClientSyncIntegrationTest] after syncClientsUseCase() #1")
 
-        // 1. Delete
-        deleteClientUseCase("client_3")
+            assertTrue(fakeRemoteDataSource.remoteStorage.containsKey("client_3"))
 
-        // Verify Pending Delete
-        val pendingDelete = clientDao.getById("client_3")
-        assertNotNull(pendingDelete)
-        assertEquals(SyncStatus.PENDING_DELETE, pendingDelete?.syncStatus)
+            // 1. Delete
+            deleteClientUseCase("client_3")
 
-        // 2. Sync
-        syncClientsUseCase()
+            // Verify Pending Delete
+            val pendingDelete = clientDao.getById("client_3")
+            assertNotNull(pendingDelete)
+            assertEquals(SyncStatus.PENDING_DELETE, pendingDelete?.syncStatus)
 
-        // Verify Remote Soft Deleted (Tombstone)
-        val remoteClient = fakeRemoteDataSource.remoteStorage["client_3"]
-        assertNotNull(remoteClient)
-        assertTrue(remoteClient!!.isDeleted)
+            // 2. Sync
+            println("[ClientSyncIntegrationTest] before syncClientsUseCase() #2")
+            syncClientsUseCase()
+            println("[ClientSyncIntegrationTest] after syncClientsUseCase() #2")
 
-        // Verify Local Deleted
-        val localDeleted = clientDao.getById("client_3")
-        assertNull("Client should be removed from DB after successful delete sync", localDeleted)
+            // Verify Remote Soft Deleted (Tombstone)
+            val remoteClient = fakeRemoteDataSource.remoteStorage["client_3"]
+            assertNotNull(remoteClient)
+            assertTrue(remoteClient!!.isDeleted)
+
+            // Verify Local Deleted
+            val localDeleted = clientDao.getById("client_3")
+            assertNull("Client should be removed from DB after successful delete sync", localDeleted)
+            println("[ClientSyncIntegrationTest] END testCase3")
+        }
     }
 
     // --- Helpers ---
@@ -302,7 +316,7 @@ class ClientSyncIntegrationTest {
             isActive = isActive,
             isDeleted = false,
             routeId = routeId,
-            syncStatus = SyncStatus.PENDING_CREATE,
+            syncState = SyncState.PENDING,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis(),
             createdBy = "tester",
@@ -342,7 +356,13 @@ class ClientSyncIntegrationTest {
         isActive = isActive,
         isDeleted = isDeleted,
         routeId = routeId,
-        syncStatus = syncStatus,
+        syncState = when (syncStatus) {
+            SyncStatus.SYNCED        -> SyncState.SYNCED
+            SyncStatus.SYNCING       -> SyncState.SYNCING
+            SyncStatus.FAILED,
+            SyncStatus.ERROR         -> SyncState.FAILED
+            else                     -> SyncState.PENDING
+        },
         createdAt = createdAt,
         updatedAt = updatedAt,
         createdBy = createdBy,

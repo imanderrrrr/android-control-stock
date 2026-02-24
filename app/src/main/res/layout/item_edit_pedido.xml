@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Ítem de la lista editable del pedido -->
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="8dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/palette_300"
+    app:strokeWidth="1dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp">
+
+        <!-- Imagen del producto -->
+        <FrameLayout
+            android:id="@+id/imageContainerEdit"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:background="@drawable/bg_image_container"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent">
+
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/imageEditProduct"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop"
+                android:visibility="invisible"
+                app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Distribuidora.ImageRounded" />
+
+            <ImageView
+                android:id="@+id/imageEditPlaceholder"
+                android:layout_width="24dp"
+                android:layout_height="24dp"
+                android:layout_gravity="center"
+                android:src="@drawable/ic_product_placeholder"
+                android:alpha="0.45"
+                android:contentDescription="@null" />
+
+        </FrameLayout>
+
+        <!-- Botón eliminar (esquina superior derecha) -->
+        <ImageButton
+            android:id="@+id/btnDeleteEditItem"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/edit_pedido_delete_item"
+            android:src="@drawable/ic_delete"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Nombre del producto -->
+        <TextView
+            android:id="@+id/textEditItemNombre"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+            android:textStyle="bold"
+            android:maxLines="2"
+            android:ellipsize="end"
+            app:layout_constraintStart_toEndOf="@id/imageContainerEdit"
+            app:layout_constraintEnd_toStartOf="@id/btnDeleteEditItem"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Precio unitario -->
+        <TextView
+            android:id="@+id/textEditItemPrecio"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="2dp"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:alpha="0.65"
+            app:layout_constraintStart_toEndOf="@id/imageContainerEdit"
+            app:layout_constraintEnd_toStartOf="@id/textEditItemSubtotal"
+            app:layout_constraintTop_toBottomOf="@id/textEditItemNombre" />
+
+        <!-- Subtotal del ítem (derecha) -->
+        <TextView
+            android:id="@+id/textEditItemSubtotal"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+            android:textStyle="bold"
+            android:textColor="?attr/colorPrimary"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/btnDeleteEditItem" />
+
+        <!-- Control de cantidad: − qty + -->
+        <ImageButton
+            android:id="@+id/btnDecrQty"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Decrementar"
+            android:src="@drawable/ic_remove"
+            android:layout_marginStart="10dp"
+            android:layout_marginTop="4dp"
+            app:layout_constraintStart_toEndOf="@id/imageContainerEdit"
+            app:layout_constraintTop_toBottomOf="@id/textEditItemPrecio"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <TextView
+            android:id="@+id/textEditQty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="40dp"
+            android:gravity="center"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textStyle="bold"
+            app:layout_constraintStart_toEndOf="@id/btnDecrQty"
+            app:layout_constraintTop_toTopOf="@id/btnDecrQty"
+            app:layout_constraintBottom_toBottomOf="@id/btnDecrQty" />
+
+        <ImageButton
+            android:id="@+id/btnIncrQty"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Incrementar"
+            android:src="@drawable/ic_add"
+            app:layout_constraintStart_toEndOf="@id/textEditQty"
+            app:layout_constraintTop_toTopOf="@id/btnDecrQty"
+            app:layout_constraintBottom_toBottomOf="@id/btnDecrQty" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</com.google.android.material.card.MaterialCardView>

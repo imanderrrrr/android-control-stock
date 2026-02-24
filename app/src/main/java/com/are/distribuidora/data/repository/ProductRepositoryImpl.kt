@@ -8,8 +8,10 @@ import androidx.paging.map
 import com.are.distribuidora.core.sync.SyncDebug
 import com.are.distribuidora.data.local.dao.ProductDao
 import com.are.distribuidora.data.local.mapper.toDomain
+import com.are.distribuidora.data.local.toSyncState
 import com.are.distribuidora.data.mapper.toDomainOrNull
 import com.are.distribuidora.data.mapper.toEntity
+import com.are.distribuidora.domain.core.SyncState
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.domain.product.ProductRepository
 import kotlinx.coroutines.flow.Flow
@@ -106,10 +108,39 @@ class ProductRepositoryImpl @Inject constructor(
         coordinator.notifyLocalChange(source = "REPO_DELETE")
     }
 
-    override fun getSyncStatuses(): Flow<Map<String, com.are.distribuidora.data.local.SyncStatus>> {
+    override fun getSyncStatuses(): Flow<Map<String, SyncState>> {
         return productDao.getSyncStatuses()
             .map { list ->
-                list.associate { it.id to it.syncStatus }
+                list.associate { it.id to it.syncStatus.toSyncState() }
             }
+    }
+
+    override suspend fun findByBarcode(barcode: String): com.are.distribuidora.domain.model.Product? {
+        return productDao.findByBarcode(barcode)?.toDomainOrNull()
+    }
+
+    override suspend fun incrementStock(productId: String, delta: Int) {
+        require(delta > 0) { "delta debe ser > 0" }
+        _incrementStockTransactional(productId, delta)
+        coordinator.notifyLocalChange(source = "REPO_INCREMENT_STOCK")
+    }
+
+    @androidx.room.Transaction
+    private suspend fun _incrementStockTransactional(productId: String, delta: Int) {
+        val existing = productDao.getById(productId) ?: return
+        val newStock = existing.stock + delta
+        val nextStatus = when (existing.syncStatus) {
+            com.are.distribuidora.data.local.SyncStatus.PENDING_CREATE -> com.are.distribuidora.data.local.SyncStatus.PENDING_CREATE
+            com.are.distribuidora.data.local.SyncStatus.PENDING_DELETE -> return // no tocar
+            else -> com.are.distribuidora.data.local.SyncStatus.PENDING_UPDATE
+        }
+        productDao.update(
+            existing.copy(
+                stock = newStock,
+                syncStatus = nextStatus,
+                updatedAt = System.currentTimeMillis()
+            )
+        )
+        Log.d(TAG, "REPO_INCREMENT_STOCK productId=$productId delta=$delta newStock=$newStock")
     }
 }

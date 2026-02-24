@@ -52,6 +52,7 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
         private val name = itemView.findViewById<TextView>(R.id.productName)
         private val price = itemView.findViewById<TextView>(R.id.productPrice)
         private val stock = itemView.findViewById<TextView>(R.id.productStock)
+        private val comprometido = itemView.findViewById<TextView>(R.id.productComprometido)
         private val menuButton = itemView.findViewById<ImageButton>(R.id.menuButton)
 
         // New Indicators
@@ -89,6 +90,15 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
             price.text = itemView.context.getString(R.string.inventory_price, priceText)
 
             stock.text = itemView.context.getString(R.string.inventory_stock, product.stock.value)
+
+            if (product.comprometido > 0) {
+                comprometido.visibility = View.VISIBLE
+                comprometido.text = itemView.context.getString(
+                    R.string.inventory_comprometido, product.comprometido
+                )
+            } else {
+                comprometido.visibility = View.GONE
+            }
 
             // Bind New Statuses
             syncIndicator.text = item.syncIndicatorText

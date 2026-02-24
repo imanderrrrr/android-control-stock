@@ -1,5 +1,7 @@
 package com.are.distribuidora.client.domain.model
 
+import com.are.distribuidora.domain.core.SyncState
+
 /**
  * Modelo de dominio de cliente.
  * NOTA: No contiene datos sensibles.
@@ -15,7 +17,7 @@ data class Client(
     val isActive: Boolean,
     val isDeleted: Boolean,
     val routeId: String,
-    val syncStatus: com.are.distribuidora.data.local.SyncStatus,
+    val syncState: SyncState,
     val createdAt: Long,
     val updatedAt: Long,
     val createdBy: String,

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Rutas expuestas por el FileProvider para compartir archivos generados
+    internamente (p.ej. PDFs de facturas) sin necesitar permisos de almacenamiento.
+-->
+<paths>
+    <!-- Subcarpeta pdf_tickets dentro de getCacheDir() -->
+    <cache-path
+        name="pdf_tickets"
+        path="pdf_tickets/" />
+</paths>
+

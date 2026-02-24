@@ -19,6 +19,8 @@ data class Product(
     val imageUrl: String? = null,
     val barcode: String? = null,
     val stock: Quantity,
+    /** Unidades pedidas que exceden el stock disponible. Default 0. */
+    val comprometido: Int = 0,
     val isActive: Boolean = true,
     val isDeleted: Boolean = false,
     /**

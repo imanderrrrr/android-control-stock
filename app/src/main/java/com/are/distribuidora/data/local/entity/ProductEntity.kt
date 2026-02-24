@@ -14,7 +14,9 @@ data class ProductEntity(
     val imageUrl: String?,
     val barcode: String?,
     val stock: Int,
-    
+    /** Unidades pedidas que exceden el stock disponible. Default 0. */
+    val comprometido: Int = 0,
+
     val isActive: Boolean = true, // Default true to match Client structure suggestion/requirement
     val isDeleted: Boolean = false,
     

@@ -3,6 +3,8 @@ package com.are.distribuidora.client.data.mapper
 import com.are.distribuidora.client.data.local.entity.ClientEntity
 import com.are.distribuidora.client.data.remote.dto.ClientDto
 import com.are.distribuidora.client.domain.model.Client
+import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 import javax.inject.Inject
 
 /**
@@ -24,7 +26,7 @@ class ClientRemoteMapper @Inject constructor() {
             isActive = dto.isActive,
             isDeleted = dto.isDeleted,
             routeId = dto.routeId.orEmpty(),
-            syncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED,
+            syncState = SyncState.SYNCED, // viene del servidor => ya sincronizado
             createdAt = dto.createdAt,
             updatedAt = dto.updatedAt,
             createdBy = dto.auditCreatedBy,
@@ -43,7 +45,7 @@ class ClientRemoteMapper @Inject constructor() {
             isActive = domain.isActive,
             isDeleted = domain.isDeleted,
             routeId = domain.routeId,
-            syncStatus = domain.syncStatus,
+            syncStatus = domain.syncState.toSyncStatus(),
             createdAt = domain.createdAt,
             updatedAt = domain.updatedAt,
             createdBy = domain.createdBy,
@@ -62,7 +64,7 @@ class ClientRemoteMapper @Inject constructor() {
             isActive = dto.isActive,
             isDeleted = dto.isDeleted,
             routeId = dto.routeId.orEmpty(),
-            syncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED,
+            syncStatus = SyncStatus.SYNCED,
             createdAt = dto.createdAt,
             updatedAt = dto.updatedAt,
             createdBy = dto.auditCreatedBy,
@@ -87,3 +89,6 @@ class ClientRemoteMapper @Inject constructor() {
             routeId = domain.routeId
         )
 }
+
+
+

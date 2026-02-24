@@ -72,7 +72,8 @@ class ProductSyncRepositoryImpl @Inject constructor(
                     imageUrl = r.imageUrl,
                     barcode = r.barcode,
                     stock = Quantity.of(r.stock ?: 0),
-                    isActive = r.isActive ?: true, // Map isActive from remote
+                    comprometido = r.comprometido ?: 0,
+                    isActive = r.isActive ?: true,
                     isDeleted = r.isDeleted ?: false,
                     createdAt = r.createdRemoteAt ?: 0L,
                     updatedAt = r.updatedRemoteAt ?: 0L,
@@ -224,7 +225,7 @@ class ProductSyncRepositoryImpl @Inject constructor(
                         imageUrl = effectiveImageUrl,
                         barcode = domain.barcode,
                         stock = domain.stock.value,
-                        comprometido = 0,
+                        comprometido = domain.comprometido,
                         isActive = entity.isActive,
                         isDeleted = entity.isDeleted,
                         createdRemoteAt = domain.createdAt,

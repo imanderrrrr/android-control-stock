@@ -8,6 +8,7 @@ import com.are.distribuidora.orders.data.local.dao.OrderItemStagingDao
 import com.are.distribuidora.orders.data.local.entity.OrderEntity
 import com.are.distribuidora.orders.data.local.entity.OrderItemEntity
 import com.are.distribuidora.orders.data.local.entity.OrderItemStagingEntity
+import kotlinx.coroutines.flow.Flow
 
 class RoomOrderLocalDataSource(
     private val db: DistribuidoraDatabase,
@@ -20,6 +21,23 @@ class RoomOrderLocalDataSource(
 
     override suspend fun upsertOrderHeader(entity: OrderEntity) {
         orderDao.upsert(entity)
+    }
+
+    override suspend fun deleteOwnHeaders(routeId: String, deliveryDate: String, vendedorId: String, now: Long) {
+        orderDao.deleteOwnHeaders(routeId = routeId, deliveryDate = deliveryDate, vendedorId = vendedorId, now = now)
+    }
+
+    override suspend fun deleteAllOwnHeadersByRoute(routeId: String, vendedorId: String, now: Long) {
+        orderDao.deleteAllOwnHeadersByRoute(routeId = routeId, vendedorId = vendedorId, now = now)
+    }
+
+    override suspend fun markOrderDeleted(orderId: String, now: Long) {
+        orderDao.markDeleted(orderId = orderId, now = now)
+    }
+
+    override suspend fun deleteItemsByOrderId(orderId: String) {
+        orderItemDao.deleteByOrderId(orderId)
+        stagingDao.deleteByOrderId(orderId)
     }
 
     override suspend fun getOrderById(orderId: String): OrderEntity? =
@@ -44,7 +62,8 @@ class RoomOrderLocalDataSource(
                 downloadStatus = "IN_PROGRESS",
                 failedReasonCode = null,
                 failedReasonMessage = null,
-                failedAttempts = current.failedAttempts + 1,
+                // failedAttempts NO se incrementa aquí: solo se cuenta si realmente falla.
+                // El incremento ocurre en markFailed para no penalizar intentos exitosos.
                 lastAttemptAt = now,
                 updatedAt = now,
             )
@@ -63,6 +82,8 @@ class RoomOrderLocalDataSource(
                 downloadStatus = "FAILED",
                 failedReasonCode = reasonCode,
                 failedReasonMessage = reasonMessage,
+                // failedAttempts se incrementa aquí, donde sí se confirmó el fallo.
+                failedAttempts = current.failedAttempts + 1,
                 lastAttemptAt = now,
                 updatedAt = now,
             )
@@ -114,4 +135,13 @@ class RoomOrderLocalDataSource(
             orderDao.upsert(updated)
         }
     }
+
+    override fun observeByRoute(routeId: String): Flow<List<OrderEntity>> =
+        orderDao.observeByRoute(routeId)
+
+    override fun observeByRouteAndDate(routeId: String, deliveryDate: String): Flow<List<OrderEntity>> =
+        orderDao.observeByRouteAndDate(routeId = routeId, deliveryDate = deliveryDate)
+
+    override suspend fun getItemsByOrderId(orderId: String): List<OrderItemEntity> =
+        orderItemDao.getByOrderId(orderId)
 }

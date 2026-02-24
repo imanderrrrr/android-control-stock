@@ -30,7 +30,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import io.mockk.coEvery
 import io.mockk.mockk
-import io.mockk.firstArg
 import io.mockk.every
 import androidx.room.withTransaction
 import com.are.distribuidora.data.remote.model.RemoteProduct

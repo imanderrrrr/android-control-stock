@@ -40,8 +40,11 @@ import com.are.distribuidora.route.data.local.entity.RouteEntity
         OrderItemEntity::class,
         OrderItemStagingEntity::class,
     ],
-    version = 16,
+    version = 28,
     exportSchema = true,
+)
+@androidx.room.TypeConverters(
+    com.are.distribuidora.data.local.converter.SyncStatusConverters::class
 )
 abstract class DistribuidoraDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
@@ -61,7 +64,6 @@ abstract class DistribuidoraDatabase : RoomDatabase() {
 
     /**
      * Wrapper para ejecutar operaciones en una transacción.
-     * Evita que los repositorios dependan de extensiones de RoomDatabase en llamadas externas.
      */
     suspend fun <R> runInTransaction(block: suspend () -> R): R = withTransaction { block() }
 }

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="24dp">
+
+    <!-- Nombre del producto -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/layoutCustomName"
+        style="@style/Widget.Distribuidora.TextInputLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="@string/cart_custom_item_name_hint">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputCustomName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textCapWords"
+            android:imeOptions="actionNext"
+            android:maxLines="1" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Cantidad -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/layoutCustomQty"
+        style="@style/Widget.Distribuidora.TextInputLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:hint="@string/cart_custom_item_qty_hint">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputCustomQty"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="numberDecimal"
+            android:imeOptions="actionNext"
+            android:maxLines="1" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Precio unitario -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/layoutCustomPrice"
+        style="@style/Widget.Distribuidora.TextInputLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:hint="@string/cart_custom_item_price_hint"
+        app:prefixText="Q ">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputCustomPrice"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="numberDecimal"
+            android:imeOptions="actionNext"
+            android:maxLines="1" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Subtotal preview -->
+    <TextView
+        android:id="@+id/textCustomSubtotal"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+        android:textColor="?attr/colorPrimary"
+        android:textStyle="bold"
+        android:gravity="end"
+        android:visibility="gone" />
+
+    <!-- Detalles (opcional) -->
+    <com.google.android.material.textfield.TextInputLayout
+        android:id="@+id/layoutCustomNotes"
+        style="@style/Widget.Distribuidora.TextInputLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:hint="@string/cart_custom_item_notes_hint">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/inputCustomNotes"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="textMultiLine|textCapSentences"
+            android:imeOptions="actionDone"
+            android:maxLines="3" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <!-- Error general -->
+    <TextView
+        android:id="@+id/textCustomError"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
+        android:textColor="@color/palette_800"
+        android:visibility="gone" />
+
+</LinearLayout>
+

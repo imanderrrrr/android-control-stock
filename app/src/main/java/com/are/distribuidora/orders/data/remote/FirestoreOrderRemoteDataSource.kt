@@ -1,16 +1,21 @@
 package com.are.distribuidora.orders.data.remote
 
 import android.util.Log
+import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
 /**
- * Implementación Firestore (solo lectura) para pedidos.
+ * Implementación Firestore (lectura) para pedidos.
  *
- * Estructura remota esperada:
+ * Estructura remota (única fuente de verdad para pedidos):
  * routes/{routeId}/orders/{orderId}
  *  - Campos mínimos: orderId, routeId, deliveryDate, clientName, clientAddress, sellerName, itemsCount
- *  - items: array con items completos
+ *
+ * routes/{routeId}/orders/{orderId}/items/{itemId}
+ *  - Campos: itemId, productId, productName, unitPrice, quantity
+ *
+ * NOTA: La colección legacy "pedidos" ya NO se consulta en este flujo.
  */
 class FirestoreOrderRemoteDataSource(
     private val firestore: FirebaseFirestore,
@@ -36,6 +41,10 @@ class FirestoreOrderRemoteDataSource(
             val clientName = ((data["clientName"] as? String) ?: "").trim()
             val clientAddress = data["clientAddress"] as? String
             val sellerName = data["sellerName"] as? String
+            // vendedorId: UID del creador. Puede ser null en pedidos legacy.
+            val vendedorId = (data["vendedorId"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            // isDeleted: soft delete. Default false para compatibilidad con docs legacy sin el campo.
+            val isDeleted = (data["isDeleted"] as? Boolean) ?: false
 
             if (orderId.isBlank() || rId.isBlank() || date.isBlank() || clientName.isBlank()) {
                 Log.w(tag, "fetchOrderHeaders: header incompleto; skip docId=${doc.id}")
@@ -58,33 +67,96 @@ class FirestoreOrderRemoteDataSource(
                 clientAddress = clientAddress,
                 sellerName = sellerName,
                 itemsCount = itemsCount,
+                vendedorId = vendedorId,
+                isDeleted = isDeleted,
             )
         }
     }
 
+    override suspend fun fetchAllOrderHeaders(routeId: String): List<OrderRemoteDataSource.OrderHeaderDto> {
+        val snapshot = firestore
+            .collection("routes")
+            .document(routeId)
+            .collection("orders")
+            .get()
+            .await()
+
+        return snapshot.documents.mapNotNull { doc ->
+            val data = doc.data ?: return@mapNotNull null
+
+            val orderId = ((data["orderId"] as? String) ?: doc.id).trim()
+            val rId = ((data["routeId"] as? String) ?: routeId).trim()
+            val date = ((data["deliveryDate"] as? String) ?: "").trim()
+            val clientName = ((data["clientName"] as? String) ?: "").trim()
+            val clientAddress = data["clientAddress"] as? String
+            val sellerName = data["sellerName"] as? String
+            val vendedorId = (data["vendedorId"] as? String)?.trim()?.takeIf { it.isNotBlank() }
+            val isDeleted = (data["isDeleted"] as? Boolean) ?: false
+
+            if (orderId.isBlank() || rId.isBlank() || clientName.isBlank()) {
+                Log.w(tag, "fetchAllOrderHeaders: header incompleto; skip docId=${doc.id}")
+                return@mapNotNull null
+            }
+
+            val itemsCountAny = data["itemsCount"]
+            val parsedCount = when (itemsCountAny) {
+                is Number -> itemsCountAny.toInt()
+                is String -> itemsCountAny.toIntOrNull()
+                else -> null
+            } ?: 0
+            val itemsCount = if (parsedCount < 0) 0 else parsedCount
+
+            OrderRemoteDataSource.OrderHeaderDto(
+                orderId = orderId,
+                routeId = rId,
+                deliveryDate = date,
+                clientName = clientName,
+                clientAddress = clientAddress,
+                sellerName = sellerName,
+                itemsCount = itemsCount,
+                vendedorId = vendedorId,
+                isDeleted = isDeleted,
+            )
+        }
+    }
+
+    /**
+     * Lee la subcolección routes/{routeId}/orders/{orderId}/items.
+     * Cada doc de la subcolección representa un item con su itemId como docId.
+     */
     override suspend fun fetchOrderItems(routeId: String, orderId: String): List<OrderRemoteDataSource.OrderItemDto> {
-        val doc = firestore
+        Log.d(tag, "fetchOrderItems: start orderId=$orderId routeId=$routeId")
+
+        val snapshot = firestore
             .collection("routes")
             .document(routeId)
             .collection("orders")
             .document(orderId)
+            .collection("items")
             .get()
             .await()
 
-        val data = doc.data ?: return emptyList()
+        if (snapshot.isEmpty) {
+            Log.w(tag, "fetchOrderItems: subcolección vacía orderId=$orderId")
+            return emptyList()
+        }
 
-        @Suppress("UNCHECKED_CAST")
-        val rawItems = data["items"] as? List<Map<String, Any?>> ?: emptyList()
+        val items = snapshot.documents.mapNotNull { doc ->
+            val data = doc.data ?: return@mapNotNull null
 
-        val items = rawItems.mapNotNull { itemMap ->
-            val productIdAny = itemMap["productId"] ?: return@mapNotNull null
-            val productId = productIdAny.toString().trim()
+            // itemId: preferir campo explícito, si no usar docId
+            val itemId = ((data["itemId"] as? String)?.trim()?.takeIf { it.isNotBlank() }) ?: doc.id
+
+            val productId = (data["productId"] as? String)?.trim()
+                ?: return@mapNotNull null.also {
+                    Log.w(tag, "fetchOrderItems: item sin productId; skip docId=${doc.id}")
+                }
             if (productId.isBlank()) return@mapNotNull null
 
-            val productName = (itemMap["productName"] as? String)?.trim().orEmpty()
+            val productName = (data["productName"] as? String)?.trim().orEmpty()
             if (productName.isBlank()) return@mapNotNull null
 
-            val unitPriceAny = itemMap["unitPrice"] ?: return@mapNotNull null
+            val unitPriceAny = data["unitPrice"] ?: return@mapNotNull null
             val unitPrice = when (unitPriceAny) {
                 is Number -> unitPriceAny.toDouble()
                 is String -> unitPriceAny.toDoubleOrNull() ?: return@mapNotNull null
@@ -92,7 +164,7 @@ class FirestoreOrderRemoteDataSource(
             }
             if (unitPrice < 0.0) return@mapNotNull null
 
-            val quantityAny = itemMap["quantity"] ?: return@mapNotNull null
+            val quantityAny = data["quantity"] ?: return@mapNotNull null
             val quantity = when (quantityAny) {
                 is Number -> quantityAny.toInt()
                 is String -> quantityAny.toIntOrNull() ?: return@mapNotNull null
@@ -101,6 +173,7 @@ class FirestoreOrderRemoteDataSource(
             if (quantity <= 0) return@mapNotNull null
 
             OrderRemoteDataSource.OrderItemDto(
+                itemId = itemId,
                 productId = productId,
                 productName = productName,
                 unitPrice = unitPrice,
@@ -108,10 +181,47 @@ class FirestoreOrderRemoteDataSource(
             )
         }
 
-        if (items.isEmpty() && rawItems.isNotEmpty()) {
-            Log.w(tag, "fetchOrderItems: items inválidos/filtrados; orderId=$orderId raw=${rawItems.size}")
+        Log.d(tag, "fetchOrderItems: end orderId=$orderId fetched=${items.size} rawDocs=${snapshot.size()}")
+
+        if (items.isEmpty() && snapshot.documents.isNotEmpty()) {
+            Log.w(tag, "fetchOrderItems: todos los items fueron filtrados por datos inválidos; orderId=$orderId raw=${snapshot.size()}")
         }
 
         return items
+    }
+
+    /**
+     * Soft delete en Firestore: actualiza isDeleted=true en el doc del pedido.
+     * NO borra físicamente el documento ni sus items.
+     *
+     * Campos actualizados:
+     *   - isDeleted = true
+     *   - updatedAt = Timestamp.now()
+     *
+     * Patrón idéntico al de productos/clientes (solo isDeleted + updatedAt, sin deletedAt/deletedBy
+     * porque el modelo base no los usa).
+     */
+    override suspend fun markOrderDeleted(routeId: String, orderId: String, deletedByUid: String?) {
+        if (routeId.isBlank() || orderId.isBlank()) {
+            Log.w(tag, "markOrderDeleted: routeId o orderId vacío; skip")
+            return
+        }
+
+        val updates: Map<String, Any> = buildMap {
+            put("isDeleted", true)
+            put("updatedAt", Timestamp.now())
+            // deletedBy no es parte del patrón base (productos/clientes no lo usan)
+            // pero se loguea para auditoría
+        }
+
+        firestore
+            .collection("routes")
+            .document(routeId)
+            .collection("orders")
+            .document(orderId)
+            .update(updates)
+            .await()
+
+        Log.i(tag, "markOrderDeleted: ok orderId=$orderId routeId=$routeId deletedBy=$deletedByUid")
     }
 }

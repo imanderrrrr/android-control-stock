@@ -142,17 +142,13 @@ class ProductDetailFragment : Fragment() {
 
                             // Chips: sync (reutiliza labels existentes)
                             chipSync.visibility = View.VISIBLE
-                            chipSync.text = when (state.syncStatus) {
+                            chipSync.text = when (state.syncState) {
                                 null -> getString(R.string.product_detail_sync_unknown)
-                                com.are.distribuidora.data.local.SyncStatus.SYNCED -> getString(R.string.product_detail_sync_synced)
-                                com.are.distribuidora.data.local.SyncStatus.SYNCING -> getString(R.string.product_detail_sync_syncing)
-                                com.are.distribuidora.data.local.SyncStatus.PENDING -> getString(R.string.product_detail_sync_pending)
-                                com.are.distribuidora.data.local.SyncStatus.PENDING_CREATE -> getString(R.string.product_detail_sync_pending_create)
-                                com.are.distribuidora.data.local.SyncStatus.PENDING_UPDATE -> getString(R.string.product_detail_sync_pending_update)
-                                com.are.distribuidora.data.local.SyncStatus.PENDING_DELETE -> getString(R.string.product_detail_sync_pending_delete)
-                                com.are.distribuidora.data.local.SyncStatus.FAILED -> getString(R.string.product_detail_sync_failed)
-                                com.are.distribuidora.data.local.SyncStatus.ERROR -> getString(R.string.product_detail_sync_failed)
-                                com.are.distribuidora.data.local.SyncStatus.CONFLICT -> getString(R.string.product_detail_sync_conflict)
+                                com.are.distribuidora.domain.core.SyncState.SYNCED   -> getString(R.string.product_detail_sync_synced)
+                                com.are.distribuidora.domain.core.SyncState.SYNCING  -> getString(R.string.product_detail_sync_syncing)
+                                com.are.distribuidora.domain.core.SyncState.PENDING  -> getString(R.string.product_detail_sync_pending)
+                                com.are.distribuidora.domain.core.SyncState.FAILED   -> getString(R.string.product_detail_sync_failed)
+                                com.are.distribuidora.domain.core.SyncState.CONFLICT -> getString(R.string.product_detail_sync_conflict)
                             }
                             chipSync.isChipIconVisible = false
 

@@ -6,6 +6,7 @@ import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
 import com.are.distribuidora.orders.data.local.entity.OrderEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface OrderDao {
@@ -15,12 +16,53 @@ interface OrderDao {
     @Update
     suspend fun update(entity: OrderEntity)
 
+    /** Obtiene por id sin filtrar isDeleted (para uso interno: soft delete, guard rails). */
     @Query("SELECT * FROM orders WHERE orderId = :orderId LIMIT 1")
     suspend fun getById(orderId: String): OrderEntity?
 
-    @Query("SELECT * FROM orders WHERE routeId = :routeId AND deliveryDate = :deliveryDate")
+    /** Lista pública: excluye eliminados y pedidos propios. */
+    @Query("SELECT * FROM orders WHERE routeId = :routeId AND deliveryDate = :deliveryDate AND isDeleted = 0")
     suspend fun getByRouteAndDate(routeId: String, deliveryDate: String): List<OrderEntity>
 
-    @Query("SELECT COUNT(*) FROM orders WHERE routeId = :routeId AND deliveryDate = :deliveryDate")
+    @Query("SELECT COUNT(*) FROM orders WHERE routeId = :routeId AND deliveryDate = :deliveryDate AND isDeleted = 0")
     suspend fun countByRouteAndDate(routeId: String, deliveryDate: String): Int
+
+    /**
+     * Soft delete de los headers propios acotado a routeId+deliveryDate+vendedorId.
+     * Usa isDeleted=1 en lugar de DELETE físico para preservar pedidos ya COMPLETED
+     * con sus items descargados, evitando pérdida de datos locales en cada sync.
+     */
+    @Query("UPDATE orders SET isDeleted = 1, updatedAt = :now WHERE routeId = :routeId AND deliveryDate = :deliveryDate AND vendedorId = :vendedorId")
+    suspend fun deleteOwnHeaders(routeId: String, deliveryDate: String, vendedorId: String, now: Long)
+
+    /**
+     * Soft delete de todos los headers propios de una ruta (sin filtro de fecha).
+     * Usado por fetchAllOrdersHeader para purgar pedidos propios antes de re-sincronizar.
+     */
+    @Query("UPDATE orders SET isDeleted = 1, updatedAt = :now WHERE routeId = :routeId AND vendedorId = :vendedorId")
+    suspend fun deleteAllOwnHeadersByRoute(routeId: String, vendedorId: String, now: Long)
+
+    /** Soft delete: marca isDeleted=1 y actualiza updatedAt. */
+    @Query("UPDATE orders SET isDeleted = 1, updatedAt = :now WHERE orderId = :orderId")
+    suspend fun markDeleted(orderId: String, now: Long)
+
+    /**
+     * Flow reactivo: emite cada vez que cambia algún order de la ruta.
+     * Excluye eliminados. No filtra vendedorId (el repositorio aplica el filtro en memoria).
+     */
+    @Query("SELECT * FROM orders WHERE routeId = :routeId AND isDeleted = 0 ORDER BY updatedAt DESC")
+    fun observeByRoute(routeId: String): Flow<List<OrderEntity>>
+
+    /**
+     * Flow reactivo filtrado por ruta Y fecha de entrega (YYYY-MM-DD).
+     * Excluye eliminados. El repositorio aplica el filtro Opción B (vendedorId) en memoria.
+     */
+    @Query("""
+        SELECT * FROM orders
+        WHERE routeId = :routeId
+          AND deliveryDate = :deliveryDate
+          AND isDeleted = 0
+        ORDER BY updatedAt DESC
+    """)
+    fun observeByRouteAndDate(routeId: String, deliveryDate: String): Flow<List<OrderEntity>>
 }

@@ -25,6 +25,7 @@
     <string name="product_image">Imagen del producto</string>
     <string name="inventory_price">Precio: %1$s</string>
     <string name="inventory_stock">Stock: %1$d</string>
+    <string name="inventory_comprometido">· Comp: %1$d</string>
 
     <!-- Inventory Header (búsqueda + nuevo) -->
     <string name="inventory_search_hint">Buscar producto</string>
@@ -115,4 +116,133 @@
 
     <string name="chip_status_active">Activo</string>
     <string name="chip_status_inactive">Inactivo</string>
+
+    <!-- Carrito de pedido -->
+    <string name="cart_title">Carrito</string>
+    <string name="cart_empty">Tu carrito está vacío</string>
+    <string name="cart_total_label">Total</string>
+    <string name="cart_continue_placeholder">Continuar</string>
+    <string name="cart_other_options">Otras opciones</string>
+    <string name="cart_option_add_custom">Agregar ítem</string>
+    <string name="cart_option_clear">Vaciar carrito</string>
+    <string name="cart_custom_item_title">Agregar ítem personalizado</string>
+    <string name="cart_custom_item_name_hint">Nombre del producto *</string>
+    <string name="cart_custom_item_qty_hint">Cantidad *</string>
+    <string name="cart_custom_item_price_hint">Precio unitario *</string>
+    <string name="cart_custom_item_notes_hint">Detalles (opcional)</string>
+    <string name="cart_clear_confirm_title">Vaciar carrito</string>
+    <string name="cart_clear_confirm_message">¿Eliminar todos los productos del carrito?</string>
+    <string name="cart_see">Ver carrito</string>
+    <string name="cart_swipe_right_hint">Desliza → para editar cantidad</string>
+    <string name="cart_swipe_left_hint">Desliza ← para aplicar descuento</string>
+    <string name="cart_long_press_hint">Mantén presionado para eliminar</string>
+    <string name="cart_edit_qty_title">Editar cantidad</string>
+    <string name="cart_discount_title">Aplicar descuento</string>
+    <string name="cart_remove_title">Eliminar producto</string>
+    <string name="cart_remove_confirm">Eliminar</string>
+    <string name="cart_action_cancel">Cancelar</string>
+    <string name="cart_action_save">Guardar</string>
+    <string name="cart_action_apply">Aplicar</string>
+
+    <!-- Detalle de producto (flujo pedido) -->
+    <string name="detail_title">Detalle</string>
+    <string name="detail_section_qty">Cantidad</string>
+    <string name="detail_section_notes">Detalles</string>
+    <string name="detail_notes_hint">Sabor, presentación, notas…</string>
+    <string name="detail_qty_otros">Otros</string>
+    <string name="detail_add_preset_desc">Agregar preset de cantidad</string>
+    <string name="detail_add_to_cart">Agregar al carrito</string>
+    <string name="detail_otros_dialog_title">Ingresar cantidad</string>
+    <string name="detail_add_preset_dialog_title">Nuevo preset de cantidad</string>
+    <string name="detail_qty_hint">Cantidad (1–999)</string>
+    <string name="detail_dialog_ok">Aceptar</string>
+    <string name="detail_dialog_cancel">Cancelar</string>
+    <string name="detail_added_snackbar">Agregado al carrito: %1$d uds.</string>
+
+    <!-- Plantillas de detalle -->
+    <string name="detail_templates_label">Detalles guardados</string>
+    <string name="detail_create_template">Crear detalle</string>
+    <string name="detail_create_template_title">Nuevo detalle</string>
+    <string name="detail_template_hint">Sabor, presentación, notas…</string>
+    <string name="detail_delete_template_title">Eliminar detalle</string>
+    <string name="detail_delete_template_message">¿Eliminar "%1$s"?</string>
+    <string name="detail_delete_template_confirm">Eliminar</string>
+
+    <!-- Pantalla Pedidos -->
+    <string name="pedidos_empty">No hay pedidos registrados</string>
+    <string name="pedidos_empty_date">No hay pedidos para esta fecha</string>
+    <string name="pedidos_route_subtitle">%1$d pedido(s)</string>
+    <string name="pedidos_item_count">%1$d ítem(s)</string>
+    <string name="pedidos_detalle_title">Pedido</string>
+    <string name="pedido_menu_delete">Eliminar</string>
+    <string name="pedido_delete_dialog_title">Eliminar pedido</string>
+    <string name="pedido_delete_dialog_message">¿Estás seguro de que deseas eliminar el pedido de %1$s? Esta acción no se puede deshacer.</string>
+    <string name="pedido_delete_confirm">Eliminar</string>
+    <string name="pedido_delete_cancel">Cancelar</string>
+    <string name="pedido_delete_success">Pedido eliminado</string>
+    <string name="pedido_delete_error">Error al eliminar el pedido</string>
+
+    <!-- Filtro de fecha en Mis Pedidos -->
+    <string name="pedidos_date_filter_today">Hoy</string>
+    <string name="pedidos_date_filter_title">Seleccionar fecha</string>
+
+    <!-- Tabs de Pedidos -->
+    <string name="pedidos_tab_mis_pedidos">Mis Pedidos</string>
+    <string name="pedidos_tab_otros_pedidos">Otros Pedidos</string>
+
+    <!-- Sección Otros Pedidos -->
+    <string name="otros_pedidos_empty">No hay pedidos de otros vendedores</string>
+    <string name="otros_orders_route_subtitle">%1$d pedido(s) asignado(s)</string>
+    <string name="otros_items_count">%1$d ítem(s)</string>
+    <string name="otros_seller_label">Vendedor: %1$s</string>
+    <string name="otros_download_btn_desc">Descargar items del pedido</string>
+    <string name="otros_download_success">Items descargados correctamente</string>
+    <string name="otros_download_error">Error al descargar los items. Intenta de nuevo</string>
+    <string name="otros_download_in_progress">Descargando… espera un momento</string>
+    <string name="otros_detalle_empty">Pedido no descargado o no disponible</string>
+
+    <!-- Diálogo de descuento por ítem del carrito -->
+    <!-- %1$s = porcentaje formateado (ej. "10.5"), %2$s = monto formateado con moneda -->
+    <string name="cart_discount_current">Descuento actual: %1$s%%</string>
+    <string name="cart_discount_preview">Nuevo subtotal (reemplaza descuento): %1$s</string>
+    <string name="cart_discount_range_error">Ingresa un valor entre 0 y 100</string>
+
+    <!-- Pantalla Editar Pedido -->
+    <string name="edit_pedido_title">Editar pedido</string>
+    <string name="edit_pedido_add_item">Agregar ítem</string>
+    <string name="edit_pedido_save">Guardar cambios</string>
+    <string name="edit_pedido_cancel">Cancelar</string>
+    <string name="edit_pedido_saved">Cambios guardados — pendiente de sincronizar</string>
+    <string name="edit_pedido_delete_item">Eliminar ítem</string>
+    <string name="edit_pedido_delete_item_title">Eliminar ítem</string>
+    <string name="edit_pedido_delete_item_message">¿Eliminar %1$s del pedido?</string>
+    <string name="edit_pedido_delete_confirm">Eliminar</string>
+    <string name="pedido_menu_edit">Editar</string>
+
+    <!-- Menú botón "+" en Inventario -->
+    <string name="menu_add_product">Agregar producto</string>
+    <string name="menu_add_stock">Agregar stock</string>
+
+    <!-- Escáner de código de barras -->
+    <string name="scanner_title">Escanear código</string>
+    <string name="scanner_hint">Apunta la cámara al código de barras del producto</string>
+    <string name="scanner_permission_rationale">Se necesita permiso de cámara para escanear códigos de barras.</string>
+    <string name="scanner_permission_denied">Permiso de cámara denegado. Ve a Ajustes para habilitarlo.</string>
+    <string name="scanner_open_settings">Abrir ajustes</string>
+    <string name="scanner_go_back">Volver</string>
+
+    <!-- Diálogo Agregar stock -->
+    <string name="add_stock_dialog_title">Agregar stock</string>
+    <string name="add_stock_quantity_hint">Unidades a agregar</string>
+    <string name="add_stock_confirm">Agregar</string>
+    <string name="add_stock_cancel">Cancelar</string>
+    <string name="add_stock_success">Stock actualizado: +%1$d</string>
+    <string name="add_stock_error">Error al actualizar el stock</string>
+    <string name="add_stock_invalid_quantity">La cantidad debe ser mayor a 0</string>
+
+    <!-- Diálogo producto no encontrado -->
+    <string name="product_not_found_title">Producto no encontrado</string>
+    <string name="product_not_found_message">No existe un producto con el código: %1$s</string>
+    <string name="product_not_found_create">Crear producto</string>
+    <string name="product_not_found_cancel">Cancelar</string>
 </resources>

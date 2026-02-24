@@ -1,7 +1,7 @@
 package com.are.distribuidora.client
 
 import com.are.distribuidora.client.domain.model.Client
-import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 
 fun testClient(
     id: String = "client-1",
@@ -19,7 +19,7 @@ fun testClient(
         isActive = true,
         isDeleted = false,
         routeId = "route-1",
-        syncStatus = SyncStatus.PENDING_CREATE,
+        syncState = SyncState.PENDING,
         createdAt = now,
         updatedAt = now,
         createdBy = "test",

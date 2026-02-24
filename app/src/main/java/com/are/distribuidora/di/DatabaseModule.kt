@@ -39,6 +39,18 @@ object DatabaseModule {
                 DistribuidoraMigrations.MIGRATION_13_14,
                 DistribuidoraMigrations.MIGRATION_14_15,
                 DistribuidoraMigrations.MIGRATION_15_16,
+                DistribuidoraMigrations.MIGRATION_16_17,
+                DistribuidoraMigrations.MIGRATION_17_18,
+                DistribuidoraMigrations.MIGRATION_18_19,
+                DistribuidoraMigrations.MIGRATION_19_20,
+                DistribuidoraMigrations.MIGRATION_20_21,
+                DistribuidoraMigrations.MIGRATION_21_22,
+                DistribuidoraMigrations.MIGRATION_22_23,
+                DistribuidoraMigrations.MIGRATION_23_24,
+                DistribuidoraMigrations.MIGRATION_24_25,
+                DistribuidoraMigrations.MIGRATION_25_26,
+                DistribuidoraMigrations.MIGRATION_26_27,
+                DistribuidoraMigrations.MIGRATION_27_28,
             )
             .build()
 }

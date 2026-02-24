@@ -210,6 +210,7 @@ class OrdersOfflineIntegrationTest {
             // productId y productName únicos por pedido.
             return (1..count).map { i ->
                 OrderRemoteDataSource.OrderItemDto(
+                    itemId = "$orderId-ITEM-$i",
                     productId = "$orderId-P$i",
                     productName = "Producto $i ($orderId)",
                     unitPrice = 10.0 + i,
