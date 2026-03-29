@@ -2,263 +2,174 @@ package com.are.distribuidora.pedido.presentation.print
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
+import android.graphics.Typeface
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import androidx.core.content.FileProvider
 import com.are.distribuidora.domain.pedido.PedidoWithItems
 import java.io.File
 import java.io.FileOutputStream
-import java.text.NumberFormat
-import java.text.SimpleDateFormat
-import java.util.Currency
-import java.util.Date
-import java.util.Locale
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
- * Genera un PDF de factura con el mismo contenido que [PrintTicketHelper] y
- * devuelve un [Intent] de tipo ACTION_SEND listo para compartir por cualquier app.
+ * Genera un PDF de ticket usando [PdfDocument] + [android.graphics.Canvas] directamente.
  *
- * Responsabilidades (Clean Architecture – capa presentation/helper):
- * - Construir el documento PDF con los datos del pedido.
- * - Guardarlo en cache del app (no requiere permisos de almacenamiento).
- * - Retornar un Intent compartible usando FileProvider.
+ * ¿Por qué NO WebView?
+ *  - WebView tiene timing issues: onPageFinished no garantiza render completo.
+ *  - El font rendering varía entre dispositivos, causando texto cortado.
+ *  - Requiere postDelayed arbitrarios para esperar el re-layout.
  *
- * No accede a ViewModel, repositorios ni Bluetooth.
+ * Con Canvas directo:
+ *  - Síncrono y 100 % determinista.
+ *  - [Paint.measureText] calibra el tamaño de fuente exacto en puntos PDF.
+ *  - Todos los productos aparecen siempre — no hay "render incompleto".
+ *  - No necesita permisos, WebView ni Handler.
+ *
+ * El texto viene de [PrintTicketHelper.buildTicketPreview], que produce
+ * exactamente el mismo contenido que se envía a la impresora física.
  */
 object PdfTicketHelper {
 
-    // ── Dimensiones del "ticket" en puntos (pt) ───────────────────────────────
-    // 1 pt = 1/72 pulgada. Para papel de 80 mm de ancho usamos 226 pt (~80 mm).
-    private const val PAGE_WIDTH_PT  = 226
-    private const val MARGIN_PT      = 12f
+    /** Ancho del ticket 80 mm en puntos PDF (80 × 72 / 25.4 ≈ 226 pt). */
+    private const val PAGE_WIDTH_PT = 226
 
-    // Fuentes y espaciados
-    private const val TEXT_SIZE_NORMAL  = 8f
-    private const val TEXT_SIZE_TITLE   = 10f
-    private const val TEXT_SIZE_BOLD    = 9f
-    private const val LINE_HEIGHT       = 12f
-    private const val SECTION_GAP       = 6f
+    /** Padding horizontal izquierdo y derecho en puntos. */
+    private const val PADDING_PT = 3f
 
-    // Formateadores — mismo locale que PrintTicketHelper
-    private val currencyFmt: NumberFormat by lazy {
-        NumberFormat.getCurrencyInstance(Locale("es", "GT")).also {
-            it.currency = Currency.getInstance("GTQ")
-        }
-    }
-    private val dateTimeFmt = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale("es", "GT"))
+    /**
+     * Número de caracteres por línea del ticket.
+     * Coincide con [PrintTicketHelper.TICKET_WIDTH] = 46.
+     * Se usa para calibrar el tamaño de fuente con [Paint.measureText].
+     */
+    private const val CHARS_PER_LINE = 46
 
+    /** Tamaño de fuente inicial en puntos (se ajusta automáticamente). */
+    private const val BASE_TEXT_SIZE_PT = 7f
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // API PÚBLICA
     // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Crea el PDF en la carpeta de cache y retorna un Intent ACTION_SEND para
-     * compartirlo. El Intent incluye el tipo MIME "application/pdf".
+     * Genera el PDF y retorna un [Intent] ACTION_SEND para compartir.
      *
-     * @param context  Contexto (Activity o Fragment context).
-     * @param pw       Datos completos del pedido (snapshot + items).
-     * @param vendorEmail  Email del vendedor para el encabezado.
-     * @param routeId  ID de la ruta para el encabezado.
-     * @return Intent listo para pasarse a startActivity(chooser).
-     * @throws Exception si falla la escritura del archivo.
+     * Las llamadas a [onProgress] ocurren en el dispatcher del caller
+     * (Main cuando se llama desde [kotlinx.coroutines.CoroutineScope] del Fragment).
+     *
+     * @param onProgress 0‥100. Por defecto vacío para compatibilidad con callers existentes.
      */
-    fun createShareIntent(
+    suspend fun createShareIntent(
         context: Context,
         pw: PedidoWithItems,
         vendorEmail: String,
-        routeId: String,
+        routeName: String,
+        onProgress: (Int) -> Unit = {},
     ): Intent {
-        val pdfFile = buildPdf(context, pw, vendorEmail, routeId)
+        onProgress(10)
+
+        // ── 1. Obtener el texto del ticket ────────────────────────────────────
+        // Misma función que usa buildEscPosBytes → contenido 100 % idéntico al impreso.
+        val lines = PrintTicketHelper
+            .buildTicketPreview(pw, vendorEmail, routeName)
+            .split("\n")
+
+        onProgress(30)
+
+        // ── 2. Construir el PDF en memoria (CPU, Dispatchers.Default) ─────────
+        // Canvas sobre PdfDocument es instantáneo incluso para 200+ líneas.
+        val document = withContext(Dispatchers.Default) {
+            buildDocument(lines)
+        }
+
+        onProgress(75)
+
+        // ── 3. Escribir en disco (Dispatchers.IO) ─────────────────────────────
+        val file = withContext(Dispatchers.IO) {
+            val cacheDir = File(context.cacheDir, "pdf_tickets").also { it.mkdirs() }
+            val safeClient = pw.pedido.clienteSnapshot.nombre
+                .replace(Regex("[^a-zA-Z0-9_ -]"), "")
+                .take(30)
+                .trim()
+            val out = File(cacheDir, "ticket_${safeClient}_${pw.pedido.id.take(8)}.pdf")
+            FileOutputStream(out).use { document.writeTo(it) }
+            document.close()
+            out
+        }
+
+        onProgress(100)
+
         val uri: Uri = FileProvider.getUriForFile(
             context,
             "${context.packageName}.fileprovider",
-            pdfFile,
+            file,
         )
         return Intent(Intent.ACTION_SEND).apply {
             type = "application/pdf"
             putExtra(Intent.EXTRA_STREAM, uri)
-            putExtra(
-                Intent.EXTRA_SUBJECT,
-                "Factura — ${pw.pedido.clienteSnapshot.nombre}",
-            )
+            putExtra(Intent.EXTRA_SUBJECT, "Ticket — ${pw.pedido.clienteSnapshot.nombre}")
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
         }
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // CONSTRUCCIÓN DEL PDF
+    // CONSTRUCCIÓN DEL DOCUMENTO
     // ─────────────────────────────────────────────────────────────────────────
 
-    private fun buildPdf(
-        context: Context,
-        pw: PedidoWithItems,
-        vendorEmail: String,
-        routeId: String,
-    ): File {
-        val pedido = pw.pedido
+    /**
+     * Construye el [PdfDocument] en memoria.
+     *
+     * Flujo:
+     *  1. Configura [Paint] con [Typeface.MONOSPACE].
+     *  2. Calibra [Paint.textSize] para que [CHARS_PER_LINE] chars llenen el ancho disponible.
+     *  3. Calcula la altura de página según el número de líneas.
+     *  4. Dibuja línea a línea con [android.graphics.Canvas.drawText].
+     */
+    private fun buildDocument(lines: List<String>): PdfDocument {
 
-        // ── Calcular alto total necesario ─────────────────────────────────────
-        val lines = collectLines(pw, vendorEmail, routeId)
-        val pageHeight = (MARGIN_PT + lines.size * LINE_HEIGHT + MARGIN_PT + SECTION_GAP * 4).toInt()
-            .coerceAtLeast(400)
-
-        // ── Crear documento ───────────────────────────────────────────────────
-        val document = PdfDocument()
-        val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH_PT, pageHeight, 1).create()
-        val page = document.startPage(pageInfo)
-        val canvas: Canvas = page.canvas
-
-        // ── Paints ────────────────────────────────────────────────────────────
-        val paintNormal = Paint().apply {
+        // ── Configurar la fuente ──────────────────────────────────────────────
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            typeface  = Typeface.MONOSPACE
+            textSize  = BASE_TEXT_SIZE_PT
             color     = Color.BLACK
-            textSize  = TEXT_SIZE_NORMAL
-            isAntiAlias = true
-        }
-        val paintBold = Paint().apply {
-            color      = Color.BLACK
-            textSize   = TEXT_SIZE_BOLD
-            isFakeBoldText = true
-            isAntiAlias = true
-        }
-        val paintTitle = Paint().apply {
-            color      = Color.BLACK
-            textSize   = TEXT_SIZE_TITLE
-            isFakeBoldText = true
-            isAntiAlias = true
-            textAlign  = Paint.Align.CENTER
-        }
-        val paintSep = Paint().apply {
-            color     = Color.DKGRAY
-            strokeWidth = 0.5f
-            style     = Paint.Style.STROKE
         }
 
-        // ── Dibujar líneas ────────────────────────────────────────────────────
-        var y = MARGIN_PT + LINE_HEIGHT
+        // ── Calibrar textSize ─────────────────────────────────────────────────
+        // Medimos el ancho real de CHARS_PER_LINE caracteres a BASE_TEXT_SIZE_PT
+        // y ajustamos para que quepan exactamente en el ancho disponible.
+        // Así el resultado es correcto en cualquier dispositivo sin importar
+        // las métricas internas de Typeface.MONOSPACE.
+        val availableWidth = PAGE_WIDTH_PT - 2f * PADDING_PT   // 220 pt
+        val measuredWidth  = paint.measureText("-".repeat(CHARS_PER_LINE))
+        if (measuredWidth > 0f) {
+            paint.textSize = BASE_TEXT_SIZE_PT * availableWidth / measuredWidth
+        }
 
+        // ── Calcular dimensiones de la página ─────────────────────────────────
+        // fontSpacing = (descent - ascent + leading) = distancia entre baselines.
+        // firstBaseline: desplazamos por (-ascent) para que el tope del texto
+        //                coincida con PADDING_PT (ascent es negativo en Android).
+        val lineSpacing   = paint.fontSpacing
+        val firstBaseline = PADDING_PT - paint.ascent()
+        val pageHeightPt  = (firstBaseline + lines.size * lineSpacing + PADDING_PT)
+            .toInt()
+            .coerceAtLeast(50)
+
+        // ── Dibujar ───────────────────────────────────────────────────────────
+        val document = PdfDocument()
+        val pageInfo = PdfDocument.PageInfo.Builder(PAGE_WIDTH_PT, pageHeightPt, 1).create()
+        val page     = document.startPage(pageInfo)
+        val canvas   = page.canvas
+
+        var y = firstBaseline
         for (line in lines) {
-            when (line.type) {
-                LineType.TITLE -> {
-                    canvas.drawText(line.text, PAGE_WIDTH_PT / 2f, y, paintTitle)
-                    y += LINE_HEIGHT
-                }
-                LineType.BOLD -> {
-                    canvas.drawText(line.text, MARGIN_PT, y, paintBold)
-                    y += LINE_HEIGHT
-                }
-                LineType.SEPARATOR -> {
-                    y += 2f
-                    canvas.drawLine(MARGIN_PT, y, PAGE_WIDTH_PT - MARGIN_PT, y, paintSep)
-                    y += 4f
-                }
-                LineType.NORMAL -> {
-                    canvas.drawText(line.text, MARGIN_PT, y, paintNormal)
-                    y += LINE_HEIGHT
-                }
-                LineType.EMPTY -> {
-                    y += LINE_HEIGHT / 2
-                }
-            }
+            canvas.drawText(line, PADDING_PT, y, paint)
+            y += lineSpacing
         }
 
         document.finishPage(page)
-
-        // ── Guardar en cache ──────────────────────────────────────────────────
-        val cacheDir = File(context.cacheDir, "pdf_tickets").also { it.mkdirs() }
-        val safeClient = pedido.clienteSnapshot.nombre
-            .replace(Regex("[^a-zA-Z0-9_\\- ]"), "")
-            .take(30)
-            .trim()
-        val fileName = "factura_${safeClient}_${pedido.id.take(8)}.pdf"
-        val file = File(cacheDir, fileName)
-
-        FileOutputStream(file).use { fos ->
-            document.writeTo(fos)
-        }
-        document.close()
-
-        return file
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // MODELO DE LÍNEAS
-    // ─────────────────────────────────────────────────────────────────────────
-
-    private enum class LineType { TITLE, BOLD, NORMAL, SEPARATOR, EMPTY }
-    private data class Line(val text: String, val type: LineType)
-
-    private fun collectLines(
-        pw: PedidoWithItems,
-        vendorEmail: String,
-        routeId: String,
-    ): List<Line> {
-        val pedido = pw.pedido
-        val result = mutableListOf<Line>()
-
-        // ── Encabezado ────────────────────────────────────────────────────────
-        result += Line("DISTRIBUIDORA JIREH", LineType.TITLE)
-        result += Line("TICKET DE PEDIDO",    LineType.TITLE)
-        result += Line("", LineType.SEPARATOR)
-
-        // ── Datos del pedido ──────────────────────────────────────────────────
-        result += Line("Ruta: $routeId",                                   LineType.NORMAL)
-        result += Line("Cliente: ${pedido.clienteSnapshot.nombre}",        LineType.NORMAL)
-        if (!pedido.clienteSnapshot.direccion.isNullOrBlank()) {
-            result += Line("Dirección: ${pedido.clienteSnapshot.direccion}", LineType.NORMAL)
-        }
-        if (!pedido.clienteSnapshot.telefono.isNullOrBlank()) {
-            result += Line("Tel: ${pedido.clienteSnapshot.telefono}",      LineType.NORMAL)
-        }
-        result += Line("Vendedor: $vendorEmail",                           LineType.NORMAL)
-        result += Line("Fecha: ${dateTimeFmt.format(Date(pedido.creadoEn))}",LineType.NORMAL)
-        result += Line("", LineType.SEPARATOR)
-
-        // ── Encabezado de columnas ────────────────────────────────────────────
-        result += Line("PRODUCTO                 CANT  TOTAL", LineType.BOLD)
-        result += Line("", LineType.SEPARATOR)
-
-        // ── Ítems ─────────────────────────────────────────────────────────────
-        for (item in pw.items) {
-            val totalStr = currencyFmt.format(item.totalItem)
-            val qtyStr   = item.cantidad.toString()
-            // Nombre truncado para no salir del ancho
-            val namePart = item.nombre.take(20).padEnd(20)
-            val itemLine = "$namePart  $qtyStr  $totalStr"
-            result += Line(itemLine, LineType.NORMAL)
-            result += Line(
-                "  ${currencyFmt.format(item.precioUnitario)} x ${item.cantidad}",
-                LineType.NORMAL,
-            )
-            if (!item.notes.isNullOrBlank()) {
-                result += Line("  Det: ${item.notes}", LineType.NORMAL)
-            }
-            if (item.descuentoItem > 0.0) {
-                result += Line(
-                    "  Desc. item: -${currencyFmt.format(item.descuentoItem)}",
-                    LineType.NORMAL,
-                )
-            }
-        }
-        result += Line("", LineType.SEPARATOR)
-
-        // ── Totales ───────────────────────────────────────────────────────────
-        result += Line("Subtotal: ${currencyFmt.format(pedido.subtotal)}", LineType.NORMAL)
-        if (pedido.descuentoGlobal > 0.0) {
-            result += Line(
-                "Desc. global: -${currencyFmt.format(pedido.descuentoGlobal)}",
-                LineType.NORMAL,
-            )
-        }
-        result += Line("TOTAL: ${currencyFmt.format(pedido.total)}", LineType.BOLD)
-        result += Line("", LineType.SEPARATOR)
-
-        // ── Pie ───────────────────────────────────────────────────────────────
-        result += Line("Gracias por su compra", LineType.TITLE)
-        result += Line("", LineType.EMPTY)
-
-        return result
+        return document
     }
 }
-
-

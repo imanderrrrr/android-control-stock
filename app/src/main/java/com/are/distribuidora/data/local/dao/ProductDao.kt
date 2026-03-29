@@ -176,6 +176,16 @@ interface ProductDao {
     suspend fun updateImageUrl(id: String, imageUrl: String?)
 
     /**
+     * Alias de updateImageUrl — actualiza imageUrl con la URL remota tras subir a Storage.
+     * Mantiene compatibilidad con código existente que llamaba updateImageRemoteUrl.
+     */
+    @Query("UPDATE products SET imageUrl = :imageRemoteUrl WHERE id = :id")
+    suspend fun updateImageRemoteUrl(id: String, imageRemoteUrl: String?)
+
+    @Query("UPDATE products SET imageLocalUri = :imageLocalUri WHERE id = :id")
+    suspend fun updateImageLocalUri(id: String, imageLocalUri: String?)
+
+    /**
      * Busca un producto activo por su código de barras.
      * Usado por el flujo "Agregar stock".
      */

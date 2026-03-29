@@ -13,33 +13,38 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.domain.pedido.DiscountType
+import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountByAmountUseCase
+import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountUseCase
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.snackbar.Snackbar
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Currency
+import java.util.Locale
+import javax.inject.Inject
 
 /**
  * Pantalla de edición de un pedido propio.
  *
- * - Muestra la lista de ítems actuales con controles +/- y botón eliminar.
+ * - Muestra la lista de ítems actuales con controles +/- , eliminar y descuento.
  * - Botón "Agregar ítem" → abre [EditPedidoCatalogFragment].
- * - Botón "Guardar" → llama a [EditPedidoViewModel.save] que persiste
- *   atómicamente en Room y marca PENDING_UPDATE.
+ * - Botón "Guardar" → llama a [EditPedidoViewModel.save].
  * - Botón "Cancelar" → vuelve atrás sin guardar.
- *
- * Solo se muestra para pedidos propios (no para "Otros pedidos").
  */
 @AndroidEntryPoint
 class EditPedidoFragment : Fragment(R.layout.fragment_edit_pedido) {
 
-    /**
-     * Shared con EditPedidoCatalogFragment para que el catálogo pueda
-     * agregar productos al carrito de edición sin necesidad de argumentos extra.
-     */
     private val viewModel: EditPedidoViewModel by activityViewModels()
-
     private val pedidoId by lazy { requireArguments().getString(ARG_PEDIDO_ID, "") }
+
+    @Inject lateinit var applyItemDiscountUseCase: ApplyItemDiscountUseCase
+    @Inject lateinit var applyItemDiscountByAmountUseCase: ApplyItemDiscountByAmountUseCase
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -58,14 +63,13 @@ class EditPedidoFragment : Fragment(R.layout.fragment_edit_pedido) {
             onIncrement = { item -> viewModel.setQuantity(item.localKey, item.cantidad + 1) },
             onDecrement = { item -> viewModel.setQuantity(item.localKey, item.cantidad - 1) },
             onDelete    = { item -> showDeleteItemDialog(item) },
+            onDiscount  = { item -> showEditDiscountDialog(item) },
         )
         recycler.layoutManager = LinearLayoutManager(requireContext())
         recycler.adapter = adapter
 
-        // ── Inicializar el ViewModel con el pedidoId ─────────────────────────
         viewModel.init(pedidoId)
 
-        // ── Observar estado de UI ────────────────────────────────────────────
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.uiState.collect { state ->
@@ -90,7 +94,6 @@ class EditPedidoFragment : Fragment(R.layout.fragment_edit_pedido) {
             }
         }
 
-        // ── Observar estado de guardado ──────────────────────────────────────
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.isSaving.collect { saving ->
@@ -117,7 +120,6 @@ class EditPedidoFragment : Fragment(R.layout.fragment_edit_pedido) {
             }
         }
 
-        // ── Botones ──────────────────────────────────────────────────────────
         btnAddItem.setOnClickListener {
             requireActivity().supportFragmentManager.beginTransaction()
                 .replace(R.id.fragmentContainer, EditPedidoCatalogFragment(), TAG_CATALOG)
@@ -126,8 +128,113 @@ class EditPedidoFragment : Fragment(R.layout.fragment_edit_pedido) {
         }
 
         btnSave.setOnClickListener { viewModel.save() }
-
         btnCancel.setOnClickListener { parentFragmentManager.popBackStack() }
+    }
+
+    // ── Diálogo de descuento con toggle % / Q ────────────────────────────────
+
+    private fun showEditDiscountDialog(item: EditItemUiModel) {
+        val dialogView  = layoutInflater.inflate(R.layout.dialog_cart_discount, null)
+        dialogView.findViewById<TextView>(R.id.dialogDiscountProductName).text = item.nombre
+        val toggleGroup = dialogView.findViewById<MaterialButtonToggleGroup>(R.id.toggleDiscountType)
+        val inputLayout = dialogView.findViewById<TextInputLayout>(R.id.inputLayoutDiscount)
+        val input       = dialogView.findViewById<TextInputEditText>(R.id.inputDiscount)
+        val textResult  = dialogView.findViewById<TextView>(R.id.textDiscountResult)
+        val nf          = buildCurrencyFormat()
+
+        var currentType = item.discountType
+
+        fun updateInputHint() {
+            if (currentType == DiscountType.PERCENTAGE) {
+                inputLayout.hint       = "Descuento (%)"
+                inputLayout.helperText = "Ingresa un valor entre 0 y 100"
+            } else {
+                inputLayout.hint       = "Descuento (Q)"
+                inputLayout.helperText = "Ingresa el monto en Quetzales"
+            }
+        }
+
+        fun updatePreview(raw: String) {
+            val value = raw.replace(',', '.').toDoubleOrNull()
+            inputLayout.error = null
+            if (value != null && value >= 0.0) {
+                val discountMonto = if (currentType == DiscountType.PERCENTAGE) {
+                    if (value > 100.0) { textResult.visibility = View.GONE; return }
+                    applyItemDiscountUseCase(item.precioUnitario, item.cantidad, value)
+                } else {
+                    applyItemDiscountByAmountUseCase(item.precioUnitario, item.cantidad, value)
+                }
+                val newSubtotal = (item.subtotalBase - discountMonto).coerceAtLeast(0.0)
+                textResult.text = getString(R.string.cart_discount_preview, nf.format(newSubtotal))
+                textResult.visibility = View.VISIBLE
+            } else {
+                textResult.visibility = View.GONE
+            }
+        }
+
+        toggleGroup.check(if (currentType == DiscountType.PERCENTAGE) R.id.btnDiscountPercent else R.id.btnDiscountAmount)
+        updateInputHint()
+
+        if (item.hasDiscount) {
+            val prefillValue = if (item.discountType == DiscountType.PERCENTAGE) {
+                val pct = item.discountPercent
+                if (pct == pct.toLong().toDouble()) pct.toInt().toString() else "%.1f".format(pct)
+            } else {
+                val amt = item.descuentoItem
+                if (amt == amt.toLong().toDouble()) amt.toInt().toString() else "%.2f".format(amt)
+            }
+            input.setText(prefillValue)
+            input.selectAll()
+            updatePreview(prefillValue)
+        }
+
+        input.addTextChangedListener(object : android.text.TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) = Unit
+            override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) = Unit
+            override fun afterTextChanged(s: android.text.Editable?) {
+                updatePreview(s?.toString()?.trim() ?: "")
+            }
+        })
+
+        toggleGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            currentType = if (checkedId == R.id.btnDiscountPercent) DiscountType.PERCENTAGE else DiscountType.AMOUNT
+            updateInputHint()
+            input.text?.clear()
+            textResult.visibility = View.GONE
+            inputLayout.error = null
+        }
+
+        val dialog = AlertDialog.Builder(requireContext(), R.style.Theme_Distribuidora_Dialog_Light)
+            .setView(dialogView)
+            .create()
+
+        dialogView.findViewById<View>(R.id.btnDiscountCancel).setOnClickListener { dialog.dismiss() }
+
+        dialogView.findViewById<View>(R.id.btnDiscountConfirm).setOnClickListener {
+            val raw = input.text?.toString()?.trim() ?: ""
+            if (raw.isEmpty()) {
+                // Campo vacío → quitar descuento
+                viewModel.setDiscount(item.localKey, 0.0)
+                dialog.dismiss()
+                return@setOnClickListener
+            }
+            val parsed = raw.replace(',', '.').toDoubleOrNull()
+            if (parsed == null || parsed < 0.0) {
+                inputLayout.error = getString(R.string.cart_discount_range_error)
+                return@setOnClickListener
+            }
+            inputLayout.error = null
+            if (currentType == DiscountType.PERCENTAGE) {
+                viewModel.setDiscount(item.localKey, parsed.coerceIn(0.0, 100.0))
+            } else {
+                viewModel.setDiscountByAmount(item.localKey, parsed)
+            }
+            dialog.dismiss()
+        }
+
+        dialog.show()
+        input.post { input.requestFocus() }
     }
 
     private fun showDeleteItemDialog(item: EditItemUiModel) {
@@ -140,6 +247,11 @@ class EditPedidoFragment : Fragment(R.layout.fragment_edit_pedido) {
             .setNegativeButton(R.string.pedido_delete_cancel, null)
             .show()
     }
+
+    private fun buildCurrencyFormat(): NumberFormat =
+        NumberFormat.getCurrencyInstance(Locale("es", "GT")).also {
+            it.currency = Currency.getInstance("GTQ")
+        }
 
     companion object {
         private const val ARG_PEDIDO_ID = "pedidoId"

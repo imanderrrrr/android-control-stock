@@ -8,5 +8,10 @@
     <cache-path
         name="pdf_tickets"
         path="pdf_tickets/" />
+
+    <!-- Raíz de getCacheDir() — usado por fotos temporales de cámara (cuentas pendientes) -->
+    <cache-path
+        name="cache_root"
+        path="." />
 </paths>
 

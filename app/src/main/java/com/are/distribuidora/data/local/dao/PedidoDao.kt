@@ -194,6 +194,115 @@ interface PedidoDao {
         ORDER BY creadoEn ASC
     """)
     suspend fun getExpiredPedidosWithItems(thresholdEpochMillis: Long): List<PedidoWithItemsEntity>
+
+    // ── Report queries ────────────────────────────────────────────────────────
+
+    /**
+     * Total de ventas (suma de total) en el rango de fechas indicado.
+     * Solo pedidos activos (no eliminados, no PENDING_DELETE).
+     */
+    @Query("""
+        SELECT COALESCE(SUM(total), 0) FROM pedidos
+        WHERE creadoEn >= :sinceEpoch
+          AND isDeleted = 0
+          AND syncStatus != 'PENDING_DELETE'
+    """)
+    suspend fun sumTotalSince(sinceEpoch: Long): Double
+
+    /**
+     * Cantidad de pedidos en el rango.
+     */
+    @Query("""
+        SELECT COUNT(*) FROM pedidos
+        WHERE creadoEn >= :sinceEpoch
+          AND isDeleted = 0
+          AND syncStatus != 'PENDING_DELETE'
+    """)
+    suspend fun countPedidosSince(sinceEpoch: Long): Int
+
+    /**
+     * Desglose de ventas por ruta: routeId + suma total + conteo de pedidos.
+     */
+    @Query("""
+        SELECT routeId, SUM(total) AS totalVentas, COUNT(*) AS pedidoCount
+        FROM pedidos
+        WHERE creadoEn >= :sinceEpoch
+          AND isDeleted = 0
+          AND syncStatus != 'PENDING_DELETE'
+        GROUP BY routeId
+        ORDER BY totalVentas DESC
+    """)
+    suspend fun salesByRouteSince(sinceEpoch: Long): List<RouteSalesTuple>
+
+    /**
+     * Ventas agrupadas por día (deliveryDate YYYY-MM-DD) para gráfica de líneas.
+     */
+    @Query("""
+        SELECT deliveryDate AS dateLabel, SUM(total) AS totalVentas, COUNT(*) AS pedidoCount
+        FROM pedidos
+        WHERE creadoEn >= :sinceEpoch
+          AND isDeleted = 0
+          AND syncStatus != 'PENDING_DELETE'
+          AND deliveryDate != ''
+        GROUP BY deliveryDate
+        ORDER BY deliveryDate ASC
+    """)
+    suspend fun salesByDaySince(sinceEpoch: Long): List<DailySalesTuple>
+
+    /**
+     * Top productos más solicitados (por cantidad total vendida).
+     */
+    @Query("""
+        SELECT i.productoId, i.nombre AS productName,
+               SUM(i.cantidad) AS totalQty,
+               SUM(i.totalItem) AS totalRevenue
+        FROM pedido_items i
+        INNER JOIN pedidos p ON i.pedidoId = p.id
+        WHERE p.creadoEn >= :sinceEpoch
+          AND p.isDeleted = 0
+          AND p.syncStatus != 'PENDING_DELETE'
+          AND i.isDeleted = 0
+        GROUP BY i.productoId
+        ORDER BY totalQty DESC
+        LIMIT :limit
+    """)
+    suspend fun topProductsSince(sinceEpoch: Long, limit: Int): List<TopProductTuple>
+
+    /**
+     * Productos menos solicitados (por cantidad total vendida, ascendente).
+     */
+    @Query("""
+        SELECT i.productoId, i.nombre AS productName,
+               SUM(i.cantidad) AS totalQty,
+               SUM(i.totalItem) AS totalRevenue
+        FROM pedido_items i
+        INNER JOIN pedidos p ON i.pedidoId = p.id
+        WHERE p.creadoEn >= :sinceEpoch
+          AND p.isDeleted = 0
+          AND p.syncStatus != 'PENDING_DELETE'
+          AND i.isDeleted = 0
+        GROUP BY i.productoId
+        ORDER BY totalQty ASC
+        LIMIT :limit
+    """)
+    suspend fun bottomProductsSince(sinceEpoch: Long, limit: Int): List<TopProductTuple>
+
+    /**
+     * Top clientes por monto total comprado.
+     */
+    @Query("""
+        SELECT clienteNombre, COALESCE(clienteId, '') AS clienteId,
+               SUM(total) AS totalSpent,
+               COUNT(*) AS orderCount
+        FROM pedidos
+        WHERE creadoEn >= :sinceEpoch
+          AND isDeleted = 0
+          AND syncStatus != 'PENDING_DELETE'
+        GROUP BY clienteNombre
+        ORDER BY totalSpent DESC
+        LIMIT :limit
+    """)
+    suspend fun topClientsSince(sinceEpoch: Long, limit: Int): List<TopClientTuple>
 }
 
 @Dao
@@ -283,3 +392,34 @@ interface PedidoItemDao {
     @Query("DELETE FROM pedido_items WHERE pedidoId = :pedidoId")
     suspend fun deleteByPedidoId(pedidoId: String)
 }
+
+/** Resultado de desglose de ventas por ruta. */
+data class RouteSalesTuple(
+    val routeId: String,
+    val totalVentas: Double,
+    val pedidoCount: Int,
+)
+
+/** Resultado de ventas diarias. */
+data class DailySalesTuple(
+    val dateLabel: String,
+    val totalVentas: Double,
+    val pedidoCount: Int,
+)
+
+/** Resultado de top productos. */
+data class TopProductTuple(
+    val productoId: String,
+    val productName: String,
+    val totalQty: Int,
+    val totalRevenue: Double,
+)
+
+/** Resultado de top clientes. */
+data class TopClientTuple(
+    val clienteNombre: String,
+    val clienteId: String,
+    val totalSpent: Double,
+    val orderCount: Int,
+)
+

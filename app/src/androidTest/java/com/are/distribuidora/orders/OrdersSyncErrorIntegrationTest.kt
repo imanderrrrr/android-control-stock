@@ -96,12 +96,12 @@ class OrdersSyncErrorIntegrationTest {
         val repository = OfflineFirstOrderRepository(
             local = failingCommitLocal,
             remote = remote,
-            currentUserIdProvider = object : CurrentUserIdProvider { override fun get(): String? = null },
+            currentUserIdProvider = object : CurrentUserIdProvider { override fun get(): String? = "TEST_USER" },
         )
         val useCase = DownloadOrderItemsUseCase(repository)
 
         // Act
-        val result = useCase.execute(orderId)
+        val result = useCase.execute(orderId, vendedorId = "TEST_USER")
 
         // Assert
         // Debe fallar sin crashear.
@@ -150,12 +150,12 @@ class OrdersSyncErrorIntegrationTest {
         val repository = OfflineFirstOrderRepository(
             local = local,
             remote = remote,
-            currentUserIdProvider = object : CurrentUserIdProvider { override fun get(): String? = null },
+            currentUserIdProvider = object : CurrentUserIdProvider { override fun get(): String? = "TEST_USER" },
         )
         val useCase = DownloadOrderItemsUseCase(repository)
 
         // Act
-        val result = useCase.execute(orderId)
+        val result = useCase.execute(orderId, vendedorId = "TEST_USER")
 
         // Assert
         assertTrue(result is Result.Success)
@@ -201,12 +201,12 @@ class OrdersSyncErrorIntegrationTest {
         val repository = OfflineFirstOrderRepository(
             local = local,
             remote = remote,
-            currentUserIdProvider = object : CurrentUserIdProvider { override fun get(): String? = null },
+            currentUserIdProvider = object : CurrentUserIdProvider { override fun get(): String? = "TEST_USER" },
         )
         val useCase = DownloadOrderItemsUseCase(repository)
 
         // Act (1): falla red
-        val firstResult = useCase.execute(orderId)
+        val firstResult = useCase.execute(orderId, vendedorId = "TEST_USER")
 
         // Assert (1)
         assertTrue(firstResult is Result.Error)
@@ -214,7 +214,7 @@ class OrdersSyncErrorIntegrationTest {
         assertEquals(0, db.orderItemStagingDao().countByOrderId(orderId))
 
         // Act (2): reintento ok
-        val secondResult = useCase.execute(orderId)
+        val secondResult = useCase.execute(orderId, vendedorId = "TEST_USER")
 
         // Assert (2)
         assertTrue(secondResult is Result.Success)
@@ -286,6 +286,8 @@ class OrdersSyncErrorIntegrationTest {
         override suspend fun fetchOrderHeaders(routeId: String, deliveryDate: String): List<OrderRemoteDataSource.OrderHeaderDto> =
             emptyList()
 
+        override suspend fun fetchAllOrderHeaders(): List<OrderRemoteDataSource.OrderHeaderDto> = emptyList()
+
         override suspend fun fetchOrderItems(routeId: String, orderId: String): List<OrderRemoteDataSource.OrderItemDto> {
             return when (mode) {
                 Mode.THROW_ON_FETCH_ITEMS -> throw RuntimeException("Simulated network error")
@@ -314,6 +316,8 @@ class OrdersSyncErrorIntegrationTest {
 
         override suspend fun fetchOrderHeaders(routeId: String, deliveryDate: String): List<OrderRemoteDataSource.OrderHeaderDto> =
             emptyList()
+
+        override suspend fun fetchAllOrderHeaders(): List<OrderRemoteDataSource.OrderHeaderDto> = emptyList()
 
         override suspend fun fetchOrderItems(routeId: String, orderId: String): List<OrderRemoteDataSource.OrderItemDto> {
             // Validación de contrato del test: asegura que el repo está llamando con ids correctos.

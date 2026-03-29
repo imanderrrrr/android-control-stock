@@ -1,4 +1,4 @@
-# =========================
+cls# =========================
 # Android / Gradle
 # =========================
 .gradle/
@@ -45,6 +45,7 @@ Thumbs.db
 # =========================
 *.jks
 *.keystore
+build_release.bat
 
 # =========================
 # Firebase / Google Services

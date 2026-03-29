@@ -25,11 +25,11 @@ import com.are.distribuidora.pedido.presentation.print.BluetoothPrinterDialog
 import com.are.distribuidora.pedido.presentation.print.PdfTicketHelper
 import com.are.distribuidora.pedido.presentation.print.PrintTicketHelper
 import com.google.android.material.appbar.MaterialToolbar
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 private const val RC_BLUETOOTH = 1001
 
@@ -233,24 +233,54 @@ class PedidosPorRutaFragment : Fragment(R.layout.fragment_pedidos_por_ruta) {
             Snackbar.make(requireView(), "Pedido no encontrado", Snackbar.LENGTH_SHORT).show()
             return
         }
+
+        // ── Diálogo de progreso ──────────────────────────────────────────────
+        // Se infla el layout dialog_pdf_progress.xml que contiene:
+        //   • Título "Generando PDF"
+        //   • LinearProgressIndicator (Material 2, color colorPrimary del sistema)
+        //   • TextView con el porcentaje numérico
+        // setCancelable(false) evita que el usuario salga mientras se genera el PDF.
+        val dialogView      = layoutInflater.inflate(R.layout.dialog_pdf_progress, null)
+        val progressBar     = dialogView.findViewById<LinearProgressIndicator>(R.id.progressIndicatorPdf)
+        val textPercent     = dialogView.findViewById<android.widget.TextView>(R.id.textPdfProgressPercent)
+
+        val progressDialog = MaterialAlertDialogBuilder(requireContext())
+            .setView(dialogView)
+            .setCancelable(false)
+            .create()
+        progressDialog.show()
+
         viewLifecycleOwner.lifecycleScope.launch {
             val vendorEmail = viewModel.getVendorEmail()
             try {
-                val shareIntent = withContext(Dispatchers.IO) {
-                    PdfTicketHelper.createShareIntent(
-                        context     = requireContext().applicationContext,
-                        pw          = pw,
-                        vendorEmail = vendorEmail,
-                        routeId     = routeId,
-                    )
+                val shareIntent = PdfTicketHelper.createShareIntent(
+                    context     = requireContext().applicationContext,
+                    pw          = pw,
+                    vendorEmail = vendorEmail,
+                    routeName   = routeName,
+                    onProgress  = { percent ->
+                        // El callback llega en el Main thread (Handler.post interno del helper).
+                        // Comprobamos isAdded para evitar referencias a vistas huérfanas si el
+                        // usuario navegó hacia atrás durante la generación.
+                        if (isAdded && progressDialog.isShowing) {
+                            progressBar.progress = percent
+                            textPercent.text     = "$percent%"
+                        }
+                    },
+                )
+                if (isAdded) {
+                    progressDialog.dismiss()
+                    startActivity(android.content.Intent.createChooser(shareIntent, "Compartir factura"))
                 }
-                startActivity(android.content.Intent.createChooser(shareIntent, "Compartir factura"))
             } catch (e: Exception) {
-                Snackbar.make(
-                    requireView(),
-                    "Error al generar PDF: ${e.message}",
-                    Snackbar.LENGTH_LONG,
-                ).show()
+                if (isAdded) {
+                    progressDialog.dismiss()
+                    Snackbar.make(
+                        requireView(),
+                        "Error al generar PDF: ${e.message}",
+                        Snackbar.LENGTH_LONG,
+                    ).show()
+                }
             }
         }
     }
@@ -309,7 +339,7 @@ class PedidosPorRutaFragment : Fragment(R.layout.fragment_pedidos_por_ruta) {
                         device      = device,
                         pw          = pw,
                         vendorEmail = vendorEmail,
-                        routeId     = routeId,
+                        routeName   = routeName,
                     )
                     Snackbar.make(requireView(), "Ticket impreso correctamente", Snackbar.LENGTH_SHORT).show()
                 } catch (e: Exception) {

@@ -90,8 +90,8 @@ object PrintTicketHelper {
     /**
      * Construye el contenido del ticket en texto plano (sin ESC/POS) para previsualización.
      */
-    fun buildTicketPreview(pw: PedidoWithItems, vendorEmail: String, routeId: String): String =
-        buildTicketLines(pw, vendorEmail, routeId).joinToString("\n")
+    fun buildTicketPreview(pw: PedidoWithItems, vendorEmail: String, routeName: String): String =
+        buildTicketLines(pw, vendorEmail, routeName).joinToString("\n")
 
     /**
      * Imprime el ticket en la impresora [device].
@@ -105,13 +105,13 @@ object PrintTicketHelper {
         device: BluetoothDevice,
         pw: PedidoWithItems,
         vendorEmail: String,
-        routeId: String,
+        routeName: String,
     ) = withContext(Dispatchers.IO) {
         if (!hasBluetoothPermission(context)) {
             throw SecurityException("Permiso Bluetooth no concedido")
         }
 
-        val bytes = buildEscPosBytes(pw, vendorEmail, routeId)
+        val bytes = buildEscPosBytes(pw, vendorEmail, routeName)
 
         var socket: BluetoothSocket? = null
         var out: OutputStream? = null
@@ -189,7 +189,7 @@ object PrintTicketHelper {
     private fun buildTicketLines(
         pw: PedidoWithItems,
         vendorEmail: String,
-        routeId: String,
+        routeName: String,
     ): List<String> {
         val pedido = pw.pedido
         val lines = mutableListOf<String>()
@@ -201,7 +201,7 @@ object PrintTicketHelper {
         lines += sep
 
         // ── Datos del pedido ──────────────────────────────────────────────────
-        lines += labelValue("Ruta:", routeId)
+        lines += labelValue("Ruta:", routeName)
         lines += labelValue("Cliente:", pedido.clienteSnapshot.nombre)
         if (!pedido.clienteSnapshot.direccion.isNullOrBlank()) {
             lines += labelValue("Dirección:", pedido.clienteSnapshot.direccion)
@@ -273,7 +273,7 @@ object PrintTicketHelper {
     private fun buildEscPosBytes(
         pw: PedidoWithItems,
         vendorEmail: String,
-        routeId: String,
+        routeName: String,
     ): ByteArray {
         val out = java.io.ByteArrayOutputStream()
 
@@ -300,7 +300,7 @@ object PrintTicketHelper {
         w(ESC_ALIGN_LEFT)
         wLine(sep)
 
-        wLine(labelValue("Ruta:", routeId))
+        wLine(labelValue("Ruta:", routeName))
         wLine(labelValue("Cliente:", pedido.clienteSnapshot.nombre))
         if (!pedido.clienteSnapshot.direccion.isNullOrBlank())
             wLine(labelValue("Dirección:", pedido.clienteSnapshot.direccion))
@@ -384,9 +384,9 @@ object PrintTicketHelper {
 
     private fun itemRow(name: String, qty: Int, total: Double, hasMore: Boolean): String {
         val totalStr = currencyFmt.format(total)
-        val qtyStr   = qty.toString()
-        // nombre + espacios + qty + espacio + total
-        val fixedRight = " $qtyStr $totalStr"
+        val qtyStr   = qty.toString().padStart(3)
+        // nombre + espacios + qty + espacio + total (más separación entre cant y total)
+        val fixedRight = "  $qtyStr   $totalStr"
         val available  = TICKET_WIDTH - fixedRight.length
         val safeName   = if (name.length > available) name.take(available) else name
         val pad        = available - safeName.length

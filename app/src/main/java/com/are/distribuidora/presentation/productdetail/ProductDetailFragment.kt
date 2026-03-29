@@ -175,7 +175,7 @@ class ProductDetailFragment : Fragment() {
                             }
                             tvUnitValue.text = unitValue ?: getString(R.string.value_not_available)
 
-                            bindImage(image, product.imageUrl)
+                            bindImage(image, product.imageUrl, product.imageLocalUri)
                         }
                     }
                 }
@@ -183,37 +183,34 @@ class ProductDetailFragment : Fragment() {
         }
     }
 
-    private fun bindImage(imageView: ImageView, rawUrl: String?) {
-        val raw = rawUrl?.trim()?.takeIf { it.isNotEmpty() }
+    private fun bindImage(imageView: ImageView, imageUrl: String?, localUri: String?) {
+        // Priority: imageUrl (remote https) -> localUri -> placeholder
+        val remoteUrl = imageUrl?.trim()
+            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        val effectiveLocal = localUri?.trim()?.takeIf { it.isNotEmpty() }
 
-        if (raw == null) {
-            Glide.with(imageView).clear(imageView)
-            imageView.setImageResource(R.drawable.ic_image_placeholder)
-            return
-        }
-
-        val req = when {
-            ProductImageUrl.isLocal(raw) -> {
-                val path = ProductImageUrl.localPathOrNull(raw)
-                Glide.with(imageView).load(File(path ?: ""))
+        when {
+            remoteUrl != null -> {
+                Glide.with(imageView).load(remoteUrl)
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_error)
+                    .centerCrop()
+                    .transition(DrawableTransitionOptions.withCrossFade())
+                    .into(imageView)
             }
-
-            ProductImageUrl.isRemoteHttp(raw) -> {
-                Glide.with(imageView).load(raw)
+            effectiveLocal != null -> {
+                Glide.with(imageView).load(File(effectiveLocal))
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_error)
+                    .centerCrop()
+                    .transition(DrawableTransitionOptions.withCrossFade())
+                    .into(imageView)
             }
-
             else -> {
                 Glide.with(imageView).clear(imageView)
                 imageView.setImageResource(R.drawable.ic_image_placeholder)
-                return
             }
         }
-
-        req.placeholder(R.drawable.ic_image_placeholder)
-            .error(R.drawable.ic_image_error)
-            .centerCrop()
-            .transition(DrawableTransitionOptions.withCrossFade())
-            .into(imageView)
     }
 
     companion object {

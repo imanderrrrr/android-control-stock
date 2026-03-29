@@ -32,6 +32,9 @@ class AddProductFragment : Fragment() {
 
     private var selectedContentUri: Uri? = null
 
+    /** Barcode escaneado pendiente de aplicar al campo cuando la vista se recree. */
+    private var pendingScannedBarcode: String? = null
+
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
@@ -55,6 +58,25 @@ class AddProductFragment : Fragment() {
             viewModel.onImageSavedToInternalStorage(file.absolutePath)
         } catch (e: Exception) {
             Toast.makeText(requireContext(), "Error al guardar imagen: ${e.message}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+
+        // Registrar listener con lifecycle del Fragment (no viewLifecycleOwner)
+        // para que sobreviva al replace/popBackStack del scanner.
+        parentFragmentManager.setFragmentResultListener(
+            BarcodeScannerFragment.DEFAULT_REQUEST_KEY,
+            this
+        ) { _, bundle ->
+            val barcode = bundle.getString(BarcodeScannerFragment.DEFAULT_RESULT_KEY)
+            if (!barcode.isNullOrBlank()) {
+                pendingScannedBarcode = barcode
+                viewModel.onBarcodeChanged(barcode)
+                // Si la vista ya existe, aplicar inmediatamente
+                view?.findViewById<TextInputEditText>(R.id.inputBarcode)?.setText(barcode)
+            }
         }
     }
 
@@ -85,6 +107,7 @@ class AddProductFragment : Fragment() {
         val barcodeInput = view.findViewById<TextInputEditText>(R.id.inputBarcode)
         val activeSwitch = view.findViewById<SwitchMaterial>(R.id.switchActive)
         val saveButton = view.findViewById<MaterialButton>(R.id.buttonSave)
+        val scanBarcodeButton = view.findViewById<MaterialButton>(R.id.btnScanBarcode)
 
         toolbar.setTitle(R.string.add_product_title)
         toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
@@ -92,6 +115,22 @@ class AddProductFragment : Fragment() {
         // Pre-rellenar barcode si viene del flujo "Agregar stock → producto no encontrado"
         arguments?.getString("arg_barcode")?.let { barcode ->
             if (barcode.isNotBlank()) barcodeInput.setText(barcode)
+        }
+
+        // Aplicar barcode escaneado pendiente (si volvemos del scanner)
+        pendingScannedBarcode?.let { barcode ->
+            barcodeInput.setText(barcode)
+            pendingScannedBarcode = null
+        }
+
+        scanBarcodeButton.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(
+                    R.id.fragmentContainer,
+                    BarcodeScannerFragment.newInstance()
+                )
+                .addToBackStack(null)
+                .commit()
         }
 
         // Placeholder preview

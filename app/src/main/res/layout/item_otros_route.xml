@@ -56,6 +56,16 @@
                     android:textAppearance="@style/TextAppearance.Material3.BodySmall"
                     android:alpha="0.6" />
 
+                <TextView
+                    android:id="@+id/textOtrosRouteTotal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+                    android:textStyle="bold"
+                    android:textColor="?attr/colorPrimary"
+                    android:layout_marginTop="2dp"
+                    android:visibility="gone" />
+
             </LinearLayout>
 
         </LinearLayout>

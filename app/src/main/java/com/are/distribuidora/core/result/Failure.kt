@@ -18,6 +18,17 @@ sealed class Failure {
      */
     data class DuplicateOrder(val existingOrderId: String) : Failure()
 
+    /**
+     * El total del pedido excede el límite de compra configurado para el cliente.
+     *
+     * @param limitInCents  límite configurado en centavos.
+     * @param totalInCents  total del pedido en centavos.
+     */
+    data class OrderLimitExceeded(
+        val limitInCents: Long,
+        val totalInCents: Long,
+    ) : Failure()
+
     data object UnknownError : Failure()
 
     override fun toString(): String = when (this) {
@@ -26,6 +37,7 @@ sealed class Failure {
         NotFound -> "NotFound"
         is ValidationError -> "ValidationError(message=${this.message})"
         is DuplicateOrder -> "DuplicateOrder(existingOrderId=${this.existingOrderId})"
+        is OrderLimitExceeded -> "OrderLimitExceeded(limit=${this.limitInCents}, total=${this.totalInCents})"
         UnknownError -> "UnknownError"
     }
 }

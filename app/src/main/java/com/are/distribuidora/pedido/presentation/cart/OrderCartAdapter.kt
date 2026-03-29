@@ -79,7 +79,12 @@ class OrderCartAdapter(
             if (item.hasDiscount) {
                 textUnitPrice.text = "${nf.format(item.subtotalBase)} base"
                 textUnitPrice.visibility = View.VISIBLE
-                badgeDiscount.text = "-${item.discountPercent.toInt()}%"
+                // FIX BUG #4: para descuento por MONTO mostrar "-Q XX.XX", no "-0%"
+                badgeDiscount.text = if (item.discountType == com.are.distribuidora.domain.pedido.DiscountType.AMOUNT) {
+                    "-${nf.format(item.discountAmount)}"
+                } else {
+                    "-${item.discountPercent.toInt()}%"
+                }
                 badgeDiscount.visibility = View.VISIBLE
             } else {
                 textUnitPrice.visibility = View.GONE
@@ -191,7 +196,11 @@ class OrderCartAdapter(
 
         override fun onSwiped(viewHolder: RecyclerView.ViewHolder, direction: Int) {
             val position = viewHolder.bindingAdapterPosition
-            if (position == RecyclerView.NO_ID.toInt()) return
+            // FIX: usar NO_POSITION en lugar de NO_ID (semánticamente correcto) y validar
+            // límite superior — cuando ListAdapter actualiza la lista via DiffUtil mientras
+            // el swipe está en progreso, position puede ser >= itemCount y getItem() crashea
+            // con IndexOutOfBoundsException.
+            if (position == RecyclerView.NO_POSITION || position >= itemCount) return
             val item = getItem(position)
             notifyItemChanged(position)   // snap back visual
             when (direction) {

@@ -10,6 +10,7 @@ import com.are.distribuidora.domain.pedido.usecase.DeletePedidoUseCase
 import com.are.distribuidora.domain.pedido.usecase.ObserveAllPedidosUseCase
 import com.are.distribuidora.orders.domain.model.Order
 import com.are.distribuidora.orders.domain.model.OrderDownloadStatus
+import com.are.distribuidora.domain.product.GetProductImageUseCase
 import com.are.distribuidora.orders.domain.usecase.DownloadOrderItemsUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchAllOrdersHeaderUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchOrdersHeaderUseCase
@@ -51,6 +52,7 @@ class PedidosViewModel @Inject constructor(
     private val downloadOrderItemsUseCase: DownloadOrderItemsUseCase,
     private val fetchOrdersHeaderUseCase: FetchOrdersHeaderUseCase,
     private val fetchAllOrdersHeaderUseCase: FetchAllOrdersHeaderUseCase,
+    private val getProductImageUseCase: GetProductImageUseCase,
 ) : ViewModel() {
 
     // ── Mis Pedidos ──────────────────────────────────────────────────────────
@@ -155,13 +157,14 @@ class PedidosViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            // 1. Cargar rutas primero para que resolveRouteName funcione correctamente
+            // desde el primer emit de pedidos
             routesMap = when (val r = getRoutesUseCase()) {
                 is Result.Success -> r.value.associate { it.id to it.name }
                 else              -> emptyMap()
             }
-        }
 
-        viewModelScope.launch {
+            // 2. Solo después arrancar la observación reactiva de pedidos
             _selectedDate
                 .flatMapLatest { date -> observeAllPedidosUseCase(date) }
                 .collect { pedidos ->
@@ -185,7 +188,7 @@ class PedidosViewModel @Inject constructor(
     suspend fun getVendorEmail(): String =
         authRepository.getCurrentSession()?.email ?: "Vendedor"
 
-    fun getItemsByPedido(pedidoId: String): List<PedidoItemUiModel> =
+    suspend fun getItemsByPedido(pedidoId: String): List<PedidoItemUiModel> =
         allPedidos
             .firstOrNull { it.pedido.id == pedidoId }
             ?.items
@@ -199,6 +202,7 @@ class PedidosViewModel @Inject constructor(
                         "-${currencyFormat.format(item.descuentoItem)}" else null,
                     totalItem          = currencyFormat.format(item.totalItem),
                     notes              = item.notes?.takeIf { it.isNotBlank() },
+                    imageUrl           = getProductImageUseCase(item.productoId),
                 )
             } ?: emptyList()
 
@@ -348,11 +352,20 @@ class PedidosViewModel @Inject constructor(
         byRoute
             .filter { it.value.isNotEmpty() }
             .map { (routeId, orders) ->
+                // Sumar solo los pedidos que ya tienen total (descargados)
+                val completedTotals = orders
+                    .filter { it.totalAmount != null && it.downloadStatus == OrderDownloadStatus.COMPLETED }
+                    .mapNotNull { it.totalAmount }
+                val routeTotal = if (completedTotals.isNotEmpty()) {
+                    currencyFormat.format(completedTotals.sum())
+                } else null
+
                 OtrosRouteUiModel(
-                    routeId    = routeId,
-                    routeName  = resolveRouteName(routeId),
-                    orderCount = orders.size,
-                    orders     = orders.map { mapToOtrosHeaderUiModel(it) },
+                    routeId             = routeId,
+                    routeName           = resolveRouteName(routeId),
+                    orderCount          = orders.size,
+                    orders              = orders.map { mapToOtrosHeaderUiModel(it) },
+                    routeTotalFormatted = routeTotal,
                 )
             }
             .sortedBy { it.routeName }

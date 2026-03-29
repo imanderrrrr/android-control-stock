@@ -10,6 +10,7 @@ import com.are.distribuidora.orders.data.local.entity.OrderItemEntity
 import com.are.distribuidora.orders.data.local.entity.OrderItemStagingEntity
 import com.are.distribuidora.orders.data.mapper.toDomain
 import com.are.distribuidora.orders.data.remote.OrderRemoteDataSource
+import com.are.distribuidora.core.money.RoundToQuarterQuetzalUseCase
 import com.are.distribuidora.orders.domain.model.Order
 import com.are.distribuidora.orders.domain.model.OrderItem
 import com.are.distribuidora.orders.domain.repository.OrderRepository
@@ -482,7 +483,9 @@ class OfflineFirstOrderRepository(
                 return Result.Success(Unit)
             }
 
-            val totalAmount = staging.sumOf { it.unitPrice * it.quantity }
+            val totalAmount = RoundToQuarterQuetzalUseCase(
+                staging.sumOf { it.unitPrice * it.quantity }
+            )
 
             val finalItems = staging.map { st ->
                 OrderItemEntity(

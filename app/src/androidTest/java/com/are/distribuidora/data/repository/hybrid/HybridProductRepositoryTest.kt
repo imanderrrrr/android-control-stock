@@ -5,7 +5,8 @@ import androidx.test.core.app.ApplicationProvider
 import com.are.distribuidora.data.local.DistribuidoraDatabase
 import com.are.distribuidora.data.remote.fake.FakeFirestoreProductDataSource
 import com.are.distribuidora.data.repository.ProductSyncRepositoryImpl
-import kotlinx.coroutines.flow.first
+import com.are.distribuidora.data.storage.ProductImageStorage
+import io.mockk.mockk
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -15,6 +16,7 @@ import org.junit.Test
 class HybridProductRepositoryTest {
 
     private lateinit var db: DistribuidoraDatabase
+    private val imageStorage: ProductImageStorage = mockk()
 
     @Before
     fun setUp() {
@@ -33,19 +35,24 @@ class HybridProductRepositoryTest {
     fun `syncProducts guarda 450 productos integros y consistentes`() = runBlocking {
         // DADO: data source fake con 450 productos
         val remote = FakeFirestoreProductDataSource()
-        val repo = ProductSyncRepositoryImpl(remote, db.productDao(), db)
+        val repo = ProductSyncRepositoryImpl(
+            remote = remote,
+            local = db.productDao(),
+            database = db,
+            imageStorage = imageStorage
+        )
 
         // CUANDO: sincronizamos (remoto -> local) usando nueva interfaz
         val products = repo.fetchRemoteProducts()
         repo.saveLocalProducts(products)
 
         // ENTONCES: 450 productos en Room
-        val all = db.productDao().observeProducts().first()
-        assertEquals(450, all.size)
+        val count = db.productDao().countAll()
+        assertEquals(450, count)
 
-        fun assertProducto(idx: Int) {
+        suspend fun assertProducto(idx: Int) {
             val id = "prod_$idx"
-            val p = all.first { it.id == id }
+            val p = db.productDao().getById(id) ?: throw AssertionError("Producto $id no encontrado")
             assertEquals("Producto $idx", p.name)
             assertEquals(idx.toDouble(), p.price, 0.0)
             assertEquals(idx, p.stock)

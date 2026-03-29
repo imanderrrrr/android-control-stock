@@ -105,18 +105,40 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
             activeIndicator.text = item.activeIndicatorText
             // Logic for active color/visibility if needed (Client uses emoji so string is enough)
 
-            // 1. Extract raw URL
+            // 1. Extract image sources with priority: imageUrl (remote https) -> imageLocalUri -> imageUrl (legacy)
+            val remoteUrl = product.imageUrl?.trim()
+                ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+            val localUri = product.imageLocalUri?.trim()?.takeIf { it.isNotEmpty() }
             val raw = product.imageUrl?.trim()?.takeIf { it.isNotEmpty() }
 
-            // 2. Handle Null/Empty Case explicitly
-            if (raw == null) {
-                Glide.with(image).clear(image)
-                image.setImageResource(R.drawable.ic_image_placeholder)
-                return
+            // 2. Resolve source with priority
+            when {
+                remoteUrl != null -> {
+                    Glide.with(image).load(remoteUrl)
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .error(R.drawable.ic_image_error)
+                        .centerCrop()
+                        .transition(DrawableTransitionOptions.withCrossFade())
+                        .into(image)
+                    return
+                }
+                localUri != null -> {
+                    Glide.with(image).load(File(localUri))
+                        .placeholder(R.drawable.ic_image_placeholder)
+                        .error(R.drawable.ic_image_error)
+                        .centerCrop()
+                        .transition(DrawableTransitionOptions.withCrossFade())
+                        .into(image)
+                    return
+                }
+                raw == null -> {
+                    Glide.with(image).clear(image)
+                    image.setImageResource(R.drawable.ic_image_placeholder)
+                    return
+                }
             }
 
-            // 3. Resolve Source
-            // Import: com.are.distribuidora.core.images.ProductImageUrl
+            // 3. Legacy imageUrl fallback
             val loadRequest = when {
                 raw.startsWith("local://") -> {
                     // Extract path: local:///data/... -> /data/...

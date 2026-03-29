@@ -18,12 +18,15 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.domain.pedido.DiscountType
+import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountByAmountUseCase
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountUseCase
 import com.are.distribuidora.pedido.presentation.create.CartItem
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
 import com.are.distribuidora.pedido.presentation.list.PedidosFragment
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
 import com.google.android.material.textfield.TextInputLayout
@@ -38,6 +41,7 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
     private val flowViewModel: CreatePedidoFlowViewModel by activityViewModels()
     private val orderCartViewModel: OrderCartViewModel by viewModels()
     @Inject lateinit var applyItemDiscountUseCase: ApplyItemDiscountUseCase
+    @Inject lateinit var applyItemDiscountByAmountUseCase: ApplyItemDiscountByAmountUseCase
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         val toolbar           = view.findViewById<MaterialToolbar>(R.id.toolbarCart)
@@ -47,6 +51,7 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
         val buttonContinue    = view.findViewById<MaterialButton>(R.id.buttonContinue)
         val buttonOtherOptions = view.findViewById<MaterialButton>(R.id.buttonOtherOptions)
         val progressBar       = view.findViewById<ProgressBar>(R.id.progressBarCart)
+        val textOrderLimit    = view.findViewById<TextView>(R.id.textOrderLimit)
         toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
         val adapter = OrderCartAdapter(
             onEditQuantity = { item -> showEditQuantityDialog(item) },
@@ -72,6 +77,37 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
                 flowViewModel.cartTotal.collect { total ->
                     textTotal.text = buildCurrencyFormat().format(total)
                 }
+            }
+        }
+        // ── Indicador de límite de compra del cliente ────────────────────────
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                kotlinx.coroutines.flow.combine(
+                    flowViewModel.maxOrderAmountInCents,
+                    flowViewModel.isOverLimit,
+                    flowViewModel.cartTotal,
+                ) { limit, over, total -> Triple(limit, over, total) }
+                    .collect { (limit, over, _) ->
+                        val nf = buildCurrencyFormat()
+                        if (limit == null) {
+                            textOrderLimit.visibility = View.GONE
+                        } else {
+                            textOrderLimit.visibility = View.VISIBLE
+                            val limitFormatted = nf.format(limit / 100.0)
+                            if (over) {
+                                val totalFormatted = nf.format(flowViewModel.cartTotal.value)
+                                textOrderLimit.text = getString(R.string.cart_order_limit_exceeded, limitFormatted, totalFormatted)
+                                textOrderLimit.setTextColor(
+                                    androidx.core.content.ContextCompat.getColor(requireContext(), R.color.palette_800)
+                                )
+                            } else {
+                                textOrderLimit.text = getString(R.string.cart_order_limit, limitFormatted)
+                                textOrderLimit.setTextColor(
+                                    androidx.core.content.ContextCompat.getColor(requireContext(), R.color.palette_600)
+                                )
+                            }
+                        }
+                    }
             }
         }
         viewLifecycleOwner.lifecycleScope.launch {
@@ -110,6 +146,19 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
                             Snackbar.make(
                                 view,
                                 "Ya existe un pedido para este cliente hoy. Ve a la lista de pedidos y edítalo.",
+                                Snackbar.LENGTH_LONG
+                            ).show()
+                            orderCartViewModel.resetState()
+                        }
+                        is OrderCartViewModel.UiState.OrderLimitExceeded -> {
+                            progressBar?.visibility  = View.GONE
+                            buttonContinue.isEnabled = flowViewModel.cartItems.value.isNotEmpty()
+                            val nf = buildCurrencyFormat()
+                            val limitStr = nf.format(state.limitInCents / 100.0)
+                            val totalStr = nf.format(state.totalInCents / 100.0)
+                            Snackbar.make(
+                                view,
+                                getString(R.string.cart_order_limit_exceeded_error, totalStr, limitStr),
                                 Snackbar.LENGTH_LONG
                             ).show()
                             orderCartViewModel.resetState()
@@ -153,6 +202,8 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
         val input       = dialogView.findViewById<TextInputEditText>(R.id.inputQty)
         input.setText(item.quantity.toString())
         input.selectAll()
+        val inputNotes = dialogView.findViewById<TextInputEditText>(R.id.inputNotes)
+        inputNotes.setText(item.notes.orEmpty())
         val dialog = AlertDialog.Builder(requireContext(), R.style.Theme_Distribuidora_Dialog_Light)
             .setView(dialogView)
             .create()
@@ -163,7 +214,12 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
             when {
                 qty == null || qty < 0 -> inputLayout.error = "Ingresa un numero entero valido"
                 qty == 0 -> { dialog.dismiss(); showRemoveConfirmation(item) }
-                else -> { inputLayout.error = null; flowViewModel.setQuantity(item.productId, qty); dialog.dismiss() }
+                else -> {
+                    inputLayout.error = null
+                    flowViewModel.setQuantity(item.productId, qty)
+                    flowViewModel.setNotes(item.productId, inputNotes.text?.toString())
+                    dialog.dismiss()
+                }
             }
         }
         dialog.show()
@@ -172,32 +228,61 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
     private fun showEditDiscountDialog(item: CartItem) {
         val dialogView  = layoutInflater.inflate(R.layout.dialog_cart_discount, null)
         dialogView.findViewById<TextView>(R.id.dialogDiscountProductName).text = item.name
+        val toggleGroup = dialogView.findViewById<MaterialButtonToggleGroup>(R.id.toggleDiscountType)
         val inputLayout = dialogView.findViewById<TextInputLayout>(R.id.inputLayoutDiscount)
         val input       = dialogView.findViewById<TextInputEditText>(R.id.inputDiscount)
         val textResult  = dialogView.findViewById<TextView>(R.id.textDiscountResult)
         val nf          = buildCurrencyFormat()
 
-        // ── A) Prefill sin truncar decimales ─────────────────────────────────
-        // toInt() truncaba 10.5 → 10; ahora: entero→"10", decimal→"10.5".
-        if (item.hasDiscount) {
-            val pct = item.discountPercent
-            val pctStr = if (pct == pct.toLong().toDouble()) {
-                pct.toInt().toString()
-            } else {
-                "%.1f".format(pct)
-            }
-            input.setText(pctStr)
-            input.selectAll()
+        // Estado local del tipo de descuento
+        var currentType = item.discountType
 
-            // ── C) Preview inicial coherente con el descuento ya existente ──
-            // Muestra el descuento actual para que el usuario sepa qué va a reemplazar.
-            val currentPctLabel = if (pct == pct.toLong().toDouble()) {
-                pct.toInt().toString()
+        // ── Función auxiliar: actualizar hint y helper text del campo según tipo ──
+        fun updateInputHint() {
+            if (currentType == DiscountType.PERCENTAGE) {
+                inputLayout.hint       = "Descuento (%)"
+                inputLayout.helperText = "Ingresa un valor entre 0 y 100"
             } else {
-                "%.1f".format(pct)
+                inputLayout.hint       = "Descuento (Q)"
+                inputLayout.helperText = "Ingresa el monto en Quetzales"
             }
-            textResult.text = getString(R.string.cart_discount_current, currentPctLabel)
-            textResult.visibility = View.VISIBLE
+        }
+
+        // ── Función auxiliar: calcular y mostrar preview ──────────────────────
+        fun updatePreview(raw: String) {
+            val value = raw.replace(',', '.').toDoubleOrNull()
+            inputLayout.error = null
+            if (value != null && value >= 0.0) {
+                val discountMonto = if (currentType == DiscountType.PERCENTAGE) {
+                    if (value > 100.0) { textResult.visibility = View.GONE; return }
+                    applyItemDiscountUseCase(item.priceAmount, item.quantity, value)
+                } else {
+                    applyItemDiscountByAmountUseCase(item.priceAmount, item.quantity, value)
+                }
+                val newSubtotal = (item.subtotalBase - discountMonto).coerceAtLeast(0.0)
+                textResult.text = getString(R.string.cart_discount_preview, nf.format(newSubtotal))
+                textResult.visibility = View.VISIBLE
+            } else {
+                textResult.visibility = View.GONE
+            }
+        }
+
+        // ── Selección inicial del toggle ──────────────────────────────────────
+        toggleGroup.check(if (currentType == DiscountType.PERCENTAGE) R.id.btnDiscountPercent else R.id.btnDiscountAmount)
+        updateInputHint()
+
+        // ── Prefill con el valor actual ───────────────────────────────────────
+        if (item.hasDiscount) {
+            val prefillValue = if (item.discountType == DiscountType.PERCENTAGE) {
+                val pct = item.discountPercent
+                if (pct == pct.toLong().toDouble()) pct.toInt().toString() else "%.1f".format(pct)
+            } else {
+                val amt = item.discountAmount
+                if (amt == amt.toLong().toDouble()) amt.toInt().toString() else "%.2f".format(amt)
+            }
+            input.setText(prefillValue)
+            input.selectAll()
+            updatePreview(prefillValue)
         }
 
         // ── TextWatcher: preview en tiempo real ──────────────────────────────
@@ -205,30 +290,19 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
             override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, a: Int) = Unit
             override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) = Unit
             override fun afterTextChanged(s: android.text.Editable?) {
-                // ── B) Parseo robusto: acepta coma decimal de teclados locales ──
-                val raw = s?.toString()?.trim() ?: ""
-                val pct = raw.replace(',', '.').toDoubleOrNull()
-                if (pct != null && pct in 0.0..100.0) {
-                    val montoDescuento = applyItemDiscountUseCase(
-                        precioUnitario = item.priceAmount,
-                        cantidad       = item.quantity,
-                        porcentaje     = pct,
-                    )
-                    val newSubtotal = (item.subtotalBase - montoDescuento).coerceAtLeast(0.0)
-                    // ── C) Texto de preview explícito: "Nuevo subtotal (reemplaza descuento)" ──
-                    textResult.text = getString(R.string.cart_discount_preview, nf.format(newSubtotal))
-                    textResult.visibility = View.VISIBLE
-                    inputLayout.error = null
-                } else if (raw.isEmpty()) {
-                    // Sin valor → sin preview
-                    textResult.visibility = View.GONE
-                    inputLayout.error = null
-                } else {
-                    // Valor fuera de rango o no numérico → ocultar preview y mostrar error
-                    textResult.visibility = View.GONE
-                }
+                updatePreview(s?.toString()?.trim() ?: "")
             }
         })
+
+        // ── Listener del toggle ───────────────────────────────────────────────
+        toggleGroup.addOnButtonCheckedListener { _, checkedId, isChecked ->
+            if (!isChecked) return@addOnButtonCheckedListener
+            currentType = if (checkedId == R.id.btnDiscountPercent) DiscountType.PERCENTAGE else DiscountType.AMOUNT
+            updateInputHint()
+            input.text?.clear()
+            textResult.visibility = View.GONE
+            inputLayout.error = null
+        }
 
         val dialog = AlertDialog.Builder(requireContext(), R.style.Theme_Distribuidora_Dialog_Light)
             .setView(dialogView)
@@ -237,31 +311,28 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
         dialogView.findViewById<View>(R.id.btnDiscountCancel).setOnClickListener { dialog.dismiss() }
 
         dialogView.findViewById<View>(R.id.btnDiscountConfirm).setOnClickListener {
-            // ── B) Parseo robusto en Confirmar: coma→punto ───────────────────
             val raw = input.text?.toString()?.trim() ?: ""
 
             if (raw.isEmpty()) {
-                // Campo vacío → quitar descuento
                 flowViewModel.setDiscount(item.productId, 0.0)
                 dialog.dismiss()
                 return@setOnClickListener
             }
 
             val parsed = raw.replace(',', '.').toDoubleOrNull()
-
-            if (parsed == null) {
-                // Texto no numérico
+            if (parsed == null || parsed < 0.0) {
                 inputLayout.error = getString(R.string.cart_discount_range_error)
                 return@setOnClickListener
             }
 
-            // ── D) Validación: clamp silencioso a [0, 100] ───────────────────
-            // Valores > 100 o < 0 no se rechazan con error (UX consistente con
-            // coerceIn); el usuario ve el resultado final en el preview y decide.
-            val pct = parsed.coerceIn(0.0, 100.0)
-
-            inputLayout.error = null
-            flowViewModel.setDiscount(item.productId, pct)
+            if (currentType == DiscountType.PERCENTAGE) {
+                val pct = parsed.coerceIn(0.0, 100.0)
+                inputLayout.error = null
+                flowViewModel.setDiscount(item.productId, pct)
+            } else {
+                inputLayout.error = null
+                flowViewModel.setDiscountByAmount(item.productId, parsed)
+            }
             dialog.dismiss()
         }
 

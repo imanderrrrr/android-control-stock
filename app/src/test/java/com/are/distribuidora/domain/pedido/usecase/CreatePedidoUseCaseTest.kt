@@ -1,7 +1,8 @@
-package com.are.distribuidora.domain.pedido.usecase
+﻿package com.are.distribuidora.domain.pedido.usecase
 
 import com.are.distribuidora.client.domain.model.Client
 import com.are.distribuidora.client.domain.repository.ClientRepository
+import com.are.distribuidora.client.domain.usecase.ValidateOrderLimitUseCase
 import com.are.distribuidora.core.result.Failure
 import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.domain.core.SyncState
@@ -87,11 +88,11 @@ class CreatePedidoUseCaseTest {
         )
     }
 
-    // ── Validaciones ──────────────────────────────────────────────────────────
+    // â”€â”€ Validaciones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     fun `lista de items vacia retorna error de validacion`() = runBlocking {
-        val useCase = CreatePedidoUseCase(FakePedidoRepository(), FakeClientRepository())
+        val useCase = CreatePedidoUseCase(FakePedidoRepository(), FakeClientRepository(), ValidateOrderLimitUseCase())
         val resultado = useCase(
             vendedorId = "v1", routeId = "r1",
             cliente = ClienteSelection.Temporal(ClienteSnapshot("Pedro", null, null)),
@@ -100,12 +101,12 @@ class CreatePedidoUseCaseTest {
         assertTrue(resultado is Result.Error)
         val failure = (resultado as Result.Error).failure
         assertTrue(failure is Failure.ValidationError)
-        assertEquals("El pedido debe tener al menos un ítem", (failure as Failure.ValidationError).message)
+        assertEquals("El pedido debe tener al menos un Ã­tem", (failure as Failure.ValidationError).message)
     }
 
     @Test
     fun `item con cantidad 0 retorna error de validacion`() = runBlocking {
-        val useCase = CreatePedidoUseCase(FakePedidoRepository(), FakeClientRepository())
+        val useCase = CreatePedidoUseCase(FakePedidoRepository(), FakeClientRepository(), ValidateOrderLimitUseCase())
         val resultado = useCase(
             vendedorId = "v1", routeId = "r1",
             cliente = ClienteSelection.Temporal(ClienteSnapshot("Pedro", null, null)),
@@ -113,14 +114,14 @@ class CreatePedidoUseCaseTest {
         )
         assertTrue(resultado is Result.Error)
         assertEquals(
-            "La cantidad de los ítems debe ser mayor a 0",
+            "La cantidad de los Ã­tems debe ser mayor a 0",
             ((resultado as Result.Error).failure as Failure.ValidationError).message
         )
     }
 
     @Test
     fun `descuento global mayor al subtotal retorna error de validacion`() = runBlocking {
-        val useCase = CreatePedidoUseCase(FakePedidoRepository(), FakeClientRepository())
+        val useCase = CreatePedidoUseCase(FakePedidoRepository(), FakeClientRepository(), ValidateOrderLimitUseCase())
         val resultado = useCase(
             vendedorId = "v1", routeId = "r1",
             cliente = ClienteSelection.Temporal(ClienteSnapshot("Pedro", null, null)),
@@ -135,7 +136,7 @@ class CreatePedidoUseCaseTest {
 
     @Test
     fun `cliente temporal con nombre en blanco retorna error de validacion`() = runBlocking {
-        val useCase = CreatePedidoUseCase(FakePedidoRepository(), FakeClientRepository())
+        val useCase = CreatePedidoUseCase(FakePedidoRepository(), FakeClientRepository(), ValidateOrderLimitUseCase())
         val resultado = useCase(
             vendedorId = "v1", routeId = "r1",
             cliente = ClienteSelection.Temporal(ClienteSnapshot("", null, null)),
@@ -152,7 +153,8 @@ class CreatePedidoUseCaseTest {
     fun `cliente existente no encontrado retorna error`() = runBlocking {
         val useCase = CreatePedidoUseCase(
             FakePedidoRepository(),
-            FakeClientRepository(clientResult = Result.Success(null))
+            FakeClientRepository(clientResult = Result.Success(null)),
+            ValidateOrderLimitUseCase(),
         )
         val resultado = useCase(
             vendedorId = "v1", routeId = "r1",
@@ -162,12 +164,12 @@ class CreatePedidoUseCaseTest {
         assertTrue(resultado is Result.Error)
     }
 
-    // ── Camino feliz ──────────────────────────────────────────────────────────
+    // â”€â”€ Camino feliz â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     fun `pedido con cliente temporal valido delega al repositorio`() = runBlocking {
         val repo = FakePedidoRepository()
-        val resultado = CreatePedidoUseCase(repo, FakeClientRepository())(
+        val resultado = CreatePedidoUseCase(repo, FakeClientRepository(), ValidateOrderLimitUseCase())(
             vendedorId = "vendedor-1", routeId = "ruta-1",
             cliente = ClienteSelection.Temporal(ClienteSnapshot("Pedro Garcia", "12345", "Calle 2")),
             descuentoGlobal = 0.0, items = listOf(sampleItem(precio = 25.0, cantidad = 2)),
@@ -181,7 +183,7 @@ class CreatePedidoUseCaseTest {
     @Test
     fun `pedido con cliente existente usa snapshot del cliente`() = runBlocking {
         val repo = FakePedidoRepository()
-        CreatePedidoUseCase(repo, FakeClientRepository())(
+        CreatePedidoUseCase(repo, FakeClientRepository(), ValidateOrderLimitUseCase())(
             vendedorId = "vendedor-1", routeId = "ruta-1",
             cliente = ClienteSelection.Existente("cliente-1"),
             descuentoGlobal = 0.0, items = listOf(sampleItem()),
@@ -193,7 +195,7 @@ class CreatePedidoUseCaseTest {
     @Test
     fun `fallo en el repositorio se propaga como error`() = runBlocking {
         val repo = FakePedidoRepository(createResult = Result.Error(Failure.DatabaseError))
-        val resultado = CreatePedidoUseCase(repo, FakeClientRepository())(
+        val resultado = CreatePedidoUseCase(repo, FakeClientRepository(), ValidateOrderLimitUseCase())(
             vendedorId = "v1", routeId = "r1",
             cliente = ClienteSelection.Temporal(ClienteSnapshot("Ana", null, null)),
             descuentoGlobal = 0.0, items = listOf(sampleItem()),
@@ -202,13 +204,13 @@ class CreatePedidoUseCaseTest {
         assertEquals(Failure.DatabaseError, (resultado as Result.Error).failure)
     }
 
-    // ── Regla de negocio: 1 pedido por cliente por día ────────────────────────
+    // â”€â”€ Regla de negocio: 1 pedido por cliente por dÃ­a â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     @Test
     fun `cliente existente con pedido activo el mismo dia retorna DuplicateOrder`() = runBlocking {
         // El repositorio indica que YA hay un pedido para este cliente hoy
         val repo = FakePedidoRepository(existingOrderForClienteToday = "pedido-existente-123")
-        val resultado = CreatePedidoUseCase(repo, FakeClientRepository())(
+        val resultado = CreatePedidoUseCase(repo, FakeClientRepository(), ValidateOrderLimitUseCase())(
             vendedorId = "vendedor-1", routeId = "ruta-1", deliveryDate = "2026-02-24",
             cliente = ClienteSelection.Existente("cliente-1"),
             descuentoGlobal = 0.0, items = listOf(sampleItem()),
@@ -223,7 +225,7 @@ class CreatePedidoUseCaseTest {
     fun `cliente existente sin pedido activo hoy crea pedido normalmente`() = runBlocking {
         // El repositorio indica que NO hay pedido para este cliente hoy
         val repo = FakePedidoRepository(existingOrderForClienteToday = null)
-        val resultado = CreatePedidoUseCase(repo, FakeClientRepository())(
+        val resultado = CreatePedidoUseCase(repo, FakeClientRepository(), ValidateOrderLimitUseCase())(
             vendedorId = "vendedor-1", routeId = "ruta-1", deliveryDate = "2026-02-24",
             cliente = ClienteSelection.Existente("cliente-1"),
             descuentoGlobal = 0.0, items = listOf(sampleItem()),
@@ -235,7 +237,7 @@ class CreatePedidoUseCaseTest {
     fun `cliente temporal no aplica regla de 1 pedido por dia`() = runBlocking {
         // Incluso si existingOrderForClienteToday != null, el cliente temporal no es bloqueado
         val repo = FakePedidoRepository(existingOrderForClienteToday = "pedido-existente-123")
-        val resultado = CreatePedidoUseCase(repo, FakeClientRepository())(
+        val resultado = CreatePedidoUseCase(repo, FakeClientRepository(), ValidateOrderLimitUseCase())(
             vendedorId = "v1", routeId = "r1", deliveryDate = "2026-02-24",
             cliente = ClienteSelection.Temporal(ClienteSnapshot("Pedro", null, null)),
             descuentoGlobal = 0.0, items = listOf(sampleItem()),
@@ -245,9 +247,9 @@ class CreatePedidoUseCaseTest {
 
     @Test
     fun `mismo cliente ruta diferente mismo dia sigue bloqueado por regla dia`() = runBlocking {
-        // La nueva regla bloquea por cliente+día sin importar la ruta ni el vendedor
+        // La nueva regla bloquea por cliente+dÃ­a sin importar la ruta ni el vendedor
         val repo = FakePedidoRepository(existingOrderForClienteToday = "pedido-ruta-anterior")
-        val resultado = CreatePedidoUseCase(repo, FakeClientRepository())(
+        val resultado = CreatePedidoUseCase(repo, FakeClientRepository(), ValidateOrderLimitUseCase())(
             vendedorId = "vendedor-1", routeId = "ruta-2",  // ruta diferente
             cliente = ClienteSelection.Existente("cliente-1"),
             descuentoGlobal = 0.0, items = listOf(sampleItem()),
@@ -256,7 +258,7 @@ class CreatePedidoUseCaseTest {
         assertTrue((resultado as Result.Error).failure is Failure.DuplicateOrder)
     }
 
-    // ── Tests OrderKeyUtil (sin cambios, la utilidad sigue existiendo para el sync con Firestore) ───
+    // â”€â”€ Tests OrderKeyUtil (sin cambios, la utilidad sigue existiendo para el sync con Firestore) â”€â”€â”€
 
     @Test
     fun `misma entrada produce el mismo hash deterministico`() {

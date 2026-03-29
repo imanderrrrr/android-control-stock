@@ -9,6 +9,7 @@ import com.are.distribuidora.domain.pedido.model.CreatePedidoItemInput
 import com.are.distribuidora.domain.pedido.model.CreatePedidoParams
 import com.are.distribuidora.client.domain.repository.ClientRepository
 import com.are.distribuidora.client.domain.model.Client
+import com.are.distribuidora.client.domain.usecase.ValidateOrderLimitUseCase
 import com.are.distribuidora.domain.pedido.Pedido
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
@@ -148,7 +149,7 @@ class StockDeductionOnOrderTest {
     @Test
     fun `createPedidoUseCase pasa los items correctos al repositorio para descontar stock`() = runBlocking {
         val repo = FakePedidoRepository()
-        val useCase = CreatePedidoUseCase(repo, FakeClientRepository())
+        val useCase = CreatePedidoUseCase(repo, FakeClientRepository(), ValidateOrderLimitUseCase())
 
         val items = listOf(
             CreatePedidoItemInput(

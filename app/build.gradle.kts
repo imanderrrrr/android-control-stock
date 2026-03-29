@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,6 +9,13 @@ plugins {
 
 apply(plugin = "com.google.gms.google-services")
 
+// Cargar las propiedades de la keystore de release
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
     namespace = "com.are.distribuidora"
     compileSdk {
@@ -15,6 +24,15 @@ android {
 
     buildFeatures {
         viewBinding = true
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(keystoreProperties.getProperty("storeFile", "release-keystore.jks"))
+            storePassword = keystoreProperties.getProperty("storePassword", "")
+            keyAlias = keystoreProperties.getProperty("keyAlias", "")
+            keyPassword = keystoreProperties.getProperty("keyPassword", "")
+        }
     }
 
     defaultConfig {
@@ -32,17 +50,19 @@ android {
 
     buildTypes {
         release {
-            // Activar R8/Proguard en release para reducir tamano y detectar issues de shrink temprano.
+            // Activar R8/Proguard en release para reducir tamaño y ofuscar código
             isMinifyEnabled = true
             isShrinkResources = true
 
-            // Util para debuggear crashes en release con mapping.txt
             isDebuggable = false
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            // Firmar release con keystore de producción
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -121,6 +141,7 @@ dependencies {
     // Android instrumented tests separados
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
 
     // MockK para Android tests
     androidTestImplementation("io.mockk:mockk-android:1.13.12")
@@ -155,4 +176,7 @@ dependencies {
 
     // ML Kit Barcode Scanning
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    // MPAndroidChart (gráficas en pantalla de reportes)
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 }

@@ -25,6 +25,7 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var productSyncScheduler: com.are.distribuidora.workers.ProductSyncScheduler
     @Inject lateinit var pedidoExpireScheduler: com.are.distribuidora.workers.PedidoExpireScheduler
+    @Inject lateinit var imageUploadSyncScheduler: com.are.distribuidora.workers.ImageUploadSyncScheduler
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -68,6 +69,9 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
         // Enqueue Workers (Enterprise-Grade Background Sync)
         // Use Scheduler to keep consistency
         productSyncScheduler.schedulePeriodic()
+
+        // Drain any pending image uploads from previous sessions
+        imageUploadSyncScheduler.enqueueUploadWorker()
 
         // Expira y borra pedidos con ≥ 14 días de antigüedad (local + Firestore)
         pedidoExpireScheduler.schedule()

@@ -83,7 +83,7 @@
             app:layout_constraintEnd_toStartOf="@id/textEditItemSubtotal"
             app:layout_constraintTop_toBottomOf="@id/textEditItemNombre" />
 
-        <!-- Subtotal del ítem (derecha) -->
+        <!-- Subtotal del ítem (derecha, alineado con precio) -->
         <TextView
             android:id="@+id/textEditItemSubtotal"
             android:layout_width="wrap_content"
@@ -95,7 +95,7 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/btnDeleteEditItem" />
 
-        <!-- Control de cantidad: − qty + -->
+        <!-- Controles de cantidad: − qty + (fila inferior izquierda) -->
         <ImageButton
             android:id="@+id/btnDecrQty"
             android:layout_width="36dp"
@@ -104,7 +104,7 @@
             android:contentDescription="Decrementar"
             android:src="@drawable/ic_remove"
             android:layout_marginStart="10dp"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="6dp"
             app:layout_constraintStart_toEndOf="@id/imageContainerEdit"
             app:layout_constraintTop_toBottomOf="@id/textEditItemPrecio"
             app:layout_constraintBottom_toBottomOf="parent" />
@@ -132,6 +132,26 @@
             app:layout_constraintTop_toTopOf="@id/btnDecrQty"
             app:layout_constraintBottom_toBottomOf="@id/btnDecrQty" />
 
+        <!-- Botón descuento — esquina inferior derecha, paleta de la app -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnEditDiscount"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="32dp"
+            android:text="@string/edit_item_btn_discount"
+            android:textAllCaps="false"
+            android:textSize="12sp"
+            android:textColor="@color/palette_600"
+            android:paddingStart="12dp"
+            android:paddingEnd="12dp"
+            app:strokeColor="@color/palette_300"
+            app:cornerRadius="16dp"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="@id/btnDecrQty"
+            app:layout_constraintBottom_toBottomOf="@id/btnDecrQty" />
+
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </com.google.android.material.card.MaterialCardView>
+
+

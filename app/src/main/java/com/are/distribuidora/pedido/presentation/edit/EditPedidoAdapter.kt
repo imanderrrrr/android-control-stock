@@ -17,6 +17,7 @@ import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
+import com.google.android.material.button.MaterialButton
 import com.google.android.material.imageview.ShapeableImageView
 import java.io.File
 import java.text.NumberFormat
@@ -26,12 +27,13 @@ import java.util.Locale
 /**
  * Adapter para la lista editable de ítems del pedido.
  * Muestra la imagen del producto (Glide), nombre, precio unitario, subtotal y
- * controles +/- y eliminar.
+ * controles +/- , eliminar y descuento.
  */
 class EditPedidoAdapter(
     private val onIncrement: (EditItemUiModel) -> Unit,
     private val onDecrement: (EditItemUiModel) -> Unit,
     private val onDelete:    (EditItemUiModel) -> Unit,
+    private val onDiscount:  (EditItemUiModel) -> Unit = {},
 ) : ListAdapter<EditItemUiModel, EditPedidoAdapter.ViewHolder>(DIFF) {
 
     @Suppress("DEPRECATION")
@@ -51,6 +53,7 @@ class EditPedidoAdapter(
         private val btnDecr         = view.findViewById<ImageButton>(R.id.btnDecrQty)
         private val btnIncr         = view.findViewById<ImageButton>(R.id.btnIncrQty)
         private val btnDelete       = view.findViewById<ImageButton>(R.id.btnDeleteEditItem)
+        private val btnDiscount     = view.findViewById<MaterialButton>(R.id.btnEditDiscount)
 
         private var current: EditItemUiModel? = null
 
@@ -58,6 +61,7 @@ class EditPedidoAdapter(
             btnIncr.setOnClickListener   { current?.let { onIncrement(it) } }
             btnDecr.setOnClickListener   { current?.let { onDecrement(it) } }
             btnDelete.setOnClickListener { current?.let { onDelete(it) } }
+            btnDiscount.setOnClickListener { current?.let { onDiscount(it) } }
         }
 
         fun bind(item: EditItemUiModel) {
@@ -69,6 +73,20 @@ class EditPedidoAdapter(
             }
             textQty.text      = item.cantidad.toString()
             textSubtotal.text = currencyFormat.format(item.subtotal)
+
+            // Mostrar badge en el botón si hay descuento activo
+            if (item.hasDiscount) {
+                val label = if (item.discountType == com.are.distribuidora.domain.pedido.DiscountType.PERCENTAGE && item.discountPercent > 0.0) {
+                    val pct = item.discountPercent
+                    if (pct == pct.toLong().toDouble()) "-${pct.toInt()}%" else "-${"%.1f".format(pct)}%"
+                } else {
+                    "-${currencyFormat.format(item.descuentoItem)}"
+                }
+                btnDiscount.text = label
+            } else {
+                btnDiscount.text = itemView.context.getString(R.string.edit_item_btn_discount)
+            }
+
             bindImage(item.imageUrl)
         }
 

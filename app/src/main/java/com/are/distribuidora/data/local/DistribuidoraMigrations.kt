@@ -1059,4 +1059,183 @@ object DistribuidoraMigrations {
             )
         }
     }
+
+    /**
+     * v28 -> v29
+     * - Crea tabla `pending_uploads` para cola de subida offline-first de imágenes.
+     * - Agrega columnas `imageLocalUri` y `imageRemoteUrl` a `products`.
+     * - Inicializa imageRemoteUrl con el imageUrl existente si es http/https.
+     * - Inicializa imageLocalUri con la ruta extraída de imageUrl si es local://.
+     */
+    val MIGRATION_28_29: Migration = object : Migration(28, 29) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1. Crear tabla pending_uploads
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS pending_uploads (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    entityType TEXT NOT NULL DEFAULT 'PRODUCT',
+                    entityId TEXT NOT NULL,
+                    localUri TEXT NOT NULL,
+                    storagePath TEXT NOT NULL,
+                    state TEXT NOT NULL DEFAULT 'PENDING',
+                    attemptCount INTEGER NOT NULL DEFAULT 0,
+                    lastError TEXT,
+                    createdAt INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+
+            // 2. Agregar nuevas columnas a products
+            db.execSQL("ALTER TABLE products ADD COLUMN imageLocalUri TEXT")
+            db.execSQL("ALTER TABLE products ADD COLUMN imageRemoteUrl TEXT")
+
+            // 3. Migrar datos existentes:
+            //    - Si imageUrl empieza con http -> copiar a imageRemoteUrl
+            db.execSQL(
+                """
+                UPDATE products SET imageRemoteUrl = imageUrl
+                WHERE imageUrl IS NOT NULL AND (imageUrl LIKE 'http://%' OR imageUrl LIKE 'https://%')
+                """.trimIndent()
+            )
+
+            //    - Si imageUrl empieza con local:// -> extraer path a imageLocalUri
+            db.execSQL(
+                """
+                UPDATE products SET imageLocalUri = SUBSTR(imageUrl, 9)
+                WHERE imageUrl IS NOT NULL AND imageUrl LIKE 'local://%'
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * v29 -> v30
+     * - Crea tabla `pending_accounts` para cuentas pendientes de cobro por ruta/cliente.
+     */
+    val MIGRATION_29_30: Migration = object : Migration(29, 30) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS pending_accounts (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    routeId TEXT NOT NULL,
+                    clientId TEXT NOT NULL,
+                    clientName TEXT NOT NULL,
+                    routeName TEXT NOT NULL,
+                    amountCents INTEGER NOT NULL,
+                    invoicePhotoUri TEXT,
+                    dueDateMillis INTEGER NOT NULL,
+                    isPaid INTEGER NOT NULL DEFAULT 0,
+                    notes TEXT,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL,
+                    FOREIGN KEY (routeId) REFERENCES routes(id) ON DELETE CASCADE,
+                    FOREIGN KEY (clientId) REFERENCES clients(id) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_pending_accounts_routeId ON pending_accounts(routeId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_pending_accounts_clientId ON pending_accounts(clientId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_pending_accounts_dueDateMillis ON pending_accounts(dueDateMillis)")
+        }
+    }
+
+    /**
+     * v30 -> v31
+     * - Agrega columna `invoiceRemoteUrl` a `pending_accounts` para la URL remota
+     *   de la foto de factura en Firebase Storage.
+     */
+    val MIGRATION_30_31: Migration = object : Migration(30, 31) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN invoiceRemoteUrl TEXT")
+        }
+    }
+
+    /**
+     * v31 -> v32
+     * - Elimina columna `imageRemoteUrl` de `products` (era redundante con `imageUrl`).
+     *   imageUrl es el campo autoritativo que se sincroniza con Firestore.
+     *   Se recrea la tabla para compatibilidad con SQLite < 3.35 que no soporta DROP COLUMN.
+     */
+    val MIGRATION_31_32: Migration = object : Migration(31, 32) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("PRAGMA foreign_keys=OFF")
+
+            // 1. Crear tabla nueva sin imageRemoteUrl
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `products_new` (
+                    `id` TEXT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `description` TEXT,
+                    `category` TEXT,
+                    `price` REAL NOT NULL,
+                    `imageUrl` TEXT,
+                    `imageLocalUri` TEXT,
+                    `barcode` TEXT,
+                    `stock` INTEGER NOT NULL,
+                    `comprometido` INTEGER NOT NULL DEFAULT 0,
+                    `isActive` INTEGER NOT NULL DEFAULT 1,
+                    `isDeleted` INTEGER NOT NULL DEFAULT 0,
+                    `syncStatus` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL,
+                    `lastSyncedAt` INTEGER,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+
+            // 2. Copiar datos: si imageUrl era local, se preserva imageRemoteUrl como imageUrl
+            db.execSQL(
+                """
+                INSERT INTO products_new
+                    (id, name, description, category, price, imageUrl, imageLocalUri,
+                     barcode, stock, comprometido, isActive, isDeleted, syncStatus,
+                     createdAt, updatedAt, lastSyncedAt)
+                SELECT
+                    id, name, description, category, price,
+                    CASE
+                        WHEN imageRemoteUrl IS NOT NULL THEN imageRemoteUrl
+                        WHEN imageUrl IS NOT NULL AND (imageUrl LIKE 'http://%' OR imageUrl LIKE 'https://%') THEN imageUrl
+                        ELSE NULL
+                    END AS imageUrl,
+                    CASE
+                        WHEN imageUrl IS NOT NULL AND imageUrl NOT LIKE 'http://%' AND imageUrl NOT LIKE 'https://%' THEN imageUrl
+                        ELSE imageLocalUri
+                    END AS imageLocalUri,
+                    barcode, stock, comprometido, isActive, isDeleted, syncStatus,
+                    createdAt, updatedAt, lastSyncedAt
+                FROM products
+                """.trimIndent()
+            )
+
+            // 3. Eliminar tabla vieja y renombrar la nueva
+            db.execSQL("DROP TABLE products")
+            db.execSQL("ALTER TABLE products_new RENAME TO products")
+
+            // 4. Recrear índice
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_products_name` ON `products` (`name`)")
+
+            db.execSQL("PRAGMA foreign_keys=ON")
+        }
+    }
+
+    /**
+     * v32 -> v33
+     * - Agrega columnas de sincronización y log de actividad a `pending_accounts`:
+     *   - `syncStatus` TEXT para el estado de sincronización con Firestore
+     *   - `resolvedBy` TEXT para el email del usuario que pagó/eliminó
+     *   - `resolvedAt` INTEGER para el timestamp de la acción
+     *   - `resolvedAction` TEXT para el tipo de acción ("PAID" / "DELETED")
+     */
+    val MIGRATION_32_33: Migration = object : Migration(32, 33) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'SYNCED'")
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN resolvedBy TEXT")
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN resolvedAt INTEGER")
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN resolvedAction TEXT")
+        }
+    }
 }

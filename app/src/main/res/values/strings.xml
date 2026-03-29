@@ -1,6 +1,11 @@
 <resources>
     <string name="app_name">Distribuidora</string>
 
+0    <!-- PDF Progress Dialog -->
+    <string name="pdf_progress_title">Generando PDF</string>
+    <string name="pdf_progress_subtitle">Por favor espera mientras se prepara el documento…</string>
+    <string name="pdf_progress_percent">0%</string>
+
     <!-- Login UI -->
     <string name="login_title">Bienvenido</string>
     <string name="login_subtitle">Inicia sesión para continuar</string>
@@ -56,6 +61,7 @@
     <!-- Dashboard Headers -->
     <string name="section_active_routes">Rutas Activas</string>
     <string name="section_pending_accounts">Cuentas Pendientes</string>
+    <string name="section_recent_activity">Actividad Reciente</string>
     
     <!-- Edit Product -->
     <string name="edit_product_name_hint">Nombre *</string>
@@ -136,7 +142,8 @@
     <string name="cart_swipe_right_hint">Desliza → para editar cantidad</string>
     <string name="cart_swipe_left_hint">Desliza ← para aplicar descuento</string>
     <string name="cart_long_press_hint">Mantén presionado para eliminar</string>
-    <string name="cart_edit_qty_title">Editar cantidad</string>
+    <string name="cart_edit_qty_title">Editar producto</string>
+    <string name="cart_edit_notes_hint">Notas (opcional)</string>
     <string name="cart_discount_title">Aplicar descuento</string>
     <string name="cart_remove_title">Eliminar producto</string>
     <string name="cart_remove_confirm">Eliminar</string>
@@ -206,6 +213,12 @@
     <string name="cart_discount_current">Descuento actual: %1$s%%</string>
     <string name="cart_discount_preview">Nuevo subtotal (reemplaza descuento): %1$s</string>
     <string name="cart_discount_range_error">Ingresa un valor entre 0 y 100</string>
+    <string name="edit_item_btn_discount">Desc.</string>
+
+    <!-- Límite de compra del cliente -->
+    <string name="cart_order_limit">Límite de compra: %1$s</string>
+    <string name="cart_order_limit_exceeded">⚠ Excede el límite de %1$s (total: %2$s)</string>
+    <string name="cart_order_limit_exceeded_error">El pedido de %1$s excede el límite de compra de %2$s para este cliente.</string>
 
     <!-- Pantalla Editar Pedido -->
     <string name="edit_pedido_title">Editar pedido</string>
@@ -225,6 +238,7 @@
 
     <!-- Escáner de código de barras -->
     <string name="scanner_title">Escanear código</string>
+    <string name="scan_barcode_button">Escanear código de barras</string>
     <string name="scanner_hint">Apunta la cámara al código de barras del producto</string>
     <string name="scanner_permission_rationale">Se necesita permiso de cámara para escanear códigos de barras.</string>
     <string name="scanner_permission_denied">Permiso de cámara denegado. Ve a Ajustes para habilitarlo.</string>
@@ -245,4 +259,45 @@
     <string name="product_not_found_message">No existe un producto con el código: %1$s</string>
     <string name="product_not_found_create">Crear producto</string>
     <string name="product_not_found_cancel">Cancelar</string>
+
+    <!-- Pantalla de Reportes -->
+    <string name="reports_title">Reportes</string>
+    <string name="reports_refresh">Actualizar reportes</string>
+    <string name="reports_empty">Aún no tienes pedidos.\nCrea tu primer pedido para ver los reportes.</string>
+    <string name="reports_kpi_week">Ventas (7 días)</string>
+    <string name="reports_kpi_14days">Ventas (14 días)</string>
+    <string name="reports_kpi_avg_daily">Promedio diario</string>
+    <string name="reports_kpi_pedidos">%1$d pedidos</string>
+    <string name="reports_chart_daily">Ventas por día</string>
+    <string name="reports_chart_routes">Ventas por ruta</string>
+    <string name="reports_top_products">Más solicitados</string>
+    <string name="reports_bottom_products">Menos solicitados</string>
+    <string name="reports_top_clients">Mejores clientes (semana)</string>
+    <string name="reports_product_subtitle">%1$d uds · %2$s</string>
+    <string name="reports_client_subtitle">%1$d pedidos · %2$s</string>
+
+    <!-- Cuentas Pendientes -->
+    <string name="pending_dialog_title">Nueva cuenta pendiente</string>
+    <string name="pending_hint_route">Ruta</string>
+    <string name="pending_hint_client">Cliente</string>
+    <string name="pending_hint_amount">Monto pendiente</string>
+    <string name="pending_hint_due_date">Fecha de pago</string>
+    <string name="pending_hint_notes">Notas (opcional)</string>
+    <string name="pending_btn_take_photo">Foto de factura</string>
+    <string name="pending_btn_add">Nueva cuenta</string>
+    <string name="pending_action_save">Guardar</string>
+    <string name="pending_action_cancel">Cancelar</string>
+    <string name="pending_action_mark_paid">Pagado</string>
+    <string name="pending_action_delete">Eliminar</string>
+    <string name="pending_overdue_label">FUERA DE TIEMPO</string>
+    <string name="pending_due_prefix">Vence: %1$s</string>
+    <string name="pending_empty">Sin cuentas pendientes</string>
+    <string name="pending_created_success">Cuenta pendiente creada</string>
+    <string name="pending_marked_paid">Cuenta marcada como pagada</string>
+    <string name="pending_deleted">Cuenta eliminada</string>
+    <string name="pending_error_select_route">Selecciona una ruta</string>
+    <string name="pending_error_select_client">Selecciona un cliente</string>
+    <string name="pending_error_amount">Ingresa un monto válido</string>
+    <string name="pending_error_date">Selecciona una fecha de pago</string>
+    <string name="pending_route_label">Ruta: %1$s</string>
 </resources>

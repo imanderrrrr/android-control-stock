@@ -15,6 +15,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 
 /**
@@ -43,10 +44,32 @@ class OrderCartViewModel @Inject constructor(
          * La UI puede ofrecer navegar al pedido existente.
          */
         data class DuplicateOrder(val existingOrderId: String) : UiState()
+        /**
+         * El total del pedido excede el límite de compra configurado para el cliente.
+         */
+        data class OrderLimitExceeded(
+            val limitInCents: Long,
+            val totalInCents: Long,
+        ) : UiState()
     }
 
     private val _uiState = MutableStateFlow<UiState>(UiState.Idle)
     val uiState: StateFlow<UiState> = _uiState.asStateFlow()
+
+    /**
+     * Guard atómico que previene ejecuciones concurrentes de [submitOrder].
+     *
+     * Problema que resuelve: un doble-tap rápido en el botón "Confirmar" podía lanzar
+     * dos coroutines casi simultáneamente. El chequeo simple `_uiState.value is Loading`
+     * NO es atómico — ambas corutinas podían leerlo como `Idle` antes de que alguna
+     * cambiara el estado, creando dos pedidos duplicados en Room.
+     *
+     * Solución: [AtomicBoolean.compareAndSet] es una operación atómica a nivel de CPU.
+     * Solo la primera llamada que llegue lo cambia de `false → true` y puede continuar;
+     * cualquier llamada posterior encuentra `true` y retorna de inmediato.
+     * El bloque `finally` garantiza que siempre se libere, incluso si hay una excepción.
+     */
+    private val isSubmitting = AtomicBoolean(false)
 
     /**
      * Confirma el pedido actual del carrito.
@@ -63,63 +86,74 @@ class OrderCartViewModel @Inject constructor(
         deliveryDate: String = "",
         descuentoGlobal: Double = 0.0,
     ) {
-        if (_uiState.value is UiState.Loading) return
+        // compareAndSet(false, true) es atómico: retorna `true` solo si el valor era `false`
+        // y lo cambia a `true` en una sola instrucción de CPU — sin race condition posible.
+        if (!isSubmitting.compareAndSet(false, true)) return
 
         viewModelScope.launch {
-            _uiState.value = UiState.Loading
+            try {
+                _uiState.value = UiState.Loading
 
-            // Validaciones previas
-            if (cartItems.isEmpty()) {
-                _uiState.value = UiState.Error("El carrito está vacío")
-                return@launch
-            }
-            if (routeId.isNullOrBlank()) {
-                _uiState.value = UiState.Error("No hay ruta seleccionada")
-                return@launch
-            }
-            if (cliente == null) {
-                _uiState.value = UiState.Error("No hay cliente seleccionado")
-                return@launch
-            }
-
-            val session = authRepository.getCurrentSession()
-            if (session == null) {
-                _uiState.value = UiState.Error("Sesión no disponible. Por favor inicia sesión nuevamente.")
-                return@launch
-            }
-
-            val itemInputs = cartItems.map { cartItem ->
-                CreatePedidoItemInput(
-                    productoId     = cartItem.productId,
-                    nombre         = cartItem.name,
-                    precioUnitario = cartItem.priceAmount,
-                    cantidad       = cartItem.quantity,
-                    descuentoItem  = cartItem.discountAmount,
-                    notes          = cartItem.notes?.takeIf { it.isNotBlank() },
-                )
-            }
-
-            when (val result = createPedidoUseCase(
-                vendedorId     = session.userId,
-                routeId        = routeId,
-                deliveryDate   = deliveryDate,
-                cliente        = cliente,
-                descuentoGlobal = descuentoGlobal,
-                items          = itemInputs,
-            )) {
-                is Result.Success -> {
-                    // Encolar sync one-time si hay internet disponible
-                    pedidoSyncScheduler.scheduleOneTimeSync("PEDIDO_CONFIRMED")
-                    _uiState.value = UiState.Success(result.value)
+                // Validaciones previas
+                if (cartItems.isEmpty()) {
+                    _uiState.value = UiState.Error("El carrito está vacío")
+                    return@launch
                 }
-                is Result.Error -> {
-                    when (val failure = result.failure) {
-                        is Failure.DuplicateOrder ->
-                            _uiState.value = UiState.DuplicateOrder(failure.existingOrderId)
-                        else ->
-                            _uiState.value = UiState.Error(result.failure.toString())
+                if (routeId.isNullOrBlank()) {
+                    _uiState.value = UiState.Error("No hay ruta seleccionada")
+                    return@launch
+                }
+                if (cliente == null) {
+                    _uiState.value = UiState.Error("No hay cliente seleccionado")
+                    return@launch
+                }
+
+                val session = authRepository.getCurrentSession()
+                if (session == null) {
+                    _uiState.value = UiState.Error("Sesión no disponible. Por favor inicia sesión nuevamente.")
+                    return@launch
+                }
+
+                val itemInputs = cartItems.map { cartItem ->
+                    CreatePedidoItemInput(
+                        productoId     = cartItem.productId,
+                        nombre         = cartItem.name,
+                        precioUnitario = cartItem.priceAmount,
+                        cantidad       = cartItem.quantity,
+                        descuentoItem  = cartItem.discountAmount,
+                        notes          = cartItem.notes?.takeIf { it.isNotBlank() },
+                    )
+                }
+
+                when (val result = createPedidoUseCase(
+                    vendedorId      = session.userId,
+                    routeId         = routeId,
+                    deliveryDate    = deliveryDate,
+                    cliente         = cliente,
+                    descuentoGlobal = descuentoGlobal,
+                    items           = itemInputs,
+                )) {
+                    is Result.Success -> {
+                        pedidoSyncScheduler.scheduleOneTimeSync("PEDIDO_CONFIRMED")
+                        _uiState.value = UiState.Success(result.value)
+                    }
+                    is Result.Error -> {
+                        when (val failure = result.failure) {
+                            is Failure.DuplicateOrder ->
+                                _uiState.value = UiState.DuplicateOrder(failure.existingOrderId)
+                            is Failure.OrderLimitExceeded ->
+                                _uiState.value = UiState.OrderLimitExceeded(
+                                    limitInCents = failure.limitInCents,
+                                    totalInCents = failure.totalInCents,
+                                )
+                            else ->
+                                _uiState.value = UiState.Error(result.failure.toString())
+                        }
                     }
                 }
+            } finally {
+                // Siempre libera el guard, incluso si hubo una excepción no capturada.
+                isSubmitting.set(false)
             }
         }
     }

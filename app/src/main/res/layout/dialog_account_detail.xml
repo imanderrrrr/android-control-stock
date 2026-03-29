@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:padding="8dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Cliente -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Cliente"
+            android:textSize="11sp"
+            android:textColor="@color/palette_600"
+            android:letterSpacing="0.08"
+            android:textAllCaps="true" />
+
+        <TextView
+            android:id="@+id/detailClientName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="20sp"
+            android:textStyle="bold"
+            android:textColor="@color/palette_900"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Ruta -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Ruta"
+            android:textSize="11sp"
+            android:textColor="@color/palette_600"
+            android:letterSpacing="0.08"
+            android:textAllCaps="true" />
+
+        <TextView
+            android:id="@+id/detailRouteName"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@color/palette_900"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Monto -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Monto pendiente"
+            android:textSize="11sp"
+            android:textColor="@color/palette_600"
+            android:letterSpacing="0.08"
+            android:textAllCaps="true" />
+
+        <TextView
+            android:id="@+id/detailAmount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="22sp"
+            android:textStyle="bold"
+            android:textColor="@color/palette_600"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Fecha límite -->
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Fecha límite de pago"
+            android:textSize="11sp"
+            android:textColor="@color/palette_600"
+            android:letterSpacing="0.08"
+            android:textAllCaps="true" />
+
+        <TextView
+            android:id="@+id/detailDueDate"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@color/palette_900"
+            android:layout_marginBottom="12dp" />
+
+        <!-- Notas (se oculta si está vacío) -->
+        <LinearLayout
+            android:id="@+id/detailNotesSection"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:visibility="gone">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Notas"
+                android:textSize="11sp"
+                android:textColor="@color/palette_600"
+                android:letterSpacing="0.08"
+                android:textAllCaps="true" />
+
+            <TextView
+                android:id="@+id/detailNotes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="13sp"
+                android:textColor="@color/palette_900"
+                android:layout_marginBottom="12dp" />
+        </LinearLayout>
+
+        <!-- Imagen de factura -->
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/detailInvoiceImage"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_marginBottom="16dp"
+            android:scaleType="centerCrop"
+            android:visibility="gone"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.RoundedCorner8" />
+
+        <!-- Botones de acción -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/detailBtnMarkPaid"
+            style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Marcar como pagada"
+            android:textColor="@color/app_on_primary"
+            android:textAllCaps="false"
+            app:backgroundTint="@color/app_primary"
+            app:cornerRadius="18dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/detailBtnDelete"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="8dp"
+            android:text="Eliminar cuenta"
+            android:textColor="@color/app_primary"
+            android:textAllCaps="false"
+            app:strokeColor="@color/app_primary"
+            app:cornerRadius="18dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/detailBtnClose"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Cerrar"
+            android:textColor="@color/palette_600"
+            android:textAllCaps="false" />
+
+    </LinearLayout>
+</ScrollView>
+

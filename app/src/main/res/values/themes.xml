@@ -87,4 +87,47 @@
         <item name="android:windowMinWidthMajor">80%</item>
         <item name="android:windowMinWidthMinor">80%</item>
     </style>
+
+    <!-- DatePicker con mejor espaciado -->
+    <style name="ThemeOverlay.Distribuidora.MaterialCalendar" parent="ThemeOverlay.MaterialComponents.MaterialCalendar">
+        <item name="materialCalendarHeaderTitle">@style/Widget.Distribuidora.MaterialCalendar.HeaderTitle</item>
+        <item name="materialCalendarHeaderSelection">@style/Widget.Distribuidora.MaterialCalendar.HeaderSelection</item>
+    </style>
+
+    <style name="Widget.Distribuidora.MaterialCalendar.HeaderTitle" parent="Widget.MaterialComponents.MaterialCalendar.HeaderTitle">
+        <item name="android:paddingTop">24dp</item>
+        <item name="android:paddingBottom">12dp</item>
+    </style>
+
+    <style name="Widget.Distribuidora.MaterialCalendar.HeaderSelection" parent="Widget.MaterialComponents.MaterialCalendar.HeaderSelection">
+        <item name="android:paddingTop">16dp</item>
+        <item name="android:paddingBottom">20dp</item>
+    </style>
+
+    <!-- Shape appearance con esquinas redondeadas de 8dp -->
+    <style name="ShapeAppearance.App.RoundedCorner8" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">8dp</item>
+    </style>
+
+    <!-- ===== Aliases Material3 → MaterialComponents (M2 compat) =====
+         El tema usa Theme.MaterialComponents (M2), pero algunos layouts referencian
+         TextAppearance.Material3.*. Estos aliases los mapean a sus equivalentes M2
+         para evitar crashes en runtime sin tener que editar todos los layouts. -->
+    <style name="TextAppearance.Material3.DisplayLarge"  parent="TextAppearance.MaterialComponents.Headline1" />
+    <style name="TextAppearance.Material3.DisplayMedium" parent="TextAppearance.MaterialComponents.Headline2" />
+    <style name="TextAppearance.Material3.DisplaySmall"  parent="TextAppearance.MaterialComponents.Headline3" />
+    <style name="TextAppearance.Material3.HeadlineLarge"  parent="TextAppearance.MaterialComponents.Headline4" />
+    <style name="TextAppearance.Material3.HeadlineMedium" parent="TextAppearance.MaterialComponents.Headline5" />
+    <style name="TextAppearance.Material3.HeadlineSmall"  parent="TextAppearance.MaterialComponents.Headline6" />
+    <style name="TextAppearance.Material3.TitleLarge"   parent="TextAppearance.MaterialComponents.Headline6" />
+    <style name="TextAppearance.Material3.TitleMedium"  parent="TextAppearance.MaterialComponents.Subtitle1" />
+    <style name="TextAppearance.Material3.TitleSmall"   parent="TextAppearance.MaterialComponents.Subtitle2" />
+    <style name="TextAppearance.Material3.BodyLarge"    parent="TextAppearance.MaterialComponents.Body1" />
+    <style name="TextAppearance.Material3.BodyMedium"   parent="TextAppearance.MaterialComponents.Body2" />
+    <style name="TextAppearance.Material3.BodySmall"    parent="TextAppearance.MaterialComponents.Caption" />
+    <style name="TextAppearance.Material3.LabelLarge"   parent="TextAppearance.MaterialComponents.Button" />
+    <style name="TextAppearance.Material3.LabelMedium"  parent="TextAppearance.MaterialComponents.Caption" />
+    <style name="TextAppearance.Material3.LabelSmall"   parent="TextAppearance.MaterialComponents.Overline" />
+
 </resources>

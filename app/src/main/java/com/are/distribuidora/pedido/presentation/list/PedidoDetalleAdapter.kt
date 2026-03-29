@@ -8,11 +8,15 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.bumptech.glide.Glide
+import com.google.android.material.imageview.ShapeableImageView
+import java.io.File
 
 class PedidoDetalleAdapter :
     ListAdapter<PedidoItemUiModel, PedidoDetalleAdapter.ViewHolder>(DIFF) {
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val imageProduct  = view.findViewById<ShapeableImageView>(R.id.imageDetalleProduct)
         private val textNombre    = view.findViewById<TextView>(R.id.textDetalleNombre)
         private val textPrecioQty = view.findViewById<TextView>(R.id.textDetallePrecioQty)
         private val textDescuento = view.findViewById<TextView>(R.id.textDetalleDescuento)
@@ -38,6 +42,21 @@ class PedidoDetalleAdapter :
             } else {
                 textNotes.visibility = View.GONE
             }
+
+            // Imagen: remote URL tiene prioridad; si no, intenta como archivo local
+            val imageSource: Any? = item.imageUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                if (url.startsWith("http")) url
+                else File(url)
+            }
+            if (imageSource != null) {
+                Glide.with(imageProduct)
+                    .load(imageSource)
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .centerCrop()
+                    .into(imageProduct)
+            } else {
+                imageProduct.setImageResource(R.drawable.ic_image_placeholder)
+            }
         }
     }
 
@@ -56,4 +75,3 @@ class PedidoDetalleAdapter :
         }
     }
 }
-

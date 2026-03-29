@@ -25,12 +25,18 @@ class OtrosOrdersAdapter(
     var downloadingIds: Set<String> = emptySet()
         set(value) {
             field = value
-            notifyDataSetChanged()
+            // Usar payload para que solo se actualice el estado de descarga
+            // sin rehacer todo el layout (evita parpadeos y posibles inconsistencias).
+            val count = itemCount
+            if (count > 0) {
+                notifyItemRangeChanged(0, count, PAYLOAD_DOWNLOADING)
+            }
         }
 
     inner class RouteViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         private val textRouteName  = view.findViewById<TextView>(R.id.textOtrosRouteName)
         private val textOrderCount = view.findViewById<TextView>(R.id.textOtrosOrderCount)
+        private val textRouteTotal = view.findViewById<TextView>(R.id.textOtrosRouteTotal)
         private val recyclerOrders = view.findViewById<RecyclerView>(R.id.recyclerOtrosOrders)
 
         private val headersAdapter = OtrosOrderHeaderAdapter(
@@ -50,8 +56,19 @@ class OtrosOrdersAdapter(
             textOrderCount.text = itemView.context.getString(
                 R.string.otros_orders_route_subtitle, item.orderCount
             )
+            // Total acumulado: solo se muestra cuando hay al menos un pedido descargado
+            if (item.routeTotalFormatted != null) {
+                textRouteTotal.text       = item.routeTotalFormatted
+                textRouteTotal.visibility = View.VISIBLE
+            } else {
+                textRouteTotal.visibility = View.GONE
+            }
             headersAdapter.downloadingIds = downloadingIds
             headersAdapter.submitList(item.orders)
+        }
+
+        fun updateDownloadingIds(ids: Set<String>) {
+            headersAdapter.downloadingIds = ids
         }
     }
 
@@ -64,12 +81,18 @@ class OtrosOrdersAdapter(
     override fun onBindViewHolder(holder: RouteViewHolder, position: Int) =
         holder.bind(getItem(position))
 
-    // Necesario para propagador downloadingIds a los holders ya vinculados
+    // Necesario para propagar downloadingIds a los holders ya vinculados
     override fun onBindViewHolder(holder: RouteViewHolder, position: Int, payloads: MutableList<Any>) {
-        super.onBindViewHolder(holder, position, payloads)
+        if (payloads.contains(PAYLOAD_DOWNLOADING)) {
+            // Solo actualizar el estado de descarga sin re-bindear todo
+            holder.updateDownloadingIds(downloadingIds)
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
+        }
     }
 
     companion object {
+        private const val PAYLOAD_DOWNLOADING = "payload_downloading"
         private val ROUTE_DIFF = object : DiffUtil.ItemCallback<OtrosRouteUiModel>() {
             override fun areItemsTheSame(a: OtrosRouteUiModel, b: OtrosRouteUiModel) =
                 a.routeId == b.routeId
@@ -90,7 +113,10 @@ class OtrosOrderHeaderAdapter(
     var downloadingIds: Set<String> = emptySet()
         set(value) {
             field = value
-            notifyDataSetChanged()
+            val count = itemCount
+            if (count > 0) {
+                notifyItemRangeChanged(0, count, PAYLOAD_HEADER_DOWNLOADING)
+            }
         }
 
     inner class HeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -120,10 +146,15 @@ class OtrosOrderHeaderAdapter(
             textTotal.text       = item.totalFormatted ?: ""
             textTotal.visibility = if (item.totalFormatted == null) View.GONE else View.VISIBLE
 
-            val isDownloading = downloadingIds.contains(item.orderId)
-
             // Tap en tarjeta completa → siempre propaga al Fragment para decidir qué hacer
             itemView.setOnClickListener { onOpenClick(item) }
+
+            bindDownloadState(item)
+        }
+
+        /** Actualiza solo la parte visual del estado de descarga (spinner/botón). */
+        fun bindDownloadState(item: OtrosOrderHeaderUiModel) {
+            val isDownloading = downloadingIds.contains(item.orderId)
 
             when {
                 isDownloading -> {
@@ -154,7 +185,17 @@ class OtrosOrderHeaderAdapter(
     override fun onBindViewHolder(holder: HeaderViewHolder, position: Int) =
         holder.bind(getItem(position))
 
+    override fun onBindViewHolder(holder: HeaderViewHolder, position: Int, payloads: MutableList<Any>) {
+        if (payloads.contains(PAYLOAD_HEADER_DOWNLOADING)) {
+            // Solo actualizar la parte del spinner/botón sin re-bindear todo
+            getItem(position)?.let { holder.bindDownloadState(it) }
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
+        }
+    }
+
     companion object {
+        private const val PAYLOAD_HEADER_DOWNLOADING = "payload_header_downloading"
         private val HEADER_DIFF = object : DiffUtil.ItemCallback<OtrosOrderHeaderUiModel>() {
             override fun areItemsTheSame(a: OtrosOrderHeaderUiModel, b: OtrosOrderHeaderUiModel) =
                 a.orderId == b.orderId

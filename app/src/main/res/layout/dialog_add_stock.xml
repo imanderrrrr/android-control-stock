@@ -11,7 +11,7 @@
         android:id="@+id/dialogProductName"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textAppearance="?attr/textAppearanceTitleMedium"
+        android:textAppearance="?attr/textAppearanceSubtitle1"
         android:text="Nombre producto"
         android:layout_marginBottom="4dp" />
 
@@ -19,8 +19,8 @@
         android:id="@+id/dialogProductDetails"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textAppearance="?attr/textAppearanceBodyMedium"
-        android:textColor="?attr/colorOnSurfaceVariant"
+        android:textAppearance="?attr/textAppearanceBody2"
+        android:textColor="?android:attr/textColorSecondary"
         android:text="Detalles"
         android:layout_marginBottom="16dp" />
 

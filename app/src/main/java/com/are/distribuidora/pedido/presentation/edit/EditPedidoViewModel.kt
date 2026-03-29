@@ -6,11 +6,15 @@ import com.are.distribuidora.auth.domain.repository.AuthRepository
 import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.data.local.dao.ProductDao
 import com.are.distribuidora.domain.model.Product
+import com.are.distribuidora.domain.pedido.DiscountType
 import com.are.distribuidora.domain.pedido.model.EditPedidoItemInput
 import com.are.distribuidora.domain.pedido.model.EditPedidoParams
 import com.are.distribuidora.domain.pedido.model.PreviousItemSnapshot
+import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountByAmountUseCase
+import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountUseCase
 import com.are.distribuidora.domain.pedido.usecase.EditPedidoUseCase
 import com.are.distribuidora.domain.pedido.usecase.ObserveAllPedidosUseCase
+import com.are.distribuidora.domain.pedido.usecase.RoundToQuarterQuetzalUseCase
 import com.are.distribuidora.workers.PedidoSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -43,6 +47,8 @@ class EditPedidoViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val pedidoSyncScheduler: PedidoSyncScheduler,
     private val productDao: ProductDao,
+    private val applyItemDiscountUseCase: ApplyItemDiscountUseCase,
+    private val applyItemDiscountByAmountUseCase: ApplyItemDiscountByAmountUseCase,
 ) : ViewModel() {
 
     // ── Estados de UI ────────────────────────────────────────────────────────
@@ -90,6 +96,7 @@ class EditPedidoViewModel @Inject constructor(
     private var _previousItems: List<PreviousItemSnapshot> = emptyList()
 
     private var currentPedidoId: String = ""
+    private var currentClienteId: String? = null
     private var descuentoGlobal: Double = 0.0
     private var clienteNombre: String = ""
 
@@ -103,9 +110,21 @@ class EditPedidoViewModel @Inject constructor(
 
     /**
      * Inicializa el estado de edición a partir del pedido actual en Room.
-     * Solo debe llamarse una vez al abrir la pantalla.
+     * Si se llama con un [pedidoId] distinto al cargado actualmente, limpia
+     * todo el estado previo antes de cargar el nuevo pedido.
      */
     fun init(pedidoId: String) {
+        // Si es un pedido distinto al que ya está cargado, resetear todo el estado
+        if (currentPedidoId != pedidoId) {
+            currentPedidoId  = pedidoId
+            currentClienteId = null
+            descuentoGlobal  = 0.0
+            clienteNombre    = ""
+            _editItems.value = emptyMap()
+            _deletedItemIds.value = emptySet()
+            _previousItems   = emptyList()
+            _uiState.value   = UiState.Loading
+        }
         currentPedidoId = pedidoId
         viewModelScope.launch {
             observeAllPedidosUseCase().map { list ->
@@ -118,6 +137,7 @@ class EditPedidoViewModel @Inject constructor(
                 // Solo pre-poblar la primera vez (no sobreescribir ediciones en curso)
                 if (_editItems.value.isEmpty() && currentPedidoId == pedidoId) {
                     clienteNombre    = pw.pedido.clienteSnapshot.nombre
+                    currentClienteId = pw.pedido.clienteId
                     descuentoGlobal  = pw.pedido.descuentoGlobal
                     // Resolver imageUrl de cada ítem consultando la tabla de productos
                     val initialItems = pw.items.associate { item ->
@@ -188,11 +208,39 @@ class EditPedidoViewModel @Inject constructor(
         rebuildUiState()
     }
 
-    /** Actualiza el descuento (monto absoluto) de un ítem. */
-    fun setDiscount(localKey: String, descuentoItem: Double) {
+    /** Actualiza el descuento por PORCENTAJE de un ítem. */
+    fun setDiscount(localKey: String, percent: Double) {
+        val clamped = percent.coerceIn(0.0, 100.0)
         val current = _editItems.value.toMutableMap()
         val item    = current[localKey] ?: return
-        current[localKey] = item.copy(descuentoItem = descuentoItem.coerceAtLeast(0.0))
+        val monto   = applyItemDiscountUseCase(
+            precioUnitario = item.precioUnitario,
+            cantidad       = item.cantidad,
+            porcentaje     = clamped,
+        )
+        current[localKey] = item.copy(
+            descuentoItem  = monto,
+            discountPercent = clamped,
+            discountType   = DiscountType.PERCENTAGE,
+        )
+        _editItems.value = current
+        rebuildUiState()
+    }
+
+    /** Actualiza el descuento por MONTO FIJO en Quetzales de un ítem. */
+    fun setDiscountByAmount(localKey: String, amount: Double) {
+        val current = _editItems.value.toMutableMap()
+        val item    = current[localKey] ?: return
+        val monto   = applyItemDiscountByAmountUseCase(
+            precioUnitario = item.precioUnitario,
+            cantidad       = item.cantidad,
+            montoDescuento = amount.coerceAtLeast(0.0),
+        )
+        current[localKey] = item.copy(
+            descuentoItem  = monto,
+            discountPercent = 0.0,
+            discountType   = DiscountType.AMOUNT,
+        )
         _editItems.value = current
         rebuildUiState()
     }
@@ -241,6 +289,7 @@ class EditPedidoViewModel @Inject constructor(
             val params = EditPedidoParams(
                 pedidoId          = currentPedidoId,
                 vendedorId        = session.userId,
+                clienteId         = currentClienteId,
                 itemsToUpsert     = activeItems,
                 itemIdsToDelete   = _deletedItemIds.value.toList(),
                 previousItems     = _previousItems,
@@ -255,6 +304,11 @@ class EditPedidoViewModel @Inject constructor(
                 is Result.Error -> {
                     val msg = when (val f = result.failure) {
                         is com.are.distribuidora.core.result.Failure.ValidationError -> f.message
+                        is com.are.distribuidora.core.result.Failure.OrderLimitExceeded -> {
+                            val limitFormatted = f.limitInCents / 100.0
+                            val totalFormatted = f.totalInCents / 100.0
+                            "El pedido (Q${"%.2f".format(totalFormatted)}) excede el límite de compra de Q${"%.2f".format(limitFormatted)}"
+                        }
                         else -> "Error al guardar los cambios"
                     }
                     _saveEvent.emit(SaveEvent.Error(msg))
@@ -272,7 +326,7 @@ class EditPedidoViewModel @Inject constructor(
         val subtotal = activeItems.sumOf {
             (it.precioUnitario * it.cantidad) - it.descuentoItem
         }
-        val total = (subtotal - descuentoGlobal).coerceAtLeast(0.0)
+        val total = RoundToQuarterQuetzalUseCase((subtotal - descuentoGlobal).coerceAtLeast(0.0))
 
         _uiState.value = UiState.Editing(
             clienteNombre      = clienteNombre,
@@ -299,6 +353,8 @@ data class EditItemUiModel(
     val descuentoItem: Double,
     val imageUrl: String? = null,
     val notes: String? = null,
+    val discountPercent: Double = 0.0,
+    val discountType: DiscountType = DiscountType.PERCENTAGE,
 ) {
     val subtotalBase: Double get() = precioUnitario * cantidad
     val subtotal: Double     get() = (subtotalBase - descuentoItem).coerceAtLeast(0.0)

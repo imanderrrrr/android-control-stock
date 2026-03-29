@@ -38,6 +38,7 @@ data class PedidoItemUiModel(
     val descuentoFormatted: String?, // null si sin descuento
     val totalItem: String,           // "Q 50.00"
     val notes: String? = null,       // detalle/instrucción especial del cliente para este ítem
+    val imageUrl: String? = null,    // URL/URI de imagen del producto (remota o local)
 )
 
 // ── Otros Pedidos ─────────────────────────────────────────────────────────────
@@ -51,6 +52,11 @@ data class OtrosRouteUiModel(
     val routeName: String,
     val orderCount: Int,
     val orders: List<OtrosOrderHeaderUiModel>,
+    /**
+     * Suma de los totalAmount de pedidos ya descargados en esta ruta.
+     * Null si ningún pedido tiene total disponible aún.
+     */
+    val routeTotalFormatted: String?,
 )
 
 /**

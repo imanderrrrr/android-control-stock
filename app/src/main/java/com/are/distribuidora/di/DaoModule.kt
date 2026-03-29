@@ -2,6 +2,8 @@ package com.are.distribuidora.di
 
 import com.are.distribuidora.client.data.local.dao.ClientDao
 import com.are.distribuidora.data.local.DistribuidoraDatabase
+import com.are.distribuidora.data.local.dao.PendingAccountDao
+import com.are.distribuidora.data.local.dao.PendingUploadDao
 import com.are.distribuidora.data.local.dao.ProductDao
 import com.are.distribuidora.data.local.dao.SaleDao
 import com.are.distribuidora.data.local.dao.SaleItemDao
@@ -49,4 +51,10 @@ object DaoModule {
     
     @Provides
     fun provideClientDao(db: DistribuidoraDatabase): ClientDao = db.clientDao()
+
+    @Provides
+    fun providePendingUploadDao(db: DistribuidoraDatabase): PendingUploadDao = db.pendingUploadDao()
+
+    @Provides
+    fun providePendingAccountDao(db: DistribuidoraDatabase): PendingAccountDao = db.pendingAccountDao()
 }

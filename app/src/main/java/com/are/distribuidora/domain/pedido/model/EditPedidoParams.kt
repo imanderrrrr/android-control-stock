@@ -13,6 +13,7 @@ package com.are.distribuidora.domain.pedido.model
 data class EditPedidoParams(
     val pedidoId: String,
     val vendedorId: String,
+    val clienteId: String?,
     val itemsToUpsert: List<EditPedidoItemInput>,
     val itemIdsToDelete: List<String>,
     val previousItems: List<PreviousItemSnapshot>,

@@ -1,7 +1,7 @@
 package com.are.distribuidora.data.repository
 
 import android.util.Log
-import com.are.distribuidora.core.images.ProductImageUrl
+import com.are.distribuidora.core.images.FirestoreImageUrlValidator
 import com.are.distribuidora.data.local.DistribuidoraDatabase
 import com.are.distribuidora.data.local.SyncStatus
 import com.are.distribuidora.data.local.dao.ProductDao
@@ -19,7 +19,6 @@ import kotlinx.coroutines.withContext
 import java.math.BigDecimal
 import javax.inject.Inject
 import com.are.distribuidora.data.storage.ProductImageStorage
-import java.io.File
 
 private const val TAG = "SYNC_PRODUCT"
 
@@ -40,6 +39,7 @@ class ProductSyncRepositoryImpl @Inject constructor(
     private val local: ProductDao,
     private val database: DistribuidoraDatabase,
     private val imageStorage: ProductImageStorage,
+    private val pendingUploadDao: com.are.distribuidora.data.local.dao.PendingUploadDao,
 ) : ProductSyncRepository {
 
     override suspend fun fetchRemoteProducts(): List<Product> = withContext(Dispatchers.IO) {
@@ -63,13 +63,15 @@ class ProductSyncRepositoryImpl @Inject constructor(
         remoteProducts.mapNotNull { r ->
             try {
                 // Map Remote -> Domain
+                val remoteImageUrl = r.imageUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
                 Product(
                     id = ProductId.of(r.id),
                     name = r.name,
                     description = r.description,
                     category = r.category,
                     price = Money.of(BigDecimal.valueOf(r.price ?: 0.0)),
-                    imageUrl = r.imageUrl,
+                    imageUrl = remoteImageUrl,
+                    imageLocalUri = null,
                     barcode = r.barcode,
                     stock = Quantity.of(r.stock ?: 0),
                     comprometido = r.comprometido ?: 0,
@@ -193,28 +195,32 @@ class ProductSyncRepositoryImpl @Inject constructor(
                         return@forEach
                     }
 
-                    // --- Imagen OFFLINE-FIRST (Opción B) ---
-                    // Si el producto tiene local://..., subimos a Storage antes de construir el payload.
-                    // Si falla, dejamos local:// para reintento en el siguiente ciclo.
-                    var effectiveImageUrl = domain.imageUrl
-                    val localPath = ProductImageUrl.localPathOrNull(effectiveImageUrl)
-                    if (localPath != null) {
-                        try {
-                            val file = File(localPath)
-                            if (file.exists()) {
-                                val downloadUrl = imageStorage.uploadMainImage(domain.id.value, file)
-                                // Persistir reemplazo local (NO tocar SyncStatus, solo imageUrl)
-                                local.updateImageUrl(entity.id, downloadUrl)
-                                effectiveImageUrl = downloadUrl
-                                Log.d(TAG, "[Pipeline] ${entity.id} image uploaded. Replaced local:// with remote url")
-                            } else {
-                                Log.w(TAG, "[Pipeline] ${entity.id} local image file not found at $localPath. Keeping local://")
-                            }
-                        } catch (e: Exception) {
-                            Log.e(TAG, "[Pipeline] ${entity.id} image upload failed. Will retry next sync.", e)
-                            // Mantener local:// intacto.
-                        }
+                    // --- Imagen OFFLINE-FIRST ---
+                    // La subida de imágenes se maneja por UploadPendingProductImagesWorker.
+                    // Aquí solo usamos imageUrl si ya fue subida (https://...).
+                    // Si imageUrl es null o local, enviamos null a Firestore.
+                    // NUNCA enviamos rutas locales a Firestore.
+
+                    // FIX: Re-leer imageUrl fresco desde Room para capturar si el
+                    // ImageWorker ya actualizó la URL remota entre que se leyó el
+                    // batch y este momento.
+                    val freshEntity = local.getById(entity.id)
+                    val latestImageUrl = freshEntity?.imageUrl ?: entity.imageUrl
+                    val effectiveImageUrl = latestImageUrl
+                        ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+
+                    // Check si hay un upload de imagen pendiente para este producto
+                    val pendingUpload = pendingUploadDao.findByEntityId(entity.id)
+                    val hasPendingImageUpload = pendingUpload
+                        ?.let { it.state == "PENDING" || it.state == "UPLOADING" || it.state == "FAILED" }
+                        ?: false
+
+                    if (hasPendingImageUpload) {
+                        Log.d(TAG, "[Pipeline] ${entity.id} has pending image upload (state=${pendingUpload?.state}). imageUrl will be ${if (effectiveImageUrl != null) effectiveImageUrl else "null (excluded from payload)"}")
                     }
+
+                    // Validación G: bloquear rutas locales a Firestore
+                    FirestoreImageUrlValidator.validateForFirestore(effectiveImageUrl)
 
                     val remoteProduct = RemoteProduct(
                         id = domain.id.value,
@@ -406,13 +412,30 @@ class ProductSyncRepositoryImpl @Inject constructor(
             return
         }
 
+        // Remote imageUrl is always the authoritative remote URL (https://...)
+        val remoteImageUrl = r.imageUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+
+        // FIX: Proteger imageUrl contra sobreescritura con null.
+        // Si el remoto no trae imageUrl pero localmente ya tenemos una URL válida
+        // (subida por UploadPendingProductImagesWorker), NO sobrescribir con null.
+        // Esto cubre el caso donde el product sync usó merge() y no envió imageUrl,
+        // pero el ImageWorker ya actualizó Room con la URL real.
+        val finalImageUrl = remoteImageUrl ?: existing?.imageUrl?.takeIf {
+            it.startsWith("http://") || it.startsWith("https://")
+        }
+
+        if (finalImageUrl != remoteImageUrl) {
+            Log.d(TAG, "saveRemoteProductToLocal: Preserved local imageUrl for ${r.id} (remote was null, local=${finalImageUrl})")
+        }
+
          val entity = com.are.distribuidora.data.local.entity.ProductEntity(
             id = r.id,
             name = r.name,
             description = r.description,
             category = r.category,
             price = r.price ?: 0.0,
-            imageUrl = r.imageUrl,
+            imageUrl = finalImageUrl,
+            imageLocalUri = existing?.imageLocalUri, // Preserve local URI if exists
             barcode = r.barcode,
             stock = r.stock ?: 0,
             isActive = r.isActive ?: true,

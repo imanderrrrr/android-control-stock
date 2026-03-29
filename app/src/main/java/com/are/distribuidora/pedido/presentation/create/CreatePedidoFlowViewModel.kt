@@ -2,27 +2,36 @@ package com.are.distribuidora.pedido.presentation.create
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.are.distribuidora.client.domain.repository.ClientRepository
+import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.domain.model.Product
+import com.are.distribuidora.domain.pedido.DiscountType
 import com.are.distribuidora.domain.pedido.model.ClienteSelection
+import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountByAmountUseCase
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountUseCase
+import com.are.distribuidora.domain.pedido.usecase.RoundToQuarterQuetzalUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
 /**
  * DTO de presentación del carrito — sin lógica de negocio.
  *
- * El cálculo del descuento es responsabilidad de [ApplyItemDiscountUseCase] (dominio).
+ * El cálculo del descuento es responsabilidad de [ApplyItemDiscountUseCase] /
+ * [ApplyItemDiscountByAmountUseCase] (dominio).
  * Este data class solo transporta los valores ya calculados hacia la UI.
  *
- * @param discountAmount monto absoluto de descuento (calculado por el UseCase). Default 0.
+ * @param discountAmount  monto absoluto de descuento (calculado por el UseCase). Default 0.
  * @param discountPercent porcentaje informativo para mostrar en el badge de la UI. Default 0.
+ * @param discountType    tipo de descuento aplicado (PERCENTAGE o AMOUNT). Default PERCENTAGE.
  */
 data class CartItem(
     val productId: String,
@@ -34,6 +43,7 @@ data class CartItem(
     val notes: String? = null,
     val discountAmount: Double = 0.0,
     val discountPercent: Double = 0.0,
+    val discountType: DiscountType = DiscountType.PERCENTAGE,
 ) {
     /** Subtotal sin descuento: precio × cantidad. */
     val subtotalBase: Double get() = priceAmount * quantity
@@ -48,6 +58,8 @@ data class CartItem(
 @HiltViewModel
 class CreatePedidoFlowViewModel @Inject constructor(
     private val applyItemDiscountUseCase: ApplyItemDiscountUseCase,
+    private val applyItemDiscountByAmountUseCase: ApplyItemDiscountByAmountUseCase,
+    private val clientRepository: ClientRepository,
 ) : ViewModel() {
 
     private val _routeId = MutableStateFlow<String?>(null)
@@ -64,21 +76,61 @@ class CreatePedidoFlowViewModel @Inject constructor(
     private val _cartItems = MutableStateFlow<Map<String, CartItem>>(emptyMap())
     val cartItems: StateFlow<Map<String, CartItem>> = _cartItems.asStateFlow()
 
-    /** Total del carrito: suma de (precio × cantidad) de todos los items. */
+    /** Total del carrito redondeado al múltiplo de Q 0.25 más cercano (GT). */
     val cartTotal: StateFlow<Double> = _cartItems
-        .map { map -> map.values.sumOf { it.subtotal } }
+        .map { map -> RoundToQuarterQuetzalUseCase(map.values.sumOf { it.subtotal }) }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
+
+    /** Límite de compra del cliente seleccionado (centavos). null = sin límite. */
+    private val _maxOrderAmountInCents = MutableStateFlow<Long?>(null)
+    val maxOrderAmountInCents: StateFlow<Long?> = _maxOrderAmountInCents.asStateFlow()
+
+    /**
+     * true cuando el total del carrito excede el límite del cliente.
+     * La UI usa este flag para mostrar una advertencia visual en tiempo real.
+     */
+    val isOverLimit: StateFlow<Boolean> = combine(
+        cartTotal,
+        _maxOrderAmountInCents,
+    ) { total, limit ->
+        if (limit == null) false
+        else (total * 100).toLong() > limit
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, false)
 
     fun setSelection(routeId: String, selection: ClienteSelection, deliveryDate: String = "") {
         _routeId.value = routeId
         _deliveryDate.value = deliveryDate
         _clienteSelection.value = selection
+        loadClientOrderLimit(selection)
+    }
+
+    /**
+     * Carga el límite de compra del cliente desde Room (offline-first).
+     * Solo aplica a clientes existentes; temporales no tienen límite.
+     */
+    private fun loadClientOrderLimit(selection: ClienteSelection) {
+        when (selection) {
+            is ClienteSelection.Existente -> {
+                viewModelScope.launch {
+                    val result = clientRepository.getClientById(selection.clienteId)
+                    _maxOrderAmountInCents.value = if (result is Result.Success) {
+                        result.value?.maxOrderAmountInCents
+                    } else {
+                        null
+                    }
+                }
+            }
+            is ClienteSelection.Temporal -> {
+                _maxOrderAmountInCents.value = null
+            }
+        }
     }
 
     fun clear() {
         _routeId.value = null
         _deliveryDate.value = ""
         _clienteSelection.value = null
+        _maxOrderAmountInCents.value = null
         _cartItems.value = emptyMap()
     }
 
@@ -131,14 +183,28 @@ class CreatePedidoFlowViewModel @Inject constructor(
             val current = _cartItems.value.toMutableMap()
             val item = current[productId] ?: return
 
-            // Recalcular monto de descuento si hay porcentaje activo
-            val newDiscountAmount = if (item.discountPercent > 0.0) {
-                applyItemDiscountUseCase(
-                    precioUnitario = item.priceAmount,
-                    cantidad       = qty,
-                    porcentaje     = item.discountPercent,
-                )
-            } else 0.0
+            // Recalcular monto de descuento si hay descuento activo.
+            // FIX BUG #3: los UseCases tienen require() que lanzan IllegalArgumentException
+            // si el precio es negativo (dato corrupto en BD). Capturamos y usamos 0.0 de fallback.
+            val newDiscountAmount = try {
+                when {
+                    item.discountType == DiscountType.PERCENTAGE && item.discountPercent > 0.0 ->
+                        applyItemDiscountUseCase(
+                            precioUnitario = item.priceAmount,
+                            cantidad       = qty,
+                            porcentaje     = item.discountPercent,
+                        )
+                    item.discountType == DiscountType.AMOUNT && item.discountAmount > 0.0 ->
+                        applyItemDiscountByAmountUseCase(
+                            precioUnitario = item.priceAmount,
+                            cantidad       = qty,
+                            montoDescuento = item.discountAmount,
+                        )
+                    else -> 0.0
+                }
+            } catch (_: IllegalArgumentException) {
+                0.0 // fallback seguro: sin descuento si los valores son inválidos
+            }
 
             current[productId] = item.copy(
                 quantity       = qty,
@@ -146,6 +212,14 @@ class CreatePedidoFlowViewModel @Inject constructor(
             )
             _cartItems.value = current
         }
+    }
+
+    /** Actualiza las notas de un ítem del carrito. null/blank = sin notas. */
+    fun setNotes(productId: String, notes: String?) {
+        val current = _cartItems.value.toMutableMap()
+        val item = current[productId] ?: return
+        current[productId] = item.copy(notes = notes?.trim()?.takeIf { it.isNotBlank() })
+        _cartItems.value = current
     }
 
     fun clearCart() {
@@ -158,10 +232,9 @@ class CreatePedidoFlowViewModel @Inject constructor(
     }
 
     /**
-     * Aplica (o elimina) un descuento a un ítem del carrito.
+     * Aplica (o elimina) un descuento por PORCENTAJE a un ítem del carrito.
      *
      * El cálculo porcentaje → monto absoluto se delega a [ApplyItemDiscountUseCase] (dominio).
-     * El ViewModel solo orquesta: recibe el porcentaje → obtiene el monto → actualiza el estado.
      *
      * @param percent valor entre 0.0 y 100.0; 0 = sin descuento.
      */
@@ -170,16 +243,49 @@ class CreatePedidoFlowViewModel @Inject constructor(
         val current = _cartItems.value.toMutableMap()
         val item = current[productId] ?: return
 
-        // ← regla de negocio en dominio, no aquí
-        val discountMonto = applyItemDiscountUseCase(
-            precioUnitario = item.priceAmount,
-            cantidad       = item.quantity,
-            porcentaje     = clamped,
-        )
+        val discountMonto = try {
+            applyItemDiscountUseCase(
+                precioUnitario = item.priceAmount,
+                cantidad       = item.quantity,
+                porcentaje     = clamped,
+            )
+        } catch (_: IllegalArgumentException) {
+            0.0
+        }
 
         current[productId] = item.copy(
             discountAmount  = discountMonto,
             discountPercent = clamped,
+            discountType    = DiscountType.PERCENTAGE,
+        )
+        _cartItems.value = current
+    }
+
+    /**
+     * Aplica (o elimina) un descuento por MONTO FIJO en Quetzales a un ítem del carrito.
+     *
+     * El clamp y redondeo se delega a [ApplyItemDiscountByAmountUseCase] (dominio).
+     *
+     * @param amount monto en Q ≥ 0; 0 = sin descuento.
+     */
+    fun setDiscountByAmount(productId: String, amount: Double) {
+        val current = _cartItems.value.toMutableMap()
+        val item = current[productId] ?: return
+
+        val discountMonto = try {
+            applyItemDiscountByAmountUseCase(
+                precioUnitario = item.priceAmount,
+                cantidad       = item.quantity,
+                montoDescuento = amount.coerceAtLeast(0.0),
+            )
+        } catch (_: IllegalArgumentException) {
+            0.0
+        }
+
+        current[productId] = item.copy(
+            discountAmount  = discountMonto,
+            discountPercent = 0.0,
+            discountType    = DiscountType.AMOUNT,
         )
         _cartItems.value = current
     }

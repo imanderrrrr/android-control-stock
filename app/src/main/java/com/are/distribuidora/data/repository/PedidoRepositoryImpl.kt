@@ -20,6 +20,13 @@ import com.are.distribuidora.domain.pedido.SyncStatusLabel
 import com.are.distribuidora.domain.pedido.model.ClienteSnapshot
 import com.are.distribuidora.domain.pedido.model.CreatePedidoParams
 import com.are.distribuidora.domain.pedido.model.EditPedidoParams
+import com.are.distribuidora.domain.pedido.model.ReportParams
+import com.are.distribuidora.domain.pedido.model.ReportResult
+import com.are.distribuidora.domain.pedido.model.RouteSalesData
+import com.are.distribuidora.domain.pedido.model.DailySalesData
+import com.are.distribuidora.domain.pedido.model.TopProductData
+import com.are.distribuidora.domain.pedido.model.TopClientData
+import com.are.distribuidora.core.money.RoundToQuarterQuetzalUseCase
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -60,7 +67,8 @@ class PedidoRepositoryImpl @Inject constructor(
                 )
             }
 
-            val total = subtotal - params.descuentoGlobal
+            // El total ya viene redondeado al Q 0.25 más cercano desde el UseCase de dominio.
+            val total = params.totalRedondeado
 
             // Calcular orderKey — null para clientes temporales (sin deduplicación)
             val orderKey = com.are.distribuidora.core.utils.OrderKeyUtil.compute(
@@ -509,7 +517,10 @@ class PedidoRepositoryImpl @Inject constructor(
             // Recalcular totales (itemsToUpsert ya son solo los activos)
             val subtotal = params.itemsToUpsert
                 .sumOf { (it.precioUnitario * it.cantidad) - it.descuentoItem }
-            val total = subtotal - params.descuentoGlobal
+            // Redondear al múltiplo de Q 0.25 más cercano, igual que al crear el pedido
+            val total = RoundToQuarterQuetzalUseCase(
+                (subtotal - params.descuentoGlobal).coerceAtLeast(0.0)
+            )
 
             // Construir entidades de ítems para upsert
             val itemEntities = params.itemsToUpsert.map { input ->
@@ -838,5 +849,50 @@ class PedidoRepositoryImpl @Inject constructor(
             android.util.Log.e("PedidoExpire", "expireOldPedidos: fatal error", e)
             Result.Error(Failure.NetworkError)
         }
+    }
+
+    override suspend fun getReportData(params: ReportParams): ReportResult {
+        val routeSales = pedidoDao.salesByRouteSince(params.sinceEpoch14).map { t ->
+            RouteSalesData(routeId = t.routeId, totalVentas = t.totalVentas, pedidoCount = t.pedidoCount)
+        }
+        val dailySales = pedidoDao.salesByDaySince(params.sinceEpoch14).map { t ->
+            DailySalesData(dateLabel = t.dateLabel, totalVentas = t.totalVentas, pedidoCount = t.pedidoCount)
+        }
+        val topProducts = pedidoDao.topProductsSince(params.sinceEpoch14, params.topLimit).map { t ->
+            val product = productDao.getById(t.productoId)
+            TopProductData(
+                productoId = t.productoId,
+                productName = t.productName,
+                totalQty = t.totalQty,
+                totalRevenue = t.totalRevenue,
+                imageUrl = product?.imageUrl,
+                imageLocalUri = product?.imageLocalUri,
+            )
+        }
+        val bottomProducts = pedidoDao.bottomProductsSince(params.sinceEpoch14, params.topLimit).map { t ->
+            val product = productDao.getById(t.productoId)
+            TopProductData(
+                productoId = t.productoId,
+                productName = t.productName,
+                totalQty = t.totalQty,
+                totalRevenue = t.totalRevenue,
+                imageUrl = product?.imageUrl,
+                imageLocalUri = product?.imageLocalUri,
+            )
+        }
+        val topClients = pedidoDao.topClientsSince(params.sinceEpoch7, params.topLimit).map { t ->
+            TopClientData(clienteNombre = t.clienteNombre, totalSpent = t.totalSpent, orderCount = t.orderCount)
+        }
+        return ReportResult(
+            totalVentas14 = pedidoDao.sumTotalSince(params.sinceEpoch14),
+            totalPedidos14 = pedidoDao.countPedidosSince(params.sinceEpoch14),
+            totalVentas7 = pedidoDao.sumTotalSince(params.sinceEpoch7),
+            totalPedidos7 = pedidoDao.countPedidosSince(params.sinceEpoch7),
+            routeSales = routeSales,
+            dailySales = dailySales,
+            topProducts = topProducts,
+            bottomProducts = bottomProducts,
+            topClients = topClients,
+        )
     }
 }

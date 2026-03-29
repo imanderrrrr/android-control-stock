@@ -128,6 +128,7 @@ class MisPedidosListFragment : Fragment(R.layout.fragment_mis_pedidos_list) {
         val picker = MaterialDatePicker.Builder.datePicker()
             .setTitleText(getString(R.string.pedidos_date_filter_title))
             .setSelection(currentEpoch)
+            .setTheme(R.style.ThemeOverlay_Distribuidora_MaterialCalendar)
             .build()
 
         picker.addOnPositiveButtonClickListener { selectionEpoch ->

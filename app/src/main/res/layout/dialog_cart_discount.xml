@@ -13,6 +13,7 @@
         android:text="Aplicar descuento"
         android:textAppearance="?attr/textAppearanceHeadline6"
         android:textStyle="bold"
+        android:textColor="@color/palette_900"
         android:layout_marginBottom="8dp" />
 
     <TextView
@@ -20,14 +21,57 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textAppearance="?attr/textAppearanceBody2"
-        android:alpha="0.7"
-        android:layout_marginBottom="20dp"
+        android:textColor="@color/palette_600"
+        android:alpha="0.8"
+        android:layout_marginBottom="16dp"
         android:maxLines="1"
         android:ellipsize="end" />
 
+    <!-- Toggle tipo de descuento: % / Q -->
+    <com.google.android.material.button.MaterialButtonToggleGroup
+        android:id="@+id/toggleDiscountType"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center_horizontal"
+        android:layout_marginBottom="16dp"
+        app:selectionRequired="true"
+        app:singleSelection="true">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDiscountPercent"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="%"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/palette_600"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            app:strokeColor="@color/palette_300"
+            app:cornerRadius="0dp" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnDiscountAmount"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="wrap_content"
+            android:layout_height="48dp"
+            android:text="Q"
+            android:textAllCaps="false"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@color/palette_600"
+            android:paddingStart="24dp"
+            android:paddingEnd="24dp"
+            app:strokeColor="@color/palette_300"
+            app:cornerRadius="0dp" />
+
+    </com.google.android.material.button.MaterialButtonToggleGroup>
+
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/inputLayoutDiscount"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+        style="@style/Widget.Distribuidora.TextInputLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Descuento (%)"
@@ -50,7 +94,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textAppearance="?attr/textAppearanceBody1"
-        android:textColor="?attr/colorPrimary"
+        android:textColor="@color/palette_600"
         android:textStyle="bold"
         android:gravity="center"
         android:layout_marginBottom="20dp"
@@ -69,10 +113,12 @@
             android:layout_height="wrap_content"
             android:text="Cancelar"
             android:textAllCaps="false"
+            android:textColor="@color/palette_600"
             android:layout_marginEnd="8dp" />
 
         <com.google.android.material.button.MaterialButton
             android:id="@+id/btnDiscountConfirm"
+            style="@style/Widget.Distribuidora.LoginButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:text="Aplicar"
@@ -81,6 +127,5 @@
     </LinearLayout>
 
 </LinearLayout>
-
 
 

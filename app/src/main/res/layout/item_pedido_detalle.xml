@@ -16,16 +16,28 @@
         android:layout_height="wrap_content"
         android:padding="14dp">
 
+        <!-- Imagen del producto -->
+        <com.google.android.material.imageview.ShapeableImageView
+            android:id="@+id/imageDetalleProduct"
+            android:layout_width="56dp"
+            android:layout_height="56dp"
+            android:scaleType="centerCrop"
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.RoundedCorner8"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
         <!-- Nombre del producto -->
         <TextView
             android:id="@+id/textDetalleNombre"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+            android:layout_marginStart="12dp"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2"
             android:textStyle="bold"
             android:maxLines="2"
             android:ellipsize="end"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="@id/imageDetalleProduct"
             app:layout_constraintEnd_toStartOf="@id/textDetalleTotalItem"
             app:layout_constraintTop_toTopOf="parent" />
 
@@ -34,7 +46,7 @@
             android:id="@+id/textDetalleTotalItem"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2"
             android:textStyle="bold"
             android:textColor="?attr/colorPrimary"
             app:layout_constraintEnd_toEndOf="parent"
@@ -46,9 +58,10 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:layout_marginStart="12dp"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
             android:alpha="0.7"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="@id/imageDetalleProduct"
             app:layout_constraintEnd_toStartOf="@id/textDetalleDescuento"
             app:layout_constraintTop_toBottomOf="@id/textDetalleNombre" />
 
@@ -58,7 +71,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
+            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
             android:textColor="@android:color/holo_orange_dark"
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
@@ -70,15 +83,15 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
+            android:layout_marginStart="12dp"
             android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
             android:textColor="@color/palette_600"
             android:textStyle="italic"
             android:visibility="gone"
-            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintStart_toEndOf="@id/imageDetalleProduct"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toBottomOf="@id/textDetallePrecioQty" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 
 </com.google.android.material.card.MaterialCardView>
-

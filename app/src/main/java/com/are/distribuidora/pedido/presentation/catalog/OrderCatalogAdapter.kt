@@ -51,12 +51,37 @@ class OrderCatalogAdapter : PagingDataAdapter<Product, OrderCatalogAdapter.Produ
     fun updateCartQuantities(newMap: Map<String, Int>) {
         val old = cartQuantities
         cartQuantities = newMap
-        // Refrescar solo los items cuya cantidad cambió
-        snapshot().items.forEachIndexed { index, product ->
-            val id = product.id.value
-            if (old[id] != newMap[id]) {
-                notifyItemChanged(index, PAYLOAD_QTY)
+
+        // Detectar qué productIds cambiaron su cantidad.
+        val changedIds = mutableSetOf<String>()
+        for ((id, qty) in newMap) {
+            if (old[id] != qty) changedIds.add(id)
+        }
+        // IDs que estaban en old pero ya no están en newMap (qty pasó a 0)
+        for (id in old.keys) {
+            if (id !in newMap) changedIds.add(id)
+        }
+
+        if (changedIds.isEmpty()) return
+
+        // Capturamos snapshot y count UNA VEZ y protegemos con try-catch
+        // para evitar IndexOutOfBoundsException si PagingData se invalida
+        // concurrentemente con el layout pass del RecyclerView.
+        try {
+            val currentSnapshot = snapshot().items
+            val currentCount    = itemCount
+            for (index in currentSnapshot.indices) {
+                if (index >= currentCount) break
+                val id = currentSnapshot[index].id.value
+                if (id in changedIds) {
+                    notifyItemChanged(index, PAYLOAD_QTY)
+                }
             }
+        } catch (e: Exception) {
+            // Fallback seguro: si snapshot/itemCount divergen y causan crash,
+            // forzamos un refresh completo. Menos eficiente pero no crashea.
+            Log.w("ORDER_CATALOG", "updateCartQuantities fallback notifyDataSetChanged", e)
+            notifyDataSetChanged()
         }
     }
 
@@ -202,40 +227,40 @@ class OrderCatalogAdapter : PagingDataAdapter<Product, OrderCatalogAdapter.Produ
         }
 
         private fun bindImage(product: Product) {
-            val raw = product.imageUrl?.trim()?.takeIf { it.isNotEmpty() }
+            // Prioridad: imageUrl (https remota) → imageLocalUri → sin imagen
+            val remoteUrl = product.imageUrl?.trim()
+                ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+            val localUri = product.imageLocalUri?.trim()?.takeIf { it.isNotEmpty() }
 
-            if (raw == null) {
-                // Sin imagen: limpiar ImageView y mostrar placeholder
-                Glide.with(image).clear(image)
-                image.setImageDrawable(null)
-                image.visibility = View.INVISIBLE
-                placeholder.visibility = View.VISIBLE
-                return
-            }
-
-            // Con imagen: ocultar placeholder, mostrar ImageView
-            placeholder.visibility = View.GONE
-            image.visibility = View.VISIBLE
-
-            val request = when {
-                raw.startsWith("local://") -> {
-                    val path = raw.removePrefix("local://")
-                    if (path.isNotBlank()) Glide.with(image).load(File(path))
-                    else Glide.with(image).load(R.drawable.ic_image_error)
+            // Resolver fuente con prioridad
+            when {
+                remoteUrl != null -> {
+                    placeholder.visibility = View.GONE
+                    image.visibility = View.VISIBLE
+                    loadWithGlide(product, Glide.with(image).load(remoteUrl))
+                    return
                 }
-                raw.startsWith("http://") || raw.startsWith("https://") ->
-                    Glide.with(image).load(raw)
-                raw.startsWith("content://") || raw.startsWith("file://") ->
-                    Glide.with(image).load(raw)
+                localUri != null -> {
+                    placeholder.visibility = View.GONE
+                    image.visibility = View.VISIBLE
+                    loadWithGlide(product, Glide.with(image).load(File(localUri)))
+                    return
+                }
                 else -> {
-                    // URL desconocida → placeholder
+                    // Sin imagen: limpiar ImageView y mostrar placeholder
                     Glide.with(image).clear(image)
+                    image.setImageDrawable(null)
                     image.visibility = View.INVISIBLE
                     placeholder.visibility = View.VISIBLE
                     return
                 }
             }
+        }
 
+        private fun loadWithGlide(
+            product: Product,
+            request: com.bumptech.glide.RequestBuilder<Drawable>,
+        ) {
             request
                 .override(300, 300)
                 .centerCrop()
@@ -247,7 +272,6 @@ class OrderCatalogAdapter : PagingDataAdapter<Product, OrderCatalogAdapter.Produ
                         target: Target<Drawable>,
                         isFirstResource: Boolean,
                     ): Boolean {
-                        // En fallo de carga, volver a mostrar placeholder
                         image.visibility = View.INVISIBLE
                         placeholder.visibility = View.VISIBLE
                         Log.e("ORDER_CATALOG", "Image load failed id=${product.id.value}", e)

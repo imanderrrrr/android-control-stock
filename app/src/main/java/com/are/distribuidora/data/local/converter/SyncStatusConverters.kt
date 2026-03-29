@@ -11,8 +11,13 @@ class SyncStatusConverters {
 
     @TypeConverter
     fun toSyncStatus(value: String): SyncStatus {
-        // Strict conversion: throws IllegalArgumentException if value is unknown.
-        // No silent fallback to FAILED.
-        return SyncStatus.valueOf(value)
+        // FIX: fallback seguro en lugar de crash con datos legacy o corruptos.
+        // La BD ha pasado por 33 migraciones; un valor desconocido devuelve FAILED
+        // (estado reintentable) en lugar de lanzar IllegalArgumentException.
+        return try {
+            SyncStatus.valueOf(value)
+        } catch (_: IllegalArgumentException) {
+            SyncStatus.FAILED
+        }
     }
 }

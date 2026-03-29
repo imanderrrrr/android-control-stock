@@ -1,6 +1,7 @@
 package com.are.distribuidora.domain.pedido.usecase
 
 import com.are.distribuidora.client.domain.repository.ClientRepository
+import com.are.distribuidora.client.domain.usecase.ValidateOrderLimitUseCase
 import com.are.distribuidora.core.result.Failure
 import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.domain.pedido.PedidoRepository
@@ -12,7 +13,8 @@ import javax.inject.Inject
 
 class CreatePedidoUseCase @Inject constructor(
     private val repository: PedidoRepository,
-    private val clientRepository: ClientRepository
+    private val clientRepository: ClientRepository,
+    private val validateOrderLimitUseCase: ValidateOrderLimitUseCase,
 ) {
     suspend operator fun invoke(
         vendedorId: String,
@@ -32,6 +34,7 @@ class CreatePedidoUseCase @Inject constructor(
 
         val tempSubtotal = items.sumOf { (it.precioUnitario * it.cantidad) - it.descuentoItem }
         val tempTotal = tempSubtotal - descuentoGlobal
+        val tempTotalRedondeado = RoundToQuarterQuetzalUseCase(tempTotal)
 
         if (tempTotal < 0) {
             return Result.Error(Failure.ValidationError("El total del pedido no puede ser negativo"))
@@ -44,6 +47,12 @@ class CreatePedidoUseCase @Inject constructor(
 
                 val existingClient = (result as Result.Success).value
                     ?: return Result.Error(Failure.ValidationError("Cliente no encontrado con id ${cliente.clienteId}"))
+
+                // ── Validar límite de compra con el total ya redondeado ───────
+                val orderTotalInCents = (tempTotalRedondeado * 100).toLong()
+                val limitResult = validateOrderLimitUseCase(existingClient, orderTotalInCents)
+                if (limitResult is Result.Error) return limitResult
+                // ──────────────────────────────────────────────────────────────
 
                 val snapshot = ClienteSnapshot(
                     nombre = existingClient.name,
@@ -84,7 +93,8 @@ class CreatePedidoUseCase @Inject constructor(
             clienteId = clienteId,
             clienteSnapshot = clienteSnapshot,
             items = items,
-            descuentoGlobal = descuentoGlobal
+            descuentoGlobal = descuentoGlobal,
+            totalRedondeado = tempTotalRedondeado,
         )
 
         return repository.createPedido(params)

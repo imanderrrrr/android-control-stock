@@ -46,6 +46,12 @@ class SellProductUseCaseTest {
         override fun getSyncStatuses(): Flow<Map<String, SyncState>> {
             return emptyFlow()
         }
+
+        override suspend fun findByBarcode(barcode: String): Product? = null
+
+        override suspend fun incrementStock(productId: String, delta: Int) {
+            // No-op for this test
+        }
     }
 
     private val p1Id = "PROD-001"

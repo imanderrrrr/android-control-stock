@@ -56,7 +56,8 @@ class ClientDownsyncInvalidRemoteDataTest {
         syncRepo = ClientSyncRepositoryImpl(
             remote = remote,
             local = local,
-            mapper = ClientRemoteMapper()
+            mapper = ClientRemoteMapper(),
+            database = db
         )
     }
 
