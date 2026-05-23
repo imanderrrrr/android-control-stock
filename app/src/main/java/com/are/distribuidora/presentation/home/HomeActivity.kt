@@ -9,7 +9,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
 import com.are.distribuidora.R
-import com.are.distribuidora.data.local.dao.ProductDao
+import com.are.distribuidora.domain.product.GetProductCountUseCase
 import com.google.android.material.bottomnavigation.BottomNavigationView
 import com.google.android.material.card.MaterialCardView
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -22,7 +22,7 @@ class HomeActivity : FragmentActivity() {
 
     private val viewModel: HomeViewModel by viewModels()
 
-    @Inject lateinit var productDao: ProductDao
+    @Inject lateinit var getProductCount: GetProductCountUseCase
 
     private val tag = "HOME_CHROME"
 
@@ -108,7 +108,7 @@ class HomeActivity : FragmentActivity() {
         // DEBUG opcional
         lifecycleScope.launch {
             try {
-                val count = productDao.countAll()
+                val count = getProductCount()
                 Log.d(tag, "Local DB product count = $count")
             } catch (e: Exception) {
                 Log.e(tag, "Error counting products", e)
