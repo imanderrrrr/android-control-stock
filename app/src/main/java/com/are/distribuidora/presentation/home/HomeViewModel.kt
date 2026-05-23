@@ -3,7 +3,6 @@ package com.are.distribuidora.presentation.home
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.are.distribuidora.core.network.NetworkMonitor
-import com.are.distribuidora.route.data.local.RouteLocalDataSource
 import com.are.distribuidora.route.domain.usecase.DownloadRoutesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
@@ -13,7 +12,6 @@ import javax.inject.Inject
 class HomeViewModel @Inject constructor(
     private val downloadRoutesUseCase: DownloadRoutesUseCase,
     private val networkMonitor: NetworkMonitor,
-    private val routeLocalDataSource: RouteLocalDataSource,
 ) : ViewModel() {
 
     private var hasSynced = false
@@ -47,11 +45,6 @@ class HomeViewModel @Inject constructor(
         viewModelScope.launch {
             kotlin.runCatching {
                 downloadRoutesUseCase()
-            }.also {
-                // After attempt, log how many routes are in Room
-                kotlin.runCatching {
-                    val count = routeLocalDataSource.countRoutes()
-                }
             }
         }
     }
@@ -59,15 +52,9 @@ class HomeViewModel @Inject constructor(
     private fun triggerSync() {
         if (hasSynced) return
         viewModelScope.launch {
-            // Check connectivity if possible, though repository handles error silently mostly.
-            // Requirement: Sync on Home entry.
             kotlin.runCatching {
                 downloadRoutesUseCase()
                 hasSynced = true
-            }.also {
-                kotlin.runCatching {
-                    val count = routeLocalDataSource.countRoutes()
-                }
             }
         }
     }

@@ -16,5 +16,7 @@ interface ProductRepository {
 
     suspend fun delete(id: String)
 
+    suspend fun countAll(): Int
+
     fun getSyncStatuses(): Flow<Map<String, com.are.distribuidora.data.local.SyncStatus>>
 }

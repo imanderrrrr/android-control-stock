@@ -106,6 +106,8 @@ class ProductRepositoryImpl @Inject constructor(
         coordinator.notifyLocalChange(source = "REPO_DELETE")
     }
 
+    override suspend fun countAll(): Int = productDao.countAll()
+
     override fun getSyncStatuses(): Flow<Map<String, com.are.distribuidora.data.local.SyncStatus>> {
         return productDao.getSyncStatuses()
             .map { list ->
