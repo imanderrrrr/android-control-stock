@@ -33,6 +33,9 @@ Thumbs.db
 # Logs
 # =========================
 *.log
+build_log*.txt
+build_output*.txt
+kapt_*_log.txt
 
 # =========================
 # Keystore files (MUY IMPORTANTE)
