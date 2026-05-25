@@ -13,5 +13,10 @@
     <cache-path
         name="cache_root"
         path="." />
+
+    <!-- Reportes de crash en filesDir/crash_reports/ — usados para compartir desde la pantalla de debug -->
+    <files-path
+        name="crash_reports"
+        path="crash_reports/" />
 </paths>
 

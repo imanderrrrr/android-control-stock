@@ -1,5 +1,6 @@
 package com.are.distribuidora.presentation.home
 
+import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -14,6 +15,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.crash.presentation.CrashReportsActivity
 import com.github.mikephil.charting.charts.BarChart
 import com.github.mikephil.charting.charts.HorizontalBarChart
 import com.github.mikephil.charting.components.XAxis
@@ -48,6 +50,7 @@ class HomeFragment : Fragment(R.layout.fragment_reports) {
         val textEmpty      = view.findViewById<TextView>(R.id.textReportsEmpty)
         val layoutContent  = view.findViewById<LinearLayout>(R.id.layoutContent)
         val btnRefresh     = view.findViewById<ImageButton>(R.id.btnRefresh)
+        val btnCrashReports = view.findViewById<ImageButton>(R.id.btnCrashReports)
 
         // KPIs
         val textVentas7    = view.findViewById<TextView>(R.id.textVentas7)
@@ -67,6 +70,9 @@ class HomeFragment : Fragment(R.layout.fragment_reports) {
         val layoutTopClients     = view.findViewById<LinearLayout>(R.id.layoutTopClients)
 
         btnRefresh.setOnClickListener { viewModel.refresh() }
+        btnCrashReports.setOnClickListener {
+            startActivity(Intent(requireContext(), CrashReportsActivity::class.java))
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
