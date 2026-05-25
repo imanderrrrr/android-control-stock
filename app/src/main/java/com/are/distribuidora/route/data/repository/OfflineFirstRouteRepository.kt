@@ -114,4 +114,6 @@ class OfflineFirstRouteRepository @Inject constructor(
         // Consultar directamente Room
         return local.getRouteById(routeId) != null
     }
+
+    override suspend fun countRoutes(): Int = local.countRoutes()
 }

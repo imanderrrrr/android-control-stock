@@ -171,4 +171,26 @@ class ClientRepositoryImpl @Inject constructor(
         return local.observeByRouteId(routeId = routeId, limit = limit)
             .map { entities -> entities.map { it.toDomain() } }
     }
+
+    override suspend fun searchClients(query: String, limit: Int): Result<List<Client>> {
+        return try {
+            val entities = local.searchClients(query = query, limit = limit)
+            Result.Success(entities.map { it.toDomain() })
+        } catch (_: Exception) {
+            Result.Error(Failure.DatabaseError)
+        }
+    }
+
+    override suspend fun searchClientsByRoute(routeId: String, query: String): Result<List<Client>> {
+        return try {
+            val entities = if (query.isBlank()) {
+                local.getInitialClientsByRoute(routeId)
+            } else {
+                local.searchClientsByRoute(routeId, query)
+            }
+            Result.Success(entities.map { it.toDomain() })
+        } catch (_: Exception) {
+            Result.Error(Failure.DatabaseError)
+        }
+    }
 }

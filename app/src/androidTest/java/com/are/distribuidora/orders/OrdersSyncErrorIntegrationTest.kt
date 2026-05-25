@@ -11,6 +11,7 @@ import com.are.distribuidora.orders.data.local.entity.OrderItemEntity
 import com.are.distribuidora.orders.data.local.entity.OrderItemStagingEntity
 import com.are.distribuidora.orders.data.remote.OrderRemoteDataSource
 import com.are.distribuidora.orders.data.repository.OfflineFirstOrderRepository
+import com.are.distribuidora.core.auth.CurrentUserIdProvider
 import com.are.distribuidora.orders.domain.usecase.DownloadOrderItemsUseCase
 import java.util.concurrent.Executors
 import kotlinx.coroutines.runBlocking
@@ -62,9 +63,9 @@ class OrdersSyncErrorIntegrationTest {
         // Simula que ya hay staging válido (p.ej. quedó de un intento previo o preparación).
         db.orderItemStagingDao().insertAll(
             listOf(
-                OrderItemStagingEntity(orderId = orderId, productId = "P1", productName = "Producto 1", unitPrice = 10.0, quantity = 1),
-                OrderItemStagingEntity(orderId = orderId, productId = "P2", productName = "Producto 2", unitPrice = 5.0, quantity = 2),
-                OrderItemStagingEntity(orderId = orderId, productId = "P3", productName = "Producto 3", unitPrice = 1.0, quantity = 3),
+                OrderItemStagingEntity(itemId = "ITEM-E3-1", orderId = orderId, productId = "P1", productName = "Producto 1", unitPrice = 10.0, quantity = 1),
+                OrderItemStagingEntity(itemId = "ITEM-E3-2", orderId = orderId, productId = "P2", productName = "Producto 2", unitPrice = 5.0, quantity = 2),
+                OrderItemStagingEntity(itemId = "ITEM-E3-3", orderId = orderId, productId = "P3", productName = "Producto 3", unitPrice = 1.0, quantity = 3),
             )
         )
 
@@ -92,11 +93,15 @@ class OrdersSyncErrorIntegrationTest {
             }
         }
 
-        val repository = OfflineFirstOrderRepository(local = failingCommitLocal, remote = remote)
+        val repository = OfflineFirstOrderRepository(
+            local = failingCommitLocal,
+            remote = remote,
+            currentUserIdProvider = object : CurrentUserIdProvider { override fun get(): String? = "TEST_USER" },
+        )
         val useCase = DownloadOrderItemsUseCase(repository)
 
         // Act
-        val result = useCase.execute(orderId)
+        val result = useCase.execute(orderId, vendedorId = "TEST_USER")
 
         // Assert
         // Debe fallar sin crashear.
@@ -126,7 +131,7 @@ class OrdersSyncErrorIntegrationTest {
         // Simula "app muere" en mitad del sync: quedan restos en staging.
         db.orderItemStagingDao().insertAll(
             listOf(
-                OrderItemStagingEntity(orderId = orderId, productId = "OLD", productName = "Stale", unitPrice = 99.0, quantity = 99),
+                OrderItemStagingEntity(itemId = "ITEM-E4-OLD", orderId = orderId, productId = "OLD", productName = "Stale", unitPrice = 99.0, quantity = 99),
             )
         )
 
@@ -142,11 +147,15 @@ class OrdersSyncErrorIntegrationTest {
             stagingDao = db.orderItemStagingDao(),
         )
 
-        val repository = OfflineFirstOrderRepository(local = local, remote = remote)
+        val repository = OfflineFirstOrderRepository(
+            local = local,
+            remote = remote,
+            currentUserIdProvider = object : CurrentUserIdProvider { override fun get(): String? = "TEST_USER" },
+        )
         val useCase = DownloadOrderItemsUseCase(repository)
 
         // Act
-        val result = useCase.execute(orderId)
+        val result = useCase.execute(orderId, vendedorId = "TEST_USER")
 
         // Assert
         assertTrue(result is Result.Success)
@@ -189,11 +198,15 @@ class OrdersSyncErrorIntegrationTest {
             stagingDao = db.orderItemStagingDao(),
         )
 
-        val repository = OfflineFirstOrderRepository(local = local, remote = remote)
+        val repository = OfflineFirstOrderRepository(
+            local = local,
+            remote = remote,
+            currentUserIdProvider = object : CurrentUserIdProvider { override fun get(): String? = "TEST_USER" },
+        )
         val useCase = DownloadOrderItemsUseCase(repository)
 
         // Act (1): falla red
-        val firstResult = useCase.execute(orderId)
+        val firstResult = useCase.execute(orderId, vendedorId = "TEST_USER")
 
         // Assert (1)
         assertTrue(firstResult is Result.Error)
@@ -201,7 +214,7 @@ class OrdersSyncErrorIntegrationTest {
         assertEquals(0, db.orderItemStagingDao().countByOrderId(orderId))
 
         // Act (2): reintento ok
-        val secondResult = useCase.execute(orderId)
+        val secondResult = useCase.execute(orderId, vendedorId = "TEST_USER")
 
         // Assert (2)
         assertTrue(secondResult is Result.Success)
@@ -248,6 +261,7 @@ class OrdersSyncErrorIntegrationTest {
         // Determinista y coherente con itemsCount.
         return (1..count).map { i ->
             OrderRemoteDataSource.OrderItemDto(
+                itemId = "$orderId-ITEM-$i",
                 productId = "$orderId-P$i",
                 productName = "Producto $i",
                 unitPrice = 10.0 + i,
@@ -271,6 +285,8 @@ class OrdersSyncErrorIntegrationTest {
 
         override suspend fun fetchOrderHeaders(routeId: String, deliveryDate: String): List<OrderRemoteDataSource.OrderHeaderDto> =
             emptyList()
+
+        override suspend fun fetchAllOrderHeaders(): List<OrderRemoteDataSource.OrderHeaderDto> = emptyList()
 
         override suspend fun fetchOrderItems(routeId: String, orderId: String): List<OrderRemoteDataSource.OrderItemDto> {
             return when (mode) {
@@ -300,6 +316,8 @@ class OrdersSyncErrorIntegrationTest {
 
         override suspend fun fetchOrderHeaders(routeId: String, deliveryDate: String): List<OrderRemoteDataSource.OrderHeaderDto> =
             emptyList()
+
+        override suspend fun fetchAllOrderHeaders(): List<OrderRemoteDataSource.OrderHeaderDto> = emptyList()
 
         override suspend fun fetchOrderItems(routeId: String, orderId: String): List<OrderRemoteDataSource.OrderItemDto> {
             // Validación de contrato del test: asegura que el repo está llamando con ids correctos.

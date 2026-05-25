@@ -23,8 +23,38 @@ interface ClientDao {
     @Query("SELECT * FROM clients WHERE isDeleted = 0 ORDER BY updatedAt DESC LIMIT :limit")
     suspend fun getAll(limit: Int): List<ClientEntity>
 
+    @Query("SELECT * FROM clients WHERE (name LIKE '%' || :query || '%' OR phone LIKE '%' || :query || '%') AND isDeleted = 0 ORDER BY name ASC LIMIT :limit")
+    suspend fun searchClients(query: String, limit: Int): List<ClientEntity>
+
     @Query("SELECT * FROM clients WHERE routeId = :routeId AND isDeleted = 0 LIMIT :limit")
     suspend fun getByRouteId(routeId: String, limit: Int): List<ClientEntity>
+
+    @Query(
+        """
+        SELECT * FROM clients 
+        WHERE routeId = :routeId 
+          AND (
+               name LIKE '%' || :query || '%' 
+            OR phone LIKE '%' || :query || '%' 
+            OR address LIKE '%' || :query || '%'
+          )
+          AND isDeleted = 0
+        ORDER BY name ASC 
+        LIMIT 50
+    """
+    )
+    suspend fun searchClientsByRoute(routeId: String, query: String): List<ClientEntity>
+
+    @Query(
+        """
+        SELECT * FROM clients 
+        WHERE routeId = :routeId 
+          AND isDeleted = 0
+        ORDER BY name ASC 
+        LIMIT 50
+    """
+    )
+    suspend fun getInitialClientsByRoute(routeId: String): List<ClientEntity>
 
     @Query("""
         SELECT * FROM clients 

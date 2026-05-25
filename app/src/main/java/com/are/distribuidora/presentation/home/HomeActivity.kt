@@ -4,6 +4,8 @@ import android.os.Bundle
 import android.util.Log
 import android.view.View
 import android.widget.Toast
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.viewModels
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
@@ -16,11 +18,19 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import com.are.distribuidora.client.presentation.SelectClientFragment
+import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogFragment
+import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
+import com.are.distribuidora.pedido.presentation.list.PedidosFragment
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 @AndroidEntryPoint
 class HomeActivity : FragmentActivity() {
 
     private val viewModel: HomeViewModel by viewModels()
+    private val createPedidoFlowViewModel: CreatePedidoFlowViewModel by viewModels()
 
     @Inject lateinit var getProductCount: GetProductCountUseCase
 
@@ -33,7 +43,7 @@ class HomeActivity : FragmentActivity() {
     private fun isTopLevel(fragment: Fragment?): Boolean {
         return fragment is HomeFragment ||
                 fragment is InventoryFragment ||
-                fragment is OrdersFragment ||
+                fragment is PedidosFragment ||
                 fragment is ClientsFragment
     }
 
@@ -75,6 +85,44 @@ class HomeActivity : FragmentActivity() {
             updateChrome(currentFragment(), "onCreate-restore")
         }
 
+        // --- Result Listener para Selección de Cliente (Crear Pedido) ---
+        supportFragmentManager.setFragmentResultListener(
+            SelectClientFragment.REQUEST_KEY_CLIENT_SELECTION,
+            this
+        ) { _, bundle ->
+            val selection = bundle.getSerializable(
+                SelectClientFragment.BUNDLE_KEY_SELECTION
+            ) as? com.are.distribuidora.domain.pedido.model.ClienteSelection
+
+            val routeId = bundle.getString(SelectClientFragment.BUNDLE_KEY_ROUTE_ID)
+
+            if (selection == null || routeId.isNullOrBlank()) {
+                Log.e(tag, "Resultado inválido de selección de cliente. selection=$selection routeId=$routeId")
+                Toast.makeText(this, "No se pudo continuar: falta cliente o ruta", Toast.LENGTH_SHORT).show()
+                return@setFragmentResultListener
+            }
+
+            Log.d(tag, "Cliente seleccionado para pedido: $selection (routeId=$routeId)")
+
+            // Fecha de entrega: usa hoy como valor por defecto para el pedido creado en app.
+            val todayDate = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+
+            // Guardar estado de flujo (Activity-scoped)
+            createPedidoFlowViewModel.setSelection(routeId = routeId, selection = selection, deliveryDate = todayDate)
+
+            // Importante: SelectClientFragment hace popBackStack() justo después de setFragmentResult().
+            // Para evitar pelear con esa transacción, diferimos la navegación al siguiente loop del main thread.
+            Handler(Looper.getMainLooper()).post {
+                logState("BeforeNavigateToCatalog", currentFragment())
+
+                supportFragmentManager.beginTransaction()
+                    .replace(R.id.fragmentContainer, OrderCatalogFragment())
+                    // Usamos un nombre distinto para no duplicar FLOW_CREATE_ORDER.
+                    .addToBackStack("FLOW_CREATE_ORDER_CATALOG")
+                    .commit()
+            }
+        }
+
         bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_home -> {
@@ -86,7 +134,7 @@ class HomeActivity : FragmentActivity() {
                     true
                 }
                 R.id.nav_orders -> {
-                    openRootFragment(OrdersFragment())
+                    openRootFragment(PedidosFragment())
                     true
                 }
                 R.id.nav_clients -> {
@@ -99,7 +147,14 @@ class HomeActivity : FragmentActivity() {
         }
 
         fab.setOnClickListener {
-            Toast.makeText(this, getString(R.string.nav_create_order), Toast.LENGTH_SHORT).show()
+            // Iniciar flujo: SelectClient (Ruta + Cliente en un solo screen)
+            supportFragmentManager.beginTransaction()
+                .replace(
+                    R.id.fragmentContainer,
+                    SelectClientFragment.newInstance()
+                )
+                .addToBackStack("FLOW_CREATE_ORDER")
+                .commit()
         }
     }
 

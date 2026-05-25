@@ -7,8 +7,8 @@
     app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
     app:strokeWidth="1dp"
-    app:strokeColor="#1A000000"
-    app:cardBackgroundColor="@android:color/white">
+    app:strokeColor="@color/palette_300"
+    app:cardBackgroundColor="@color/app_surface">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
@@ -71,7 +71,7 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:textSize="14sp"
-            android:textColor="#0F172A"
+            android:textColor="@color/app_on_surface"
             app:layout_constraintStart_toStartOf="@id/productName"
             app:layout_constraintEnd_toStartOf="@id/syncIndicatorText"
             app:layout_constraintTop_toBottomOf="@id/productName"
@@ -80,15 +80,24 @@
 
         <TextView
             android:id="@+id/productStock"
-            android:layout_width="0dp"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:textSize="13sp"
-            android:textColor="#64748B"
+            android:textColor="@color/login_text_secondary"
             app:layout_constraintStart_toStartOf="@id/productName"
-            app:layout_constraintEnd_toStartOf="@id/syncIndicatorText"
             app:layout_constraintTop_toBottomOf="@id/productPrice"
-            android:layout_marginTop="2dp"
-            android:layout_marginEnd="8dp" />
+            android:layout_marginTop="2dp" />
+
+        <TextView
+            android:id="@+id/productComprometido"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="13sp"
+            android:textColor="@color/login_text_secondary"
+            android:layout_marginStart="4dp"
+            app:layout_constraintStart_toEndOf="@id/productStock"
+            app:layout_constraintTop_toTopOf="@id/productStock"
+            app:layout_constraintBottom_toBottomOf="@id/productStock" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

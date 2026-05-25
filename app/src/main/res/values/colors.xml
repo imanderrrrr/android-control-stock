@@ -1,27 +1,45 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- ...existing colors... -->
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
+    <!-- ===== Paleta oficial Distribuidora ===== -->
+    <!-- REGLA: No usar colores hardcodeados fuera de estos tokens. Ver THEME_GUIDE.md -->
+    <color name="palette_900">#051F20</color>
+    <color name="palette_800">#0B2B26</color>
+    <color name="palette_700">#163832</color>
+    <color name="palette_600">#235347</color>
+    <color name="palette_300">#8EB69B</color>
+    <color name="palette_100">#C2E4C8</color>
+    <color name="palette_050">#DAF1DE</color>
+
+    <!-- Tokens semánticos (apuntan a la paleta) -->
+    <color name="app_bg">@color/palette_050</color>
+    <color name="app_surface">@color/palette_050</color>
+    <color name="app_card_surface">@color/palette_100</color>
+    <color name="app_primary">@color/palette_600</color>
+    <color name="app_primary_dark">@color/palette_800</color>
+    <color name="app_secondary">@color/palette_300</color>
+    <color name="app_on_primary">@color/palette_050</color>
+    <color name="app_on_surface">@color/palette_900</color>
+
+    <!-- Utilidades base -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- Login / Brand (azul) -->
-    <color name="brand_blue">#1E5EFF</color>
-    <color name="brand_blue_dark">#1748C6</color>
-    <color name="brand_blue_soft">#EDF2FF</color>
-    <color name="on_brand">#FFFFFFFF</color>
+    <!-- Aliases legacy (redirigen a paleta para no romper referencias existentes) -->
+    <color name="brand_blue">@color/palette_600</color>
+    <color name="brand_blue_dark">@color/palette_700</color>
+    <color name="brand_blue_soft">@color/palette_050</color>
+    <color name="on_brand">@color/palette_050</color>
 
-    <color name="login_background">#FFFFFFFF</color>
-    <color name="login_text_primary">#0F172A</color>
-    <color name="login_text_secondary">#64748B</color>
-    <color name="login_error">#B91C1C</color>
+    <color name="login_background">@color/palette_050</color>
+    <color name="login_text_primary">@color/palette_900</color>
+    <color name="login_text_secondary">@color/palette_600</color>
+    <color name="login_error">@color/palette_800</color>
 
     <!-- Home / BottomNav -->
-    <color name="home_background">#FFF7F9FC</color>
-    <color name="bottom_nav_bg">#FFFFFFFF</color>
-    <color name="bottom_nav_icon">#64748B</color>
+    <color name="home_background">@color/palette_050</color>
+    <color name="bottom_nav_bg">@color/palette_050</color>
+    <color name="bottom_nav_icon">@color/palette_600</color>
+
+    <!-- Cart badges -->
+    <color name="badge_qty_bg">@color/palette_300</color>
 </resources>

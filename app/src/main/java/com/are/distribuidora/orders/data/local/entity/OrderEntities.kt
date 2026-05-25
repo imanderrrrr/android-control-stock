@@ -35,20 +35,44 @@ data class OrderEntity(
     val lastAttemptAt: Long?,
     val createdAt: Long,
     val updatedAt: Long,
+    /**
+     * UID del vendedor que creó el pedido (Firestore field: vendedorId).
+     * Null para pedidos legacy que no tienen este campo.
+     * Usado para filtro Opción B: excluir pedidos propios en la descarga.
+     */
+    val vendedorId: String? = null,
+    /**
+     * Soft delete: true = pedido eliminado. NO se muestra en listas ni se descargan sus items.
+     * Consistente con el patrón de ProductEntity y ClientEntity.
+     */
+    val isDeleted: Boolean = false,
 )
 
 @Entity(
     tableName = "order_items",
-    indices = [Index(value = ["orderId"], unique = false)],
+    indices = [
+        Index(value = ["orderId"], unique = false),
+        Index(value = ["orderId", "productId"], unique = true),
+    ],
 )
 data class OrderItemEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /**
+     * PK estable = itemId de Firestore (docId de la subcolección items).
+     * Para items legacy sin itemId se genera un UUID al insertarlos.
+     */
+    @PrimaryKey val itemId: String,
     val orderId: String,
     val productId: String,
     val productName: String,
     val unitPrice: Double,
     val quantity: Int,
     val createdAt: Long,
+    /**
+     * Detalle / instrucción especial para este ítem, descargado desde Firestore.
+     * Mismo campo que el vendedor creador escribe en `pedido_items.notes`.
+     * Null para pedidos legacy o items sin detalle.
+     */
+    val notes: String? = null,
 )
 
 /**
@@ -60,10 +84,15 @@ data class OrderItemEntity(
     indices = [Index(value = ["orderId"], unique = false)],
 )
 data class OrderItemStagingEntity(
-    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    /**
+     * PK estable = itemId de Firestore.
+     * Garantiza que si se inserta el mismo item dos veces en staging, se reemplaza.
+     */
+    @PrimaryKey val itemId: String,
     val orderId: String,
     val productId: String,
     val productName: String,
     val unitPrice: Double,
     val quantity: Int,
+    val notes: String? = null,
 )

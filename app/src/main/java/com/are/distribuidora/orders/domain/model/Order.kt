@@ -25,6 +25,13 @@ data class Order(
     val lastAttemptAt: Long?,
     val createdAt: Long,
     val updatedAt: Long,
+    /**
+     * Soft delete: true = pedido eliminado.
+     * Consistente con el patrón de ProductEntity / PedidoEntity.
+     * Permite que la UI y los guard-rails de dominio puedan reaccionar al estado
+     * sin depender de Room ni de la entidad de infraestructura.
+     */
+    val isDeleted: Boolean = false,
 )
 
 enum class OrderDownloadStatus {

@@ -1,0 +1,36 @@
+<resources>
+    <!-- Style base (marca) para overlays de shape.
+         parent="ShapeAppearance.MaterialComponents.SmallComponent" evita que AAPT busque
+         un antecesor llamado "ShapeAppearanceOverlay" que no existe en ninguna librería. -->
+    <style name="ShapeAppearanceOverlay.Distribuidora" parent="ShapeAppearance.MaterialComponents.SmallComponent" />
+
+    <!-- Overlay para hacer circular un ShapeableImageView -->
+    <style name="ShapeAppearanceOverlay.Distribuidora.Circle" parent="ShapeAppearanceOverlay.Distribuidora">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">50%</item>
+    </style>
+
+    <!-- Overlay para bordes redondeados de cards (12dp) -->
+    <style name="ShapeAppearanceOverlay.Distribuidora.Card" parent="ShapeAppearanceOverlay.Distribuidora">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <!-- Overlay para imagen de producto en carrito (10dp) -->
+    <style name="ShapeAppearanceOverlay.Distribuidora.ImageRounded" parent="ShapeAppearanceOverlay.Distribuidora">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSize">10dp</item>
+    </style>
+
+    <!--
+      ShapeAppearance para el bloque de imagen en la parte superior de una card con radius 16dp.
+      Solo las esquinas superiores redondeadas; las inferiores cuadradas para enrasar con el contenido.
+    -->
+    <style name="ShapeAppearance.Distribuidora.ImageTop" parent="ShapeAppearance.MaterialComponents.SmallComponent">
+        <item name="cornerFamily">rounded</item>
+        <item name="cornerSizeTopLeft">16dp</item>
+        <item name="cornerSizeTopRight">16dp</item>
+        <item name="cornerSizeBottomLeft">0dp</item>
+        <item name="cornerSizeBottomRight">0dp</item>
+    </style>
+</resources>

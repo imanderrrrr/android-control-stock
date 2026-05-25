@@ -35,6 +35,7 @@ data class InventoryUiState(
 sealed interface InventoryEvent {
     data class SaleSuccess(val productId: String, val newStock: Int) : InventoryEvent
     data class SaleError(val productId: String, val message: String) : InventoryEvent
+    data class StockAddedSuccess(val productId: String, val delta: Int) : InventoryEvent
 }
 
 @OptIn(ExperimentalCoroutinesApi::class, FlowPreview::class)
@@ -70,9 +71,8 @@ class InventoryViewModel @Inject constructor(
         observeProductSyncStatusesUseCase(),
     ) { pagingData, syncStatuses ->
         pagingData.map { product ->
-            val status = syncStatuses[product.id.value]
-
-            product.toUiModel(status)
+            val state = syncStatuses[product.id.value]
+            product.toUiModel(state)
         }
     }
 

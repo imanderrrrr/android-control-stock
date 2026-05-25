@@ -2,7 +2,7 @@ package com.are.distribuidora.presentation.productdetail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 import com.are.distribuidora.domain.product.ObserveProductByIdUseCase
 import com.are.distribuidora.domain.product.ObserveProductSyncStatusesUseCase
 import com.are.distribuidora.domain.valueobject.ProductId
@@ -27,8 +27,8 @@ class ProductDetailViewModel @AssistedInject constructor(
         if (product == null) {
             ProductDetailUiState.Error(ProductDetailUiState.ErrorKind.NOT_FOUND)
         } else {
-            val status: SyncStatus? = statuses[product.id.value]
-            ProductDetailUiState.Success(product = product, syncStatus = status)
+            val state: SyncState? = statuses[product.id.value]
+            ProductDetailUiState.Success(product = product, syncState = state)
         }
     }.stateIn(
         scope = viewModelScope,

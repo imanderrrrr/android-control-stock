@@ -5,12 +5,14 @@ package com.are.distribuidora.domain.pedido
  * Los totales se calculan como snapshot y no se recalculan dinámicamente desde producto.
  */
 data class PedidoItem(
+    val id: String,             // UUID local
     val productoId: String,     // DocID del producto en Firestore
     val nombre: String,         // snapshot
     val precioUnitario: Double, // snapshot
     val cantidad: Int,
     val descuentoItem: Double,
-    val totalItem: Double       // snapshot calculado: (precioUnitario * cantidad) - descuentoItem
+    val totalItem: Double,      // snapshot calculado: (precioUnitario * cantidad) - descuentoItem
+    val notes: String? = null,  // detalle / instrucción especial del cliente para este ítem
 ) {
     /**
      * Regla 5 — Cálculo de totales para item:

@@ -2,13 +2,15 @@ package com.are.distribuidora.presentation.product
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.are.distribuidora.core.images.ProductImageUrl
+import com.are.distribuidora.data.local.dao.PendingUploadDao
+import com.are.distribuidora.data.local.entity.PendingUploadEntity
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.domain.product.ProductRepository
 import com.are.distribuidora.domain.product.SaveProductUseCase
 import com.are.distribuidora.domain.valueobject.Money
 import com.are.distribuidora.domain.valueobject.ProductId
 import com.are.distribuidora.domain.valueobject.Quantity
+import com.are.distribuidora.workers.ImageUploadSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,12 +19,15 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
 import java.math.BigDecimal
+import java.util.UUID
 import javax.inject.Inject
 
 @HiltViewModel
 class EditProductViewModel @Inject constructor(
     private val productRepository: ProductRepository,
-    private val saveProductUseCase: SaveProductUseCase
+    private val saveProductUseCase: SaveProductUseCase,
+    private val pendingUploadDao: PendingUploadDao,
+    private val imageUploadSyncScheduler: ImageUploadSyncScheduler,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<EditProductUiState>(EditProductUiState.Loading)
@@ -39,8 +44,20 @@ class EditProductViewModel @Inject constructor(
     private val _localImageAbsolutePath = MutableStateFlow<String?>(null)
     val localImageAbsolutePath: StateFlow<String?> = _localImageAbsolutePath.asStateFlow()
 
+    /** Barcode escaneado o ingresado manualmente */
+    private val _barcode = MutableStateFlow<String?>(null)
+    val barcode: StateFlow<String?> = _barcode.asStateFlow()
+
     fun onImageSavedToInternalStorage(absolutePath: String) {
         _localImageAbsolutePath.value = absolutePath
+    }
+
+    /**
+     * Actualiza el barcode en el estado del formulario.
+     * Llamado desde el scanner genérico o edición manual.
+     */
+    fun onBarcodeChanged(value: String) {
+        _barcode.value = value
     }
 
     fun load(productId: String) {
@@ -73,9 +90,10 @@ class EditProductViewModel @Inject constructor(
 
         val product = currentProduct ?: return
 
-        val hasRemoteImage = ProductImageUrl.isRemoteHttp(product.imageUrl)
+        val hasRemoteImage = product.imageUrl?.startsWith("http") == true
+        val hasLocalImage = product.imageLocalUri != null
         val hasLocalSelection = !_localImageAbsolutePath.value.isNullOrBlank()
-        val hasAnyImage = hasRemoteImage || ProductImageUrl.isLocal(product.imageUrl) || hasLocalSelection
+        val hasAnyImage = hasRemoteImage || hasLocalImage || hasLocalSelection
 
         // Regla estricta:
         // - Si ya existe imagen remota (http/https): NO exigir nueva.
@@ -119,10 +137,20 @@ class EditProductViewModel @Inject constructor(
             _isSaving.value = true
 
             try {
-                val nextImageUrl = if (hasLocalSelection) {
-                    ProductImageUrl.toLocalUrl(_localImageAbsolutePath.value!!)
+                val newLocalPath = _localImageAbsolutePath.value
+
+                // Determinar imageLocalUri e imageUrl
+                val nextImageLocalUri: String?
+                val nextImageUrl: String?
+
+                if (!newLocalPath.isNullOrBlank()) {
+                    // Usuario seleccionó una nueva imagen local
+                    nextImageLocalUri = newLocalPath
+                    nextImageUrl = null // Se asignará por el Worker tras subir a Storage
                 } else {
-                    product.imageUrl
+                    // Mantener datos de imagen existentes
+                    nextImageLocalUri = product.imageLocalUri
+                    nextImageUrl = product.imageUrl
                 }
 
                 // Construir producto actualizado preservando ID, createdAt y otros campos inmutables
@@ -135,10 +163,35 @@ class EditProductViewModel @Inject constructor(
                     barcode = if (barcode.isNullOrBlank()) null else barcode.trim(),
                     isActive = isActive,
                     imageUrl = nextImageUrl,
+                    imageLocalUri = nextImageLocalUri,
                     updatedAt = System.currentTimeMillis()
                 )
 
                 saveProductUseCase(updatedProduct)
+
+                // If user selected a new image, enqueue pending upload
+                if (!newLocalPath.isNullOrBlank()) {
+                    val productId = product.id.value
+                    val storagePath = "products/$productId/main.jpg"
+                    val now = System.currentTimeMillis()
+                    val existingUpload = pendingUploadDao.findByEntityId(productId)
+                    val uploadEntity = PendingUploadEntity(
+                        id = existingUpload?.id ?: UUID.randomUUID().toString(),
+                        entityType = "PRODUCT",
+                        entityId = productId,
+                        localUri = newLocalPath,
+                        storagePath = storagePath,
+                        state = "PENDING",
+                        attemptCount = 0,
+                        lastError = null,
+                        createdAt = now
+                    )
+                    pendingUploadDao.insert(uploadEntity)
+
+                    // Trigger the upload Worker
+                    imageUploadSyncScheduler.enqueueUploadWorker()
+                }
+
                 // Reset selección local (opcional) tras guardar
                 _localImageAbsolutePath.value = null
                 sendEvent(Event.Success)

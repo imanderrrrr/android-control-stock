@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tarjeta de header de pedido de otro vendedor dentro de una ruta -->
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp"
+    app:cardCornerRadius="12dp"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/palette_300"
+    app:strokeWidth="1dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="12dp">
+
+        <!-- Nombre del cliente -->
+        <TextView
+            android:id="@+id/textOtrosClientName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnOtrosDownload"
+            app:layout_constraintTop_toTopOf="parent" />
+
+        <!-- Fecha de creación del pedido -->
+        <TextView
+            android:id="@+id/textOtrosCreatedAt"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
+            android:alpha="0.6"
+            android:maxLines="1"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnOtrosDownload"
+            app:layout_constraintTop_toBottomOf="@id/textOtrosClientName" />
+
+        <!-- Dirección del cliente (opcional) -->
+        <TextView
+            android:id="@+id/textOtrosAddress"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:alpha="0.6"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnOtrosDownload"
+            app:layout_constraintTop_toBottomOf="@id/textOtrosCreatedAt" />
+
+        <!-- Vendedor (opcional) -->
+        <TextView
+            android:id="@+id/textOtrosSeller"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:alpha="0.6"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnOtrosDownload"
+            app:layout_constraintTop_toBottomOf="@id/textOtrosAddress" />
+
+        <!-- Cantidad de items -->
+        <TextView
+            android:id="@+id/textOtrosItemsCount"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnOtrosDownload"
+            app:layout_constraintTop_toBottomOf="@id/textOtrosSeller" />
+
+        <!-- Etiqueta de estado de descarga -->
+        <TextView
+            android:id="@+id/textOtrosStatusLabel"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
+            android:textColor="?attr/colorPrimary"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnOtrosDownload"
+            app:layout_constraintTop_toBottomOf="@id/textOtrosItemsCount" />
+
+        <!-- Total (solo si ya se descargaron items) -->
+        <TextView
+            android:id="@+id/textOtrosTotal"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="2dp"
+            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+            android:textStyle="bold"
+            android:textColor="?attr/colorPrimary"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toStartOf="@id/btnOtrosDownload"
+            app:layout_constraintTop_toBottomOf="@id/textOtrosStatusLabel"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <!-- Botón de descarga -->
+        <ImageButton
+            android:id="@+id/btnOtrosDownload"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_download"
+            android:contentDescription="@string/otros_download_btn_desc"
+            app:tint="?attr/colorPrimary"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <!-- Spinner de descarga en curso -->
+        <ProgressBar
+            android:id="@+id/progressOtrosDownload"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:visibility="gone"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <!-- Botón de impresora (visible solo cuando el pedido ya fue descargado) -->
+        <ImageButton
+            android:id="@+id/btnOtrosPrint"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:src="@drawable/ic_print"
+            android:contentDescription="Imprimir ticket"
+            android:visibility="gone"
+            app:tint="?attr/colorPrimary"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</com.google.android.material.card.MaterialCardView>
+

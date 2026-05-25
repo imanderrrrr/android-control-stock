@@ -12,6 +12,9 @@ object SyncDebug {
     /** Unique name for periodic work that syncs products. */
     const val UNIQUE_WORK_NAME_PRODUCTS: String = "sync_products_periodic"
 
+    /** Unique name for one-time work that syncs pending pedidos. */
+    const val UNIQUE_WORK_NAME_PEDIDOS_ONE_TIME: String = "sync_pedidos_now"
+
     /** Key used to pass a run id through WorkManager input/output data. */
     const val KEY_RUN_ID: String = "sync_run_id"
 

@@ -56,7 +56,7 @@
         android:contentDescription="@string/nav_create_order"
         android:padding="12dp"
         android:translationY="60dp"
-        app:backgroundTint="@color/brand_blue"
+        app:backgroundTint="@color/app_primary"
         app:elevation="7dp"
         app:fabCustomSize="72dp"
         app:fabSize="normal"
@@ -64,7 +64,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:srcCompat="@drawable/ic_add_centered"
-        app:tint="@color/on_brand"
+        app:tint="@color/app_on_primary"
         app:useCompatPadding="false" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

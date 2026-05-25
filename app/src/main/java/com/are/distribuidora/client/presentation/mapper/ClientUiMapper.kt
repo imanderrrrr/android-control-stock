@@ -2,20 +2,15 @@ package com.are.distribuidora.client.presentation.mapper
 
 import com.are.distribuidora.client.domain.model.Client
 import com.are.distribuidora.client.presentation.model.ClientUiModel
-import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 
 fun Client.toUiModel(): ClientUiModel {
-    val syncIndicatorText = when (syncStatus) {
-        SyncStatus.SYNCED -> "🟢 Sincronizado"
-        SyncStatus.SYNCING -> "🟡 Sincronizando"
-        SyncStatus.PENDING,
-        SyncStatus.PENDING_UPDATE,
-        SyncStatus.PENDING_CREATE,
-        SyncStatus.PENDING_DELETE,
-        SyncStatus.FAILED,
-        SyncStatus.ERROR,
-        SyncStatus.CONFLICT
-        -> "🔴 No sincronizado"
+    val syncIndicatorText = when (syncState) {
+        SyncState.SYNCED   -> "🟢 Sincronizado"
+        SyncState.SYNCING  -> "🟡 Sincronizando"
+        SyncState.PENDING  -> "🔴 No sincronizado"
+        SyncState.FAILED   -> "🔴 No sincronizado"
+        SyncState.CONFLICT -> "🔴 Conflicto"
     }
 
     val activeIndicatorText = if (isActive) {
@@ -30,7 +25,7 @@ fun Client.toUiModel(): ClientUiModel {
         phone = phone.orEmpty(),
         address = address,
         isActive = isActive,
-        syncStatus = syncStatus,
+        syncState = syncState,
         syncIndicatorText = syncIndicatorText,
         activeIndicatorText = activeIndicatorText,
     )

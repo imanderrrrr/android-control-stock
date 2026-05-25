@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tab "Mis Pedidos": filtro de fecha + lista de rutas con pedidos propios -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="?attr/colorSurface">
+
+    <!-- ── Selector de fecha ─────────────────────────────────────────────── -->
+    <LinearLayout
+        android:id="@+id/layoutDateFilter"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingHorizontal="16dp"
+        android:paddingTop="20dp"
+        android:paddingBottom="12dp"
+        android:gravity="center_vertical">
+
+        <com.google.android.material.chip.Chip
+            android:id="@+id/chipFechaFiltro"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            style="@style/Widget.MaterialComponents.Chip.Action"
+            app:chipIcon="@drawable/ic_calendar_month"
+            app:chipIconTint="?attr/colorPrimary"
+            app:chipIconSize="18dp"
+            app:chipBackgroundColor="?attr/colorPrimaryVariant"
+            android:textColor="?attr/colorOnPrimary"
+            android:checkable="false" />
+
+        <!-- Botón "Hoy" para resetear el filtro -->
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/btnFechaHoy"
+            style="@style/Widget.MaterialComponents.Button.TextButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:text="@string/pedidos_date_filter_today" />
+
+    </LinearLayout>
+
+    <!-- ── Lista de rutas ────────────────────────────────────────────────── -->
+    <FrameLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/recyclerMisPedidos"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:paddingHorizontal="16dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="80dp"
+            android:clipToPadding="false"
+            android:scrollbars="none" />
+
+        <ProgressBar
+            android:id="@+id/progressMisPedidos"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/textMisPedidosEmpty"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center"
+            android:text="@string/pedidos_empty"
+            android:textAppearance="?attr/textAppearanceBody1"
+            android:alpha="0.5"
+            android:visibility="gone" />
+
+    </FrameLayout>
+
+</LinearLayout>
+

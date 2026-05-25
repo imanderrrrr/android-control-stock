@@ -17,12 +17,19 @@ class FakeClientRemoteDataSource : ClientRemoteDataSource {
         remoteStorage[client.id] = client
     }
 
-    override suspend fun deleteClient(id: String) {
-        remoteStorage.remove(id)
+    override suspend fun softDeleteClient(id: String) {
+        val existing = remoteStorage[id] ?: return
+        remoteStorage[id] = existing.copy(isDeleted = true, updatedAt = System.currentTimeMillis())
     }
 
     override suspend fun fetchClients(limit: Int): List<ClientDto> {
         return remoteStorage.values.toList().take(limit)
+    }
+
+    override suspend fun fetchClientsAfter(timestamp: Long): List<ClientDto> {
+        return remoteStorage.values
+            .filter { it.updatedAt >= timestamp }
+            .sortedBy { it.updatedAt }
     }
 
     override suspend fun getClientById(id: String): ClientDto? {

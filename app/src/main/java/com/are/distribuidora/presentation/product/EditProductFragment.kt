@@ -34,6 +34,9 @@ class EditProductFragment : Fragment() {
     private val viewModel: EditProductViewModel by viewModels()
     private var productId: String = ""
 
+    /** Barcode escaneado pendiente de aplicar al campo cuando la vista se recree. */
+    private var pendingScannedBarcode: String? = null
+
     private val pickImageLauncher = registerForActivityResult(
         ActivityResultContracts.PickVisualMedia()
     ) { uri: Uri? ->
@@ -61,6 +64,21 @@ class EditProductFragment : Fragment() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         productId = requireArguments().getString(ARG_PRODUCT_ID).orEmpty()
+
+        // Registrar listener con lifecycle del Fragment (no viewLifecycleOwner)
+        // para que sobreviva al replace/popBackStack del scanner.
+        parentFragmentManager.setFragmentResultListener(
+            BarcodeScannerFragment.DEFAULT_REQUEST_KEY,
+            this
+        ) { _, bundle ->
+            val barcode = bundle.getString(BarcodeScannerFragment.DEFAULT_RESULT_KEY)
+            if (!barcode.isNullOrBlank()) {
+                pendingScannedBarcode = barcode
+                viewModel.onBarcodeChanged(barcode)
+                // Si la vista ya existe, aplicar inmediatamente
+                view?.findViewById<TextInputEditText>(R.id.inputBarcode)?.setText(barcode)
+            }
+        }
     }
 
     override fun onCreateView(
@@ -88,9 +106,26 @@ class EditProductFragment : Fragment() {
         val imagePreview = view.findViewById<ImageView>(R.id.productImagePreview)
         val pickImageButton = view.findViewById<MaterialButton>(R.id.pickProductImageButton)
         val imageErrorText = view.findViewById<TextView>(R.id.imageErrorText)
+        val scanBarcodeButton = view.findViewById<MaterialButton>(R.id.btnScanBarcode)
 
         toolbar.title = "Editar Producto"
         toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
+
+        // Aplicar barcode escaneado pendiente (si volvemos del scanner)
+        pendingScannedBarcode?.let { barcode ->
+            barcodeInput.setText(barcode)
+            pendingScannedBarcode = null
+        }
+
+        scanBarcodeButton.setOnClickListener {
+            parentFragmentManager.beginTransaction()
+                .replace(
+                    R.id.fragmentContainer,
+                    BarcodeScannerFragment.newInstance()
+                )
+                .addToBackStack(null)
+                .commit()
+        }
 
         // Cargar producto
         viewModel.load(productId)
@@ -115,11 +150,14 @@ class EditProductFragment : Fragment() {
                                     activeSwitch
                                 )
 
-                                val url = state.product.imageUrl
+                                // Prioridad: imageUrl (remota https) -> imageLocalUri -> placeholder
                                 when {
-                                    ProductImageUrl.isRemoteHttp(url) -> Glide.with(imagePreview).load(url).into(imagePreview)
-                                    ProductImageUrl.isLocal(url) -> {
-                                        val path = ProductImageUrl.localPathOrNull(url)
+                                    state.product.imageUrl?.startsWith("http") == true ->
+                                        Glide.with(imagePreview).load(state.product.imageUrl).into(imagePreview)
+                                    !state.product.imageLocalUri.isNullOrBlank() ->
+                                        Glide.with(imagePreview).load(java.io.File(state.product.imageLocalUri)).into(imagePreview)
+                                    ProductImageUrl.isLocal(state.product.imageUrl) -> {
+                                        val path = ProductImageUrl.localPathOrNull(state.product.imageUrl)
                                         Glide.with(imagePreview).load(java.io.File(path ?: "")).into(imagePreview)
                                     }
                                     else -> Glide.with(imagePreview).load(android.R.drawable.ic_menu_gallery).into(imagePreview)
@@ -175,8 +213,11 @@ class EditProductFragment : Fragment() {
             // Si el producto no tiene imagen previa (ni remota ni local://) y el usuario no elige una nueva, bloquear.
             val uiState = viewModel.uiState.value
             if (uiState is EditProductViewModel.EditProductUiState.Success) {
-                val currentUrl = uiState.product.imageUrl
-                val hasExisting = ProductImageUrl.isRemoteHttp(currentUrl) || ProductImageUrl.isLocal(currentUrl)
+                val product = uiState.product
+                val hasExisting = product.imageUrl?.startsWith("http") == true ||
+                        !product.imageLocalUri.isNullOrBlank() ||
+                        ProductImageUrl.isRemoteHttp(product.imageUrl) ||
+                        ProductImageUrl.isLocal(product.imageUrl)
                 val hasSelected = !viewModel.localImageAbsolutePath.value.isNullOrBlank()
                 if (!hasExisting && !hasSelected) {
                     imageErrorText.visibility = View.VISIBLE
@@ -240,7 +281,9 @@ class EditProductFragment : Fragment() {
             stockInput.setText(stock)
         }
 
-        val barcode = product.barcode.orEmpty()
+        // Si hay un barcode escaneado en el ViewModel, usarlo; si no, usar el del producto.
+        val scannedBarcode = viewModel.barcode.value
+        val barcode = if (!scannedBarcode.isNullOrBlank()) scannedBarcode else product.barcode.orEmpty()
         if (barcodeInput.text.toString() != barcode) {
             barcodeInput.setText(barcode)
         }

@@ -130,6 +130,14 @@
 
             </com.google.android.material.textfield.TextInputLayout>
 
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnScanBarcode"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="8dp"
+                android:text="@string/scan_barcode_button" />
+
             <com.google.android.material.switchmaterial.SwitchMaterial
                 android:id="@+id/switchActive"
                 android:layout_width="wrap_content"
@@ -160,7 +168,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
-                android:textColor="@android:color/holo_red_dark"
+                android:textColor="@color/login_error"
                 android:visibility="gone"
                 android:text="@string/product_image_required" />
 

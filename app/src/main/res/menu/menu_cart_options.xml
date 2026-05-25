@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <item
+        android:id="@+id/action_add_custom_item"
+        android:title="@string/cart_option_add_custom"
+        android:icon="@drawable/ic_add" />
+
+    <item
+        android:id="@+id/action_clear_cart"
+        android:title="@string/cart_option_clear"
+        android:icon="@drawable/ic_delete" />
+
+</menu>
+

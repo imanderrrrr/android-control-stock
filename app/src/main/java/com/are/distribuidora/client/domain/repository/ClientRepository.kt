@@ -12,6 +12,8 @@ interface ClientRepository {
     suspend fun getClientById(id: String): Result<Client?>
     suspend fun getByRouteId(routeId: String, limit: Int = 50): Result<List<Client>>
     fun observeByRouteId(routeId: String, limit: Int = 100): Flow<List<Client>>
+    suspend fun searchClients(query: String, limit: Int = 50): Result<List<Client>>
+    suspend fun searchClientsByRoute(routeId: String, query: String): Result<List<Client>>
 
     /**
      * Marca un cliente para eliminación (Soft Delete + Sync PENDING_DELETE).

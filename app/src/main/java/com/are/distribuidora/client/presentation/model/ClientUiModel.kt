@@ -1,6 +1,6 @@
 package com.are.distribuidora.client.presentation.model
 
-import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 
 data class ClientUiModel(
     val id: String,
@@ -8,7 +8,7 @@ data class ClientUiModel(
     val phone: String,
     val address: String?,
     val isActive: Boolean,
-    val syncStatus: SyncStatus,
+    val syncState: SyncState,
     val syncIndicatorText: String,
     val activeIndicatorText: String,
 )

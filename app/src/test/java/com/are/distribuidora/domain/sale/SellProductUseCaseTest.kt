@@ -1,6 +1,7 @@
 package com.are.distribuidora.domain.sale
 
 import androidx.paging.PagingData
+import com.are.distribuidora.domain.core.SyncState
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.domain.product.ProductRepository
 import com.are.distribuidora.domain.valueobject.Money
@@ -29,6 +30,8 @@ class SellProductUseCaseTest {
             return if (id == product.id) product else null
         }
 
+        override fun observeById(id: ProductId): Flow<Product?> = emptyFlow()
+
         override suspend fun save(product: Product) {
             saveCalls++
             this.product = product
@@ -40,8 +43,14 @@ class SellProductUseCaseTest {
             // No-op for this test
         }
 
-        override fun getSyncStatuses(): Flow<Map<String, com.are.distribuidora.data.local.SyncStatus>> {
+        override fun getSyncStatuses(): Flow<Map<String, SyncState>> {
             return emptyFlow()
+        }
+
+        override suspend fun findByBarcode(barcode: String): Product? = null
+
+        override suspend fun incrementStock(productId: String, delta: Int) {
+            // No-op for this test
         }
     }
 
