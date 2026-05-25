@@ -13,6 +13,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.paging.LoadState
+import androidx.paging.map
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
@@ -29,6 +30,7 @@ import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
@@ -153,11 +155,27 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-                // 1. Datos paginados
+                // 1. Datos paginados + carrito combinados → único submitData()
+                //
+                //    Esta es la solución a la race condition que causaba el
+                //    crash "Inconsistency detected" del RecyclerView. Antes
+                //    teníamos dos coroutines tocando el adapter (submitData
+                //    + updateCartQuantities) que podían colisionar con el
+                //    layout pass. Ahora combinamos los dos flows en uno y
+                //    dejamos que DiffUtil maneje todo atómicamente.
                 launch {
-                    viewModel.products.collectLatest { pagingData ->
-                        adapter.submitData(pagingData)
-                    }
+                    viewModel.products
+                        .combine(flowViewModel.cartItems) { pagingData, cartMap ->
+                            pagingData.map { product ->
+                                ProductWithQty(
+                                    product = product,
+                                    qty = cartMap[product.id.value]?.quantity ?: 0,
+                                )
+                            }
+                        }
+                        .collectLatest { transformed ->
+                            adapter.submitData(transformed)
+                        }
                 }
 
                 // 2. LoadState → mostrar/ocultar empty state
@@ -197,14 +215,6 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
                                 chip.isChecked = true
                             }
                         }
-                    }
-                }
-
-                // 4. Carrito → actualizar cantidades en el adapter
-                launch {
-                    flowViewModel.cartItems.collect { cartMap ->
-                        val qtyMap = cartMap.mapValues { it.value.quantity }
-                        adapter.updateCartQuantities(qtyMap)
                     }
                 }
             }

@@ -26,11 +26,18 @@ import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
 
-class OrderCatalogAdapter : PagingDataAdapter<Product, OrderCatalogAdapter.ProductVH>(DIFF) {
-
-    /** Mapa productId → quantity (desde el ViewModel del carrito) */
-    var cartQuantities: Map<String, Int> = emptyMap()
-        private set
+/**
+ * Adapter del catálogo de productos en el flujo de creación de pedido.
+ *
+ * Diseño (post-fix del crash "Inconsistency detected"):
+ *  - Una sola fuente de verdad: [ProductWithQty] empaqueta producto + cantidad
+ *    del carrito. El ViewModel/Fragment combina ambos flows ANTES de llamar
+ *    `submitData()` para que DiffUtil maneje todos los cambios atómicamente.
+ *  - YA NO existe `updateCartQuantities()` — ese método disparaba
+ *    `notifyItemChanged` en paralelo al `submitData` causando la race
+ *    condition con el layout pass del RecyclerView.
+ */
+class OrderCatalogAdapter : PagingDataAdapter<ProductWithQty, OrderCatalogAdapter.ProductVH>(DIFF) {
 
     /** Callback al tocar la card completa */
     var onProductClicked: ((Product) -> Unit)? = null
@@ -47,44 +54,6 @@ class OrderCatalogAdapter : PagingDataAdapter<Product, OrderCatalogAdapter.Produ
     /** Callback al tocar "-" en el stepper */
     var onDecrementClicked: ((String) -> Unit)? = null
 
-    /** Actualiza el mapa de cantidades y refresca los items afectados. */
-    fun updateCartQuantities(newMap: Map<String, Int>) {
-        val old = cartQuantities
-        cartQuantities = newMap
-
-        // Detectar qué productIds cambiaron su cantidad.
-        val changedIds = mutableSetOf<String>()
-        for ((id, qty) in newMap) {
-            if (old[id] != qty) changedIds.add(id)
-        }
-        // IDs que estaban en old pero ya no están en newMap (qty pasó a 0)
-        for (id in old.keys) {
-            if (id !in newMap) changedIds.add(id)
-        }
-
-        if (changedIds.isEmpty()) return
-
-        // Capturamos snapshot y count UNA VEZ y protegemos con try-catch
-        // para evitar IndexOutOfBoundsException si PagingData se invalida
-        // concurrentemente con el layout pass del RecyclerView.
-        try {
-            val currentSnapshot = snapshot().items
-            val currentCount    = itemCount
-            for (index in currentSnapshot.indices) {
-                if (index >= currentCount) break
-                val id = currentSnapshot[index].id.value
-                if (id in changedIds) {
-                    notifyItemChanged(index, PAYLOAD_QTY)
-                }
-            }
-        } catch (e: Exception) {
-            // Fallback seguro: si snapshot/itemCount divergen y causan crash,
-            // forzamos un refresh completo. Menos eficiente pero no crashea.
-            Log.w("ORDER_CATALOG", "updateCartQuantities fallback notifyDataSetChanged", e)
-            notifyDataSetChanged()
-        }
-    }
-
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProductVH {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_order_catalog_product, parent, false)
@@ -99,17 +68,15 @@ class OrderCatalogAdapter : PagingDataAdapter<Product, OrderCatalogAdapter.Produ
     }
 
     override fun onBindViewHolder(holder: ProductVH, position: Int) {
-        getItem(position)?.let { product ->
-            val qty = cartQuantities[product.id.value] ?: 0
-            holder.bind(product, qty, animate = false)
+        getItem(position)?.let { model ->
+            holder.bind(model.product, model.qty, animate = false)
         }
     }
 
     override fun onBindViewHolder(holder: ProductVH, position: Int, payloads: MutableList<Any>) {
         if (payloads.contains(PAYLOAD_QTY)) {
-            getItem(position)?.let { product ->
-                val qty = cartQuantities[product.id.value] ?: 0
-                holder.updateQuantity(qty, animate = true)
+            getItem(position)?.let { model ->
+                holder.updateQuantity(model.qty, animate = true)
             }
         } else {
             super.onBindViewHolder(holder, position, payloads)
@@ -293,12 +260,30 @@ class OrderCatalogAdapter : PagingDataAdapter<Product, OrderCatalogAdapter.Produ
     companion object {
         private const val PAYLOAD_QTY = "payload_qty"
 
-        private val DIFF = object : DiffUtil.ItemCallback<Product>() {
-            override fun areItemsTheSame(oldItem: Product, newItem: Product) =
-                oldItem.id == newItem.id
+        /**
+         * DiffUtil que compara TANTO el producto COMO la cantidad del carrito.
+         *  - areItemsTheSame: mismo productId (la identidad no cambia con qty).
+         *  - areContentsTheSame: producto idéntico Y misma qty (cualquier cambio
+         *    de cantidad dispara rebind).
+         *  - getChangePayload: cuando SOLO cambia qty (producto igual), enviamos
+         *    [PAYLOAD_QTY] para animar el stepper en vez de re-renderizar la
+         *    card completa (preserva la imagen sin parpadeo).
+         */
+        private val DIFF = object : DiffUtil.ItemCallback<ProductWithQty>() {
+            override fun areItemsTheSame(oldItem: ProductWithQty, newItem: ProductWithQty) =
+                oldItem.product.id == newItem.product.id
 
-            override fun areContentsTheSame(oldItem: Product, newItem: Product) =
+            override fun areContentsTheSame(oldItem: ProductWithQty, newItem: ProductWithQty) =
                 oldItem == newItem
+
+            override fun getChangePayload(oldItem: ProductWithQty, newItem: ProductWithQty): Any? {
+                // Si solo cambió la cantidad (producto idéntico) → payload liviano.
+                return if (oldItem.product == newItem.product && oldItem.qty != newItem.qty) {
+                    PAYLOAD_QTY
+                } else {
+                    null
+                }
+            }
         }
     }
 }
