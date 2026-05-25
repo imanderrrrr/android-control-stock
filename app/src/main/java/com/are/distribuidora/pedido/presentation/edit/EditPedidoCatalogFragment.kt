@@ -12,12 +12,14 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.paging.LoadState
+import androidx.paging.map
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.pedido.presentation.catalog.CategoryFilter
 import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogAdapter
 import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogViewModel
+import com.are.distribuidora.pedido.presentation.catalog.ProductWithQty
 import com.are.distribuidora.pedido.presentation.catalog.ui.GridSpacingItemDecoration
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.chip.Chip
@@ -96,8 +98,13 @@ class EditPedidoCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
 
                 launch {
+                    // En el flujo de edición no se muestra el carrito en el
+                    // catálogo (el usuario solo elige UN producto y vuelve),
+                    // así que mapeamos a ProductWithQty con qty=0 fijo.
                     catalogViewModel.products.collectLatest { pagingData ->
-                        adapter.submitData(pagingData)
+                        adapter.submitData(
+                            pagingData.map { product -> ProductWithQty(product, qty = 0) }
+                        )
                     }
                 }
 
