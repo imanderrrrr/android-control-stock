@@ -1,7 +1,6 @@
 package com.are.distribuidora.pedido.presentation.catalog
 
 import android.graphics.drawable.Drawable
-import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +10,7 @@ import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.domain.model.Product
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
@@ -37,7 +37,14 @@ import java.util.Locale
  *    `notifyItemChanged` en paralelo al `submitData` causando la race
  *    condition con el layout pass del RecyclerView.
  */
-class OrderCatalogAdapter : PagingDataAdapter<ProductWithQty, OrderCatalogAdapter.ProductVH>(DIFF) {
+/**
+ * @param logger Inyectado para que los fallos del adapter (ej. Glide image load
+ *               failures) alimenten el ring buffer del crash reporter y queden
+ *               disponibles en el siguiente reporte de crash si lo hubiera.
+ */
+class OrderCatalogAdapter(
+    private val logger: Logger,
+) : PagingDataAdapter<ProductWithQty, OrderCatalogAdapter.ProductVH>(DIFF) {
 
     /** Callback al tocar la card completa */
     var onProductClicked: ((Product) -> Unit)? = null
@@ -59,6 +66,7 @@ class OrderCatalogAdapter : PagingDataAdapter<ProductWithQty, OrderCatalogAdapte
             .inflate(R.layout.item_order_catalog_product, parent, false)
         return ProductVH(
             itemView = view,
+            logger = logger,
             onCardClicked  = { product -> onProductClicked?.invoke(product) },
             onCardLongPressed = { product -> onProductLongPressed?.invoke(product) },
             onAddClicked   = { product -> onAddClicked?.invoke(product) },
@@ -87,6 +95,7 @@ class OrderCatalogAdapter : PagingDataAdapter<ProductWithQty, OrderCatalogAdapte
 
     class ProductVH(
         itemView: View,
+        private val logger: Logger,
         private val onCardClicked: (Product) -> Unit,
         private val onCardLongPressed: (Product) -> Unit,
         private val onAddClicked: (Product) -> Unit,
@@ -241,7 +250,7 @@ class OrderCatalogAdapter : PagingDataAdapter<ProductWithQty, OrderCatalogAdapte
                     ): Boolean {
                         image.visibility = View.INVISIBLE
                         placeholder.visibility = View.VISIBLE
-                        Log.e("ORDER_CATALOG", "Image load failed id=${product.id.value}", e)
+                        logger.e("ORDER_CATALOG", "Image load failed id=${product.id.value}", e)
                         return true
                     }
 

@@ -16,6 +16,7 @@ import androidx.paging.map
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.pedido.presentation.catalog.CategoryFilter
 import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogAdapter
 import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogViewModel
@@ -26,6 +27,7 @@ import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 
@@ -43,6 +45,11 @@ class EditPedidoCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
     private val editViewModel: EditPedidoViewModel by activityViewModels()
     private val catalogViewModel: OrderCatalogViewModel by viewModels()
 
+    /** Logger inyectado — alimenta el ring buffer del crash reporter. */
+    @Inject lateinit var logger: Logger
+
+    private val tag = "EDIT_PEDIDO_CATALOG"
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -54,7 +61,12 @@ class EditPedidoCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         // Ocultar FAB carrito — no aplica en el flujo de edición
         view.findViewById<View>(R.id.fabCart)?.visibility = View.GONE
 
-        toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
+        logger.d(tag, "EditPedidoCatalog opened (add product to existing pedido flow)")
+
+        toolbar.setNavigationOnClickListener {
+            logger.d(tag, "Back pressed (no product selected)")
+            parentFragmentManager.popBackStack()
+        }
 
         val chipCategoryMap: Map<Int, CategoryFilter> = mapOf(
             R.id.chipTodos          to CategoryFilter.TODOS,
@@ -67,17 +79,21 @@ class EditPedidoCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         )
 
         editSearch.doAfterTextChanged { text ->
-            catalogViewModel.onSearchQueryChanged(text?.toString().orEmpty())
+            val query = text?.toString().orEmpty()
+            catalogViewModel.onSearchQueryChanged(query)
+            logger.d(tag, "Search query changed: '${query.take(50)}'")
         }
 
         chipGroup.setOnCheckedStateChangeListener { _, checkedIds ->
             val checkedId = checkedIds.firstOrNull() ?: return@setOnCheckedStateChangeListener
             val category  = chipCategoryMap[checkedId] ?: CategoryFilter.TODOS
             catalogViewModel.onCategorySelected(category)
+            logger.d(tag, "Category selected: ${category.label}")
         }
 
-        val adapter = OrderCatalogAdapter()
+        val adapter = OrderCatalogAdapter(logger)
         adapter.onAddClicked = { product ->
+            logger.d(tag, "Product added to pedido in edit: id=${product.id.value} name=${product.name}")
             editViewModel.addProduct(product)
             // Volver a la pantalla de edición tras agregar
             parentFragmentManager.popBackStack()

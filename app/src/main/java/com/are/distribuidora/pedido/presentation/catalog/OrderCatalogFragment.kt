@@ -1,7 +1,6 @@
 package com.are.distribuidora.pedido.presentation.catalog
 
 import android.os.Bundle
-import android.util.Log
 import android.view.View
 import android.widget.TextView
 import android.widget.Toast
@@ -17,6 +16,7 @@ import androidx.paging.map
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.pedido.presentation.cart.OrderCartFragment
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
 import com.are.distribuidora.pedido.presentation.catalog.ui.GridSpacingItemDecoration
@@ -29,6 +29,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
+import javax.inject.Inject
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
@@ -38,6 +39,14 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
 
     private val flowViewModel: CreatePedidoFlowViewModel by activityViewModels()
     private val viewModel: OrderCatalogViewModel by viewModels()
+
+    /**
+     * Logger inyectado: cada llamada alimenta el ring buffer del módulo de
+     * crash reporter. Si el catálogo vuelve a crashear, el reporte incluirá
+     * las acciones del usuario (chip seleccionado, productos tocados, items
+     * agregados/incrementados/decrementados) que ocurrieron antes del fallo.
+     */
+    @Inject lateinit var logger: Logger
 
     private val tag = "ORDER_CATALOG"
 
@@ -71,7 +80,7 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
             return
         }
 
-        Log.d(tag, "Catalog opened. routeId=$routeId selection=$selection")
+        logger.d(tag, "Catalog opened. routeId=$routeId selection=$selection")
 
         toolbar.setNavigationOnClickListener {
             parentFragmentManager.popBackStack()
@@ -87,7 +96,12 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
 
         // ── Search ──────────────────────────────────────────────────────────
         editSearch.doAfterTextChanged { text ->
-            viewModel.onSearchQueryChanged(text?.toString().orEmpty())
+            val query = text?.toString().orEmpty()
+            viewModel.onSearchQueryChanged(query)
+            // Logueamos la consulta para que aparezca en el crash report si la
+            // siguiente acción genera un fallo. Truncamos a 50 chars por privacidad
+            // y para no llenar el ring buffer.
+            logger.d(tag, "Search query changed: '${query.take(50)}'")
         }
 
         // ── Chips listener ───────────────────────────────────────────────────
@@ -95,14 +109,14 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
             val checkedId = checkedIds.firstOrNull() ?: return@setOnCheckedStateChangeListener
             val category  = chipCategoryMap[checkedId] ?: CategoryFilter.TODOS
             viewModel.onCategorySelected(category)
-            Log.d(tag, "Category selected: ${category.label}")
+            logger.d(tag, "Category selected: ${category.label}")
         }
 
         // ── Adapter + RecyclerView ───────────────────────────────────────────
-        val adapter = OrderCatalogAdapter()
+        val adapter = OrderCatalogAdapter(logger)
 
         adapter.onProductClicked = { product ->
-            Log.d(tag, "Product clicked: id=${product.id.value} name=${product.name}")
+            logger.d(tag, "Product clicked: id=${product.id.value} name=${product.name}")
             parentFragmentManager.beginTransaction()
                 .replace(R.id.fragmentContainer, ProductDetailOrderFragment.newInstance(product), "PRODUCT_DETAIL")
                 .addToBackStack("FLOW_CATALOG")
@@ -110,7 +124,7 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         }
 
         adapter.onProductLongPressed = { product ->
-            Log.d(tag, "Product long-pressed: id=${product.id.value} name=${product.name}")
+            logger.d(tag, "Product long-pressed: id=${product.id.value} name=${product.name}")
             MaterialAlertDialogBuilder(requireContext())
                 .setTitle(product.name)
                 .setItems(arrayOf("Editar producto")) { _, _ ->
@@ -126,13 +140,15 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
                 .show()
         }
         adapter.onAddClicked = { product ->
-            Log.d(tag, "Add to cart: id=${product.id.value} name=${product.name}")
+            logger.d(tag, "Add to cart: id=${product.id.value} name=${product.name}")
             flowViewModel.add(product)
         }
         adapter.onIncrementClicked = { productId ->
+            logger.d(tag, "Increment qty: productId=$productId")
             flowViewModel.increment(productId)
         }
         adapter.onDecrementClicked = { productId ->
+            logger.d(tag, "Decrement qty: productId=$productId")
             flowViewModel.decrement(productId)
         }
 
