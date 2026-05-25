@@ -52,6 +52,17 @@
             android:name=".presentation.login.LoginActivity"
             android:exported="false" />
 
+        <!-- Crash report viewer (debug). No exportada — solo accesible desde dentro de la app. -->
+        <activity
+            android:name=".crash.presentation.CrashReportsActivity"
+            android:exported="false"
+            android:label="@string/crash_reports_title" />
+
+        <activity
+            android:name=".crash.presentation.CrashReportViewerActivity"
+            android:exported="false"
+            android:label="@string/crash_reports_title" />
+
         <activity
             android:name=".presentation.app.LauncherActivity"
             android:exported="true">

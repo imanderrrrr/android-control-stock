@@ -1,6 +1,18 @@
 <resources>
     <string name="app_name">Distribuidora</string>
 
+    <!-- Crash reports (debug) -->
+    <string name="crash_reports_title">Reportes de errores</string>
+    <string name="crash_reports_empty">No hay reportes de errores guardados.\nCuando la app crashee se guardarán automáticamente aquí.</string>
+    <string name="crash_reports_back">Volver</string>
+    <string name="crash_reports_share">Compartir</string>
+    <string name="crash_reports_delete">Eliminar</string>
+    <string name="crash_reports_delete_all">Eliminar todos</string>
+    <string name="crash_reports_delete_all_confirm_title">Eliminar todos los reportes</string>
+    <string name="crash_reports_delete_all_confirm_message">Esta acción borra todos los reportes de crash guardados localmente. ¿Continuar?</string>
+    <string name="crash_reports_open_entry">Ver reportes de errores</string>
+    <string name="crash_reports_share_subject">Reporte de crash Distribuidora</string>
+
 0    <!-- PDF Progress Dialog -->
     <string name="pdf_progress_title">Generando PDF</string>
     <string name="pdf_progress_subtitle">Por favor espera mientras se prepara el documento…</string>

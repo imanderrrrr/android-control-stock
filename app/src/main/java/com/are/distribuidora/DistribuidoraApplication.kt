@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.are.distribuidora.client.sync.ClientSyncCoordinator
+import com.are.distribuidora.crash.CrashReporter
 import com.are.distribuidora.domain.pedido.PedidoRepository
 import com.are.distribuidora.domain.product.SyncProductsUseCase
 import com.are.distribuidora.route.domain.usecase.DownloadRoutesUseCase
@@ -26,6 +27,13 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
     @Inject lateinit var productSyncScheduler: com.are.distribuidora.workers.ProductSyncScheduler
     @Inject lateinit var pedidoExpireScheduler: com.are.distribuidora.workers.PedidoExpireScheduler
     @Inject lateinit var imageUploadSyncScheduler: com.are.distribuidora.workers.ImageUploadSyncScheduler
+
+    /**
+     * Capturador de crashes con persistencia local en `filesDir/crash_reports/`.
+     * Se instala lo antes posible en [onCreate] para cubrir incluso fallos
+     * tempranos de inicialización de workers/sync.
+     */
+    @Inject lateinit var crashReporter: CrashReporter
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -49,6 +57,10 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
 
     override fun onCreate() {
         super.onCreate()
+
+        // PRIMERO de todo: instalar el handler de crashes para capturar
+        // cualquier fallo durante el resto del arranque.
+        crashReporter.install()
 
         Log.d("DistribuidoraApplication", "onCreate() started, workerFactory injected: ${::workerFactory.isInitialized}")
 

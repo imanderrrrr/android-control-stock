@@ -35,6 +35,16 @@
                 android:textStyle="bold" />
 
             <ImageButton
+                android:id="@+id/btnCrashReports"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginEnd="4dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:contentDescription="@string/crash_reports_open_entry"
+                android:src="@android:drawable/ic_dialog_alert"
+                app:tint="@color/app_on_primary" />
+
+            <ImageButton
                 android:id="@+id/btnRefresh"
                 android:layout_width="40dp"
                 android:layout_height="40dp"
