@@ -172,12 +172,15 @@ class FirestoreOrderRemoteDataSource(
             }
             if (quantity <= 0) return@mapNotNull null
 
+            val notes = (data["notes"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
+
             OrderRemoteDataSource.OrderItemDto(
                 itemId = itemId,
                 productId = productId,
                 productName = productName,
                 unitPrice = unitPrice,
                 quantity = quantity,
+                notes = notes,
             )
         }
 

@@ -1238,4 +1238,22 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE pending_accounts ADD COLUMN resolvedAction TEXT")
         }
     }
+
+    /**
+     * v33 -> v34
+     * - Agrega columna `notes TEXT` (nullable) a `order_items` y `order_items_staging`.
+     *
+     * Motivo: cuando otro vendedor descarga un pedido ajeno, los items de Firestore
+     * incluyen el campo `notes` (detalle/instrucción especial del cliente) que la app
+     * del vendedor creador escribe en `routes/{routeId}/orders/{orderId}/items/{itemId}.notes`.
+     * Sin estas columnas, el detalle se descartaba al persistir local y nunca llegaba
+     * a la pantalla de detalle de "Otros Pedidos" ni a la factura impresa/compartida
+     * desde el lado del descargador.
+     */
+    val MIGRATION_33_34: Migration = object : Migration(33, 34) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE order_items ADD COLUMN notes TEXT")
+            db.execSQL("ALTER TABLE order_items_staging ADD COLUMN notes TEXT")
+        }
+    }
 }

@@ -17,6 +17,7 @@ import com.are.distribuidora.domain.pedido.usecase.ObserveAllPedidosUseCase
 import com.are.distribuidora.domain.pedido.usecase.RoundToQuarterQuetzalUseCase
 import com.are.distribuidora.workers.PedidoSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -100,6 +101,25 @@ class EditPedidoViewModel @Inject constructor(
     private var descuentoGlobal: Double = 0.0
     private var clienteNombre: String = ""
 
+    /**
+     * Bandera explícita para saber si ya pre-poblamos [_editItems] desde Room en esta sesión.
+     *
+     * Reemplaza al guard `_editItems.value.isEmpty()` que era inestable:
+     *  - Después de guardar y re-entrar al editor, `_editItems` aún tenía datos viejos con
+     *    `existingItemId = null` para ítems recién agregados → el repo los trataba como
+     *    nuevos otra vez y generaba filas duplicadas en Room (bug visible: el pedido se
+     *    duplica al editarlo).
+     *  - Con esta bandera, [save] resetea todo a `false` para forzar repoblación fresca.
+     */
+    private var hasInitializedFromRoom: Boolean = false
+
+    /**
+     * Job de la corutina que observa el pedido en Room.
+     * Se cancela y re-lanza en cada [init] para evitar fugas (cada navegación al editor
+     * antes acumulaba un observer adicional vivo hasta la muerte de la Activity).
+     */
+    private var observeJob: Job? = null
+
     private val currencyFormat: NumberFormat by lazy {
         NumberFormat.getCurrencyInstance(Locale("es", "GT")).also {
             it.currency = Currency.getInstance("GTQ")
@@ -110,23 +130,33 @@ class EditPedidoViewModel @Inject constructor(
 
     /**
      * Inicializa el estado de edición a partir del pedido actual en Room.
-     * Si se llama con un [pedidoId] distinto al cargado actualmente, limpia
-     * todo el estado previo antes de cargar el nuevo pedido.
+     *
+     * Reglas:
+     *  - Si cambia el [pedidoId] (o es el primer init de la sesión), reset completo.
+     *  - Siempre cancela el observer anterior antes de lanzar uno nuevo (evita leak
+     *    de coroutines: cada navegación al editor antes acumulaba otro collect vivo).
+     *  - La repoblación de [_editItems] desde Room ocurre EXACTAMENTE UNA VEZ por sesión,
+     *    controlada por [hasInitializedFromRoom]. Eso permite que el ViewModel preserve
+     *    ediciones en curso al navegar al catálogo y volver, pero garantiza repoblación
+     *    fresca tras un save (que resetea la bandera).
      */
     fun init(pedidoId: String) {
-        // Si es un pedido distinto al que ya está cargado, resetear todo el estado
+        // Si es un pedido distinto al cargado actualmente, reset completo de estado.
         if (currentPedidoId != pedidoId) {
-            currentPedidoId  = pedidoId
-            currentClienteId = null
-            descuentoGlobal  = 0.0
-            clienteNombre    = ""
-            _editItems.value = emptyMap()
+            currentPedidoId       = pedidoId
+            currentClienteId      = null
+            descuentoGlobal       = 0.0
+            clienteNombre         = ""
+            _editItems.value      = emptyMap()
             _deletedItemIds.value = emptySet()
-            _previousItems   = emptyList()
-            _uiState.value   = UiState.Loading
+            _previousItems        = emptyList()
+            hasInitializedFromRoom = false
+            _uiState.value        = UiState.Loading
         }
-        currentPedidoId = pedidoId
-        viewModelScope.launch {
+
+        // Cancelar observer anterior antes de relanzar (anti-leak).
+        observeJob?.cancel()
+        observeJob = viewModelScope.launch {
             observeAllPedidosUseCase().map { list ->
                 list.firstOrNull { it.pedido.id == pedidoId }
             }.collect { pw ->
@@ -134,8 +164,8 @@ class EditPedidoViewModel @Inject constructor(
                     _uiState.value = UiState.Error("Pedido no encontrado")
                     return@collect
                 }
-                // Solo pre-poblar la primera vez (no sobreescribir ediciones en curso)
-                if (_editItems.value.isEmpty() && currentPedidoId == pedidoId) {
+                // Pre-poblar EXACTAMENTE una vez por sesión (controlado por bandera).
+                if (!hasInitializedFromRoom && currentPedidoId == pedidoId) {
                     clienteNombre    = pw.pedido.clienteSnapshot.nombre
                     currentClienteId = pw.pedido.clienteId
                     descuentoGlobal  = pw.pedido.descuentoGlobal
@@ -163,6 +193,7 @@ class EditPedidoViewModel @Inject constructor(
                             cantidad   = item.cantidad,
                         )
                     }
+                    hasInitializedFromRoom = true
                 }
                 rebuildUiState()
             }
@@ -171,18 +202,36 @@ class EditPedidoViewModel @Inject constructor(
 
     // ── Operaciones del carrito de edición ───────────────────────────────────
 
-    /** Agrega un producto nuevo al carrito de edición (qty=1, sin descuento). */
+    /**
+     * Agrega un producto al carrito de edición.
+     *
+     * Reglas (en orden de evaluación):
+     *  1) Si el producto YA está activo en el carrito → incrementa cantidad.
+     *  2) Si el producto fue ELIMINADO en esta sesión (está en [_deletedItemIds]) → lo
+     *     "resucita": lo saca del conjunto de eliminados y lo vuelve a agregar reusando
+     *     su `itemId` original. Esto evita que el repositorio cree una fila nueva con
+     *     UUID nuevo dejando una fila zombie soft-deleted en Room (basura interna).
+     *  3) Producto nuevo en este pedido → crea entry con `existingItemId = null`.
+     */
     fun addProduct(product: Product) {
-        val localKey = "NEW-${product.id.value}-${System.currentTimeMillis()}"
-        val current  = _editItems.value.toMutableMap()
-        // _editItems solo tiene activos; si ya existe uno con este productoId, incrementa cantidad
-        val existing = current.values.firstOrNull { it.productoId == product.id.value }
-        if (existing != null) {
-            current[existing.localKey] = existing.copy(cantidad = existing.cantidad + 1)
-        } else {
-            current[localKey] = EditItemUiModel(
-                localKey       = localKey,
-                existingItemId = null,
+        val current = _editItems.value.toMutableMap()
+
+        // 1) Producto ya activo en el carrito: incrementar cantidad.
+        val existingActive = current.values.firstOrNull { it.productoId == product.id.value }
+        if (existingActive != null) {
+            current[existingActive.localKey] = existingActive.copy(cantidad = existingActive.cantidad + 1)
+            _editItems.value = current
+            rebuildUiState()
+            return
+        }
+
+        // 2) Producto previamente eliminado en esta sesión: resucitar.
+        val deletedSnapshot = _previousItems.firstOrNull { it.productoId == product.id.value }
+        if (deletedSnapshot != null && _deletedItemIds.value.contains(deletedSnapshot.itemId)) {
+            _deletedItemIds.value = _deletedItemIds.value - deletedSnapshot.itemId
+            current[deletedSnapshot.itemId] = EditItemUiModel(
+                localKey       = deletedSnapshot.itemId,
+                existingItemId = deletedSnapshot.itemId,
                 productoId     = product.id.value,
                 nombre         = product.name,
                 precioUnitario = product.price.amount.toDouble(),
@@ -190,7 +239,23 @@ class EditPedidoViewModel @Inject constructor(
                 descuentoItem  = 0.0,
                 imageUrl       = product.imageUrl,
             )
+            _editItems.value = current
+            rebuildUiState()
+            return
         }
+
+        // 3) Producto nuevo en este pedido.
+        val localKey = "NEW-${product.id.value}-${System.currentTimeMillis()}"
+        current[localKey] = EditItemUiModel(
+            localKey       = localKey,
+            existingItemId = null,
+            productoId     = product.id.value,
+            nombre         = product.name,
+            precioUnitario = product.price.amount.toDouble(),
+            cantidad       = 1,
+            descuentoItem  = 0.0,
+            imageUrl       = product.imageUrl,
+        )
         _editItems.value = current
         rebuildUiState()
     }
@@ -299,6 +364,13 @@ class EditPedidoViewModel @Inject constructor(
             when (val result = editPedidoUseCase(params)) {
                 is Result.Success -> {
                     pedidoSyncScheduler.scheduleOneTimeSync("PEDIDO_EDITED")
+                    // CRÍTICO: limpiar el estado en memoria para que la siguiente entrada
+                    // al editor cargue datos frescos desde Room. Sin esto, _editItems aún
+                    // contiene `EditItemUiModel(existingItemId = null)` para los ítems que
+                    // se acaban de persistir; al re-editar el mismo pedido el repo los
+                    // trata como NUEVOS otra vez y genera filas duplicadas en `pedido_items`
+                    // (era el bug visible "el pedido se revuelve al editarlo").
+                    resetEditingState()
                     _saveEvent.emit(SaveEvent.Success)
                 }
                 is Result.Error -> {
@@ -316,6 +388,28 @@ class EditPedidoViewModel @Inject constructor(
             }
             _isSaving.value = false
         }
+    }
+
+    /**
+     * Limpia todo el estado en memoria del ViewModel. Se usa al confirmar un save exitoso:
+     * el ViewModel es `activityViewModels()` y sobrevive entre navegaciones, así que sin
+     * este reset, una nueva entrada al editor (incluso para el mismo pedido) leía datos
+     * obsoletos con `existingItemId = null` y duplicaba filas.
+     *
+     * También cancela el observer Job para evitar emisiones tardías que pudieran intentar
+     * re-poblar después del reset.
+     */
+    private fun resetEditingState() {
+        observeJob?.cancel()
+        observeJob              = null
+        currentPedidoId         = ""
+        currentClienteId        = null
+        descuentoGlobal         = 0.0
+        clienteNombre           = ""
+        _editItems.value        = emptyMap()
+        _deletedItemIds.value   = emptySet()
+        _previousItems          = emptyList()
+        hasInitializedFromRoom  = false
     }
 
     // ── UI rebuild ───────────────────────────────────────────────────────────

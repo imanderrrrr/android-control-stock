@@ -5,6 +5,7 @@ import com.are.distribuidora.data.remote.pedido.PedidoRemoteDataSource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 
@@ -87,66 +88,41 @@ class FirestorePedidoDataSource @Inject constructor(
 
         try {
             val itemsCollection = orderRef.collection("items")
-            val now = System.currentTimeMillis()
 
-            firestore.runTransaction { transaction ->
-                val snapshot = transaction.get(orderRef)
-                if (!snapshot.exists()) {
-                    // ── Lock anti-duplicado ───────────────────────────────────────
-                    val orderKey = payload.orderKey
-                    if (orderKey != null) {
-                        val lockRef = firestore
-                            .collection("routes")
-                            .document(routeId)
-                            .collection("order_locks")
-                            .document(orderKey)
+            // Determinar si es CREATE o UPDATE leyendo el doc fuera de la transacción.
+            // - CREATE: usa transacción + lock anti-duplicado (preserva la garantía
+            //   server-side de unicidad por orderKey).
+            // - UPDATE: usa WriteBatch (no necesita lock — ya somos dueños del pedido,
+            //   y la transacción es innecesariamente costosa para un upsert idempotente).
+            //
+            // Antes este método tenía sólo la rama CREATE: cuando el doc ya existía se
+            // logueaba "already exists (idempotent)" y NO se escribía nada. Resultado: toda
+            // edición posterior se quedaba local. Otros vendedores veían la versión vieja.
+            // Bug reportado: pedidos editados se "revuelven" con la copia previa de Firestore.
+            val existingSnapshot = orderRef.get().await()
 
-                        val lockSnapshot = transaction.get(lockRef)
-                        if (lockSnapshot.exists()) {
-                            val status = lockSnapshot.getString("status")
-                            val expiresAt = lockSnapshot.getLong("expiresAt") ?: 0L
-                            val lockedOrderId = lockSnapshot.getString("orderId") ?: ""
-
-                            if (status == "ACTIVE" && expiresAt > now) {
-                                throw DuplicateOrderRemoteException(lockedOrderId)
-                            }
-                            Log.w(tag, "uploadPedido: lock expirado/inactivo, sobreescribiendo. orderKey=$orderKey oldOrderId=$lockedOrderId")
-                        }
-
-                        transaction.set(lockRef, mapOf(
-                            "orderId"      to pedidoId,
-                            "orderKey"     to orderKey,
-                            "routeId"      to routeId,
-                            "vendedorId"   to finalVendedorId,
-                            "deliveryDate" to payload.deliveryDate,
-                            "clienteId"    to payload.clienteId,
-                            "createdAt"    to now,
-                            "expiresAt"    to (now + lockTtlMs),
-                            "status"       to "ACTIVE",
-                        ))
-                    }
-                    // ─────────────────────────────────────────────────────────────
-
-                    transaction.set(orderRef, orderData)
-                    items.forEach { item ->
-                        val itemData = mutableMapOf<String, Any?>(
-                            "itemId"         to item.id,
-                            "orderId"        to pedidoId,
-                            "productId"      to item.productoId,
-                            "productName"    to item.nombre,
-                            "unitPrice"      to item.precioUnitario,
-                            "quantity"       to item.cantidad,
-                            "discountAmount" to item.descuentoItem,
-                            "totalItem"      to item.totalItem,
-                        )
-                        item.notes?.let { itemData["notes"] = it }
-                        transaction.set(itemsCollection.document(item.id), itemData)
-                    }
-                    Log.d(tag, "uploadPedido: written pedidoId=$pedidoId items=${items.size}")
-                } else {
-                    Log.d(tag, "uploadPedido: already exists (idempotent) pedidoId=$pedidoId")
-                }
-            }.await()
+            if (!existingSnapshot.exists()) {
+                uploadAsCreate(
+                    pedidoId        = pedidoId,
+                    routeId         = routeId,
+                    orderRef        = orderRef,
+                    itemsCollection = itemsCollection,
+                    orderKey        = payload.orderKey,
+                    deliveryDate    = payload.deliveryDate,
+                    clienteId       = payload.clienteId,
+                    finalVendedorId = finalVendedorId,
+                    orderData       = orderData,
+                    items           = items,
+                )
+            } else {
+                uploadAsUpdate(
+                    pedidoId        = pedidoId,
+                    orderRef        = orderRef,
+                    itemsCollection = itemsCollection,
+                    orderData       = orderData,
+                    items           = items,
+                )
+            }
 
             Log.i(tag, "uploadPedido: done pedidoId=$pedidoId routeId=$routeId")
         } catch (e: DuplicateOrderRemoteException) {
@@ -156,6 +132,143 @@ class FirestorePedidoDataSource @Inject constructor(
             Log.e(tag, "uploadPedido: Firestore error pedidoId=$pedidoId (${e.message})", e)
             throw e
         }
+    }
+
+    /**
+     * Rama CREATE: transacción + lock anti-duplicado por orderKey.
+     * Si el lock está ACTIVE no expirado y el orderKey ya existe → lanza
+     * [DuplicateOrderRemoteException]. Si está expirado o INACTIVE, se sobrescribe.
+     */
+    private suspend fun uploadAsCreate(
+        pedidoId: String,
+        routeId: String,
+        orderRef: com.google.firebase.firestore.DocumentReference,
+        itemsCollection: com.google.firebase.firestore.CollectionReference,
+        orderKey: String?,
+        deliveryDate: String,
+        clienteId: String?,
+        finalVendedorId: String,
+        orderData: Map<String, Any?>,
+        items: List<PedidoRemoteDataSource.PedidoItemPayload>,
+    ) {
+        val now = System.currentTimeMillis()
+        firestore.runTransaction { transaction ->
+            val snapshot = transaction.get(orderRef)
+            if (snapshot.exists()) {
+                // Race rarísimo: alguien creó el doc entre nuestro get inicial y la transacción.
+                // Lo tratamos como no-op aquí; la edición posterior re-intentará vía rama UPDATE.
+                Log.w(tag, "uploadAsCreate: doc apareció durante la transacción; skip pedidoId=$pedidoId")
+                return@runTransaction
+            }
+
+            // ── Lock anti-duplicado ───────────────────────────────────────
+            if (orderKey != null) {
+                val lockRef = firestore
+                    .collection("routes")
+                    .document(routeId)
+                    .collection("order_locks")
+                    .document(orderKey)
+
+                val lockSnapshot = transaction.get(lockRef)
+                if (lockSnapshot.exists()) {
+                    val status = lockSnapshot.getString("status")
+                    val expiresAt = lockSnapshot.getLong("expiresAt") ?: 0L
+                    val lockedOrderId = lockSnapshot.getString("orderId") ?: ""
+
+                    if (status == "ACTIVE" && expiresAt > now) {
+                        throw DuplicateOrderRemoteException(lockedOrderId)
+                    }
+                    Log.w(tag, "uploadAsCreate: lock expirado/inactivo, sobreescribiendo. orderKey=$orderKey oldOrderId=$lockedOrderId")
+                }
+
+                transaction.set(lockRef, mapOf(
+                    "orderId"      to pedidoId,
+                    "orderKey"     to orderKey,
+                    "routeId"      to routeId,
+                    "vendedorId"   to finalVendedorId,
+                    "deliveryDate" to deliveryDate,
+                    "clienteId"    to clienteId,
+                    "createdAt"    to now,
+                    "expiresAt"    to (now + lockTtlMs),
+                    "status"       to "ACTIVE",
+                ))
+            }
+            // ─────────────────────────────────────────────────────────────
+
+            transaction.set(orderRef, orderData)
+            items.forEach { item ->
+                val itemData = mutableMapOf<String, Any?>(
+                    "itemId"         to item.id,
+                    "orderId"        to pedidoId,
+                    "productId"      to item.productoId,
+                    "productName"    to item.nombre,
+                    "unitPrice"      to item.precioUnitario,
+                    "quantity"       to item.cantidad,
+                    "discountAmount" to item.descuentoItem,
+                    "totalItem"      to item.totalItem,
+                )
+                item.notes?.let { itemData["notes"] = it }
+                transaction.set(itemsCollection.document(item.id), itemData)
+            }
+            Log.d(tag, "uploadAsCreate: written pedidoId=$pedidoId items=${items.size}")
+        }.await()
+    }
+
+    /**
+     * Rama UPDATE: aplica los cambios del editor a un pedido que ya existe en Firestore.
+     *
+     * Estrategia (WriteBatch atómico):
+     *  1) Lee la subcolección `items/` actual.
+     *  2) Borra los itemIds que ya NO están en el payload (el usuario los eliminó al editar).
+     *  3) Crea/reemplaza los items del payload con `set`.
+     *  4) Actualiza el header con `set + SetOptions.merge()` para preservar campos auxiliares.
+     *
+     * El WriteBatch garantiza atomicidad: o todo el cambio se aplica o nada.
+     * Sin esto, otros vendedores veían la versión original del pedido aunque el editor
+     * confirmara cambios → bug visible "el pedido se revuelve al editarlo".
+     */
+    private suspend fun uploadAsUpdate(
+        pedidoId: String,
+        orderRef: com.google.firebase.firestore.DocumentReference,
+        itemsCollection: com.google.firebase.firestore.CollectionReference,
+        orderData: Map<String, Any?>,
+        items: List<PedidoRemoteDataSource.PedidoItemPayload>,
+    ) {
+        val currentItemsSnap = itemsCollection.get().await()
+        val incomingItemIds  = items.map { it.id }.toSet()
+
+        val batch = firestore.batch()
+
+        // 1) Borrar items que ya no están en el payload (el usuario los eliminó al editar).
+        var deletedCount = 0
+        currentItemsSnap.documents.forEach { doc ->
+            if (doc.id !in incomingItemIds) {
+                batch.delete(doc.reference)
+                deletedCount++
+            }
+        }
+
+        // 2) Set para cada item del payload (crea nuevos o reemplaza existentes).
+        items.forEach { item ->
+            val itemData = mutableMapOf<String, Any?>(
+                "itemId"         to item.id,
+                "orderId"        to pedidoId,
+                "productId"      to item.productoId,
+                "productName"    to item.nombre,
+                "unitPrice"      to item.precioUnitario,
+                "quantity"       to item.cantidad,
+                "discountAmount" to item.descuentoItem,
+                "totalItem"      to item.totalItem,
+            )
+            item.notes?.let { itemData["notes"] = it }
+            batch.set(itemsCollection.document(item.id), itemData)
+        }
+
+        // 3) Merge del header (preserva campos auxiliares como deletedAt, lockMeta, etc.).
+        batch.set(orderRef, orderData, SetOptions.merge())
+
+        batch.commit().await()
+        Log.i(tag, "uploadAsUpdate: applied pedidoId=$pedidoId items=${items.size} deleted=$deletedCount")
     }
 
     /**

@@ -67,6 +67,12 @@ data class OrderItemEntity(
     val unitPrice: Double,
     val quantity: Int,
     val createdAt: Long,
+    /**
+     * Detalle / instrucción especial para este ítem, descargado desde Firestore.
+     * Mismo campo que el vendedor creador escribe en `pedido_items.notes`.
+     * Null para pedidos legacy o items sin detalle.
+     */
+    val notes: String? = null,
 )
 
 /**
@@ -88,4 +94,5 @@ data class OrderItemStagingEntity(
     val productName: String,
     val unitPrice: Double,
     val quantity: Int,
+    val notes: String? = null,
 )

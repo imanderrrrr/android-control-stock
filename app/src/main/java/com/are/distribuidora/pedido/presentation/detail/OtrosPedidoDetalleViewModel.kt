@@ -64,6 +64,7 @@ class OtrosPedidoDetalleViewModel @Inject constructor(
                                 unitPriceFormatted = currencyFormat.format(item.unitPrice),
                                 quantity           = item.quantity,
                                 lineTotalFormatted = currencyFormat.format(item.lineTotal),
+                                notes              = item.notes?.takeIf { it.isNotBlank() },
                             )
                         }
                         // Total: usa totalAmount del header si existe; si no, suma de líneas.
@@ -91,5 +92,7 @@ data class OtrosDetalleItemUiModel(
     val unitPriceFormatted: String,   // "Q 25.00"
     val quantity: Int,
     val lineTotalFormatted: String,   // "Q 50.00"
+    /** Detalle / instrucción especial del ítem; null o blank si no hay. */
+    val notes: String? = null,
 )
 

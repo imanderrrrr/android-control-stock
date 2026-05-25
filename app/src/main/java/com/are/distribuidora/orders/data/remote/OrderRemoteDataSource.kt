@@ -36,6 +36,13 @@ interface OrderRemoteDataSource {
         val productName: String,
         val unitPrice: Double,
         val quantity: Int,
+        /**
+         * Detalle / instrucción especial del cliente para este ítem.
+         * Mismo campo que escribe la app del vendedor creador (PedidoItemPayload.notes →
+         * routes/{routeId}/orders/{orderId}/items/{itemId}.notes en Firestore).
+         * Null si el documento no incluye el campo.
+         */
+        val notes: String? = null,
     )
 
     /**

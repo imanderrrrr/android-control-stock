@@ -21,6 +21,7 @@ class OtrosDetalleAdapter :
         private val textPrecioQty = view.findViewById<TextView>(R.id.textDetallePrecioQty)
         private val textDescuento = view.findViewById<TextView>(R.id.textDetalleDescuento)
         private val textTotal     = view.findViewById<TextView>(R.id.textDetalleTotalItem)
+        private val textNotes     = view.findViewById<TextView>(R.id.textDetalleNotes)
 
         fun bind(item: OtrosDetalleItemUiModel) {
             textNombre.text    = item.productName
@@ -28,6 +29,14 @@ class OtrosDetalleAdapter :
             textTotal.text     = item.lineTotalFormatted
             // Otros Pedidos no tienen descuento por ítem → siempre oculto
             textDescuento.visibility = View.GONE
+
+            val notes = item.notes?.takeIf { it.isNotBlank() }
+            if (notes != null) {
+                textNotes.text       = "Det: $notes"
+                textNotes.visibility = View.VISIBLE
+            } else {
+                textNotes.visibility = View.GONE
+            }
         }
     }
 

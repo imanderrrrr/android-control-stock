@@ -401,12 +401,16 @@ class OfflineFirstOrderRepository(
                 val first = group.first()
                 // Combinar duplicados sumando quantity.
                 val totalQty = group.sumOf { it.quantity }
+                // Conservar el primer notes no-vacío del grupo (todos los duplicados de un
+                // mismo productId deberían traer el mismo detalle desde Firestore).
+                val notes = group.firstNotNullOfOrNull { it.notes?.takeIf { n -> n.isNotBlank() } }
                 OrderRemoteDataSource.OrderItemDto(
                     itemId = first.itemId,
                     productId = productId,
                     productName = first.productName,
                     unitPrice = first.unitPrice,
                     quantity = totalQty,
+                    notes = notes,
                 )
             }
 
@@ -429,6 +433,7 @@ class OfflineFirstOrderRepository(
                         productName = dto.productName,
                         unitPrice = dto.unitPrice,
                         quantity = dto.quantity,
+                        notes = dto.notes,
                     )
                 }
             )
@@ -496,6 +501,7 @@ class OfflineFirstOrderRepository(
                     unitPrice = st.unitPrice,
                     quantity = st.quantity,
                     createdAt = now,
+                    notes = st.notes,
                 )
             }
 

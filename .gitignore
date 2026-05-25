@@ -84,3 +84,14 @@ keystore.properties
 # NDK
 # =========================
 obj/
+
+# =========================
+# Claude Code (agent worktrees / metadata)
+# =========================
+.claude/
+
+# =========================
+# Build artifacts (APK/AAB)
+# =========================
+*.apk
+*.aab

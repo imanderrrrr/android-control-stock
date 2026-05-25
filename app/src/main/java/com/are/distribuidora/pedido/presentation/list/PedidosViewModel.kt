@@ -14,8 +14,10 @@ import com.are.distribuidora.domain.product.GetProductImageUseCase
 import com.are.distribuidora.orders.domain.usecase.DownloadOrderItemsUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchAllOrdersHeaderUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchOrdersHeaderUseCase
+import com.are.distribuidora.orders.domain.usecase.GetOtrosPedidoDetalleUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteAndDateUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteUseCase
+import com.are.distribuidora.pedido.presentation.print.buildPedidoWithItemsForPrint
 import com.are.distribuidora.route.domain.usecase.GetRoutesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
@@ -53,6 +55,7 @@ class PedidosViewModel @Inject constructor(
     private val fetchOrdersHeaderUseCase: FetchOrdersHeaderUseCase,
     private val fetchAllOrdersHeaderUseCase: FetchAllOrdersHeaderUseCase,
     private val getProductImageUseCase: GetProductImageUseCase,
+    private val getOtrosPedidoDetalleUseCase: GetOtrosPedidoDetalleUseCase,
 ) : ViewModel() {
 
     // ── Mis Pedidos ──────────────────────────────────────────────────────────
@@ -331,6 +334,19 @@ class PedidosViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Construye un [PedidoWithItems] sintético a partir de un pedido descargado de
+     * "Otros Pedidos" (Order + List<OrderItem> en Room) para alimentar a
+     * `PrintTicketHelper` y `PdfTicketHelper`. Devuelve null si el pedido no está
+     * descargado, fue eliminado, o no tiene items persistidos todavía.
+     */
+    suspend fun getOtroPedidoForPrint(orderId: String): PedidoWithItems? {
+        val detalle = getOtrosPedidoDetalleUseCase(orderId)
+        val order = detalle.order ?: return null
+        if (detalle.items.isEmpty()) return null
+        return buildPedidoWithItemsForPrint(order = order, items = detalle.items)
+    }
+
     // ── Mappers privados ──────────────────────────────────────────────────────
 
     private fun buildRouteSummaries(all: List<PedidoWithItems>): List<RouteOrderSummaryUiModel> =
@@ -375,6 +391,9 @@ class PedidosViewModel @Inject constructor(
         routesMap.containsKey(routeId) -> routesMap[routeId]!!
         else                           -> routeId
     }
+
+    /** Igual que [resolveRouteName] pero accesible desde la UI (impresión/PDF de Otros). */
+    fun resolveRouteNameForPrint(routeId: String): String = resolveRouteName(routeId)
 
     private fun mapToOtrosHeaderUiModel(order: Order): OtrosOrderHeaderUiModel {
         val (statusLabel, uiStatus) = when (order.downloadStatus) {
