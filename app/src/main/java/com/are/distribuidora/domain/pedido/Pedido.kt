@@ -8,23 +8,20 @@ data class Pedido(
     val id: String,                    // DocID de Firestore
     val vendedorId: String,
     val routeId: String,               // Ruta del cliente
+    /** Fecha de entrega "YYYY-MM-DD". Requerida para Firestore query al descargar. */
+    val deliveryDate: String = "",
     val clienteId: String?,
+    val clienteSnapshot: com.are.distribuidora.domain.pedido.model.ClienteSnapshot,
     val items: List<PedidoItem>,
     val subtotal: Double,
     val descuentoGlobal: Double,
     val total: Double,
-    val estado: PedidoEstado,          // ABIERTO | CERRADO
+    // estado eliminado
     val version: Int,
     val actualizadoPor: String,
     val creadoEn: Long,                // epoch millis
     val actualizadoEn: Long            // epoch millis
 ) {
-
-    /**
-     * Regla 1 — Editabilidad:
-     * Un pedido ABIERTO puede modificarse. Uno CERRADO no.
-     */
-    fun puedeModificarse(): Boolean = estado == PedidoEstado.ABIERTO
 
     /**
      * Regla 5 — Cálculo de totales:

@@ -682,4 +682,560 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE pedidos ADD COLUMN routeId TEXT NOT NULL DEFAULT ''")
         }
     }
+
+    /**
+     * v16 -> v17
+     * - Elimina la columna `estado` de la tabla `pedidos`.
+     * - SQLite no soporta DROP COLUMN directo, se recrea la tabla.
+     */
+    val MIGRATION_16_17: Migration = object : Migration(16, 17) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // Desactivar FKs para permitir drop/recreate de tabla referenciada
+            db.execSQL("PRAGMA foreign_keys=OFF")
+            
+            try {
+                // 1. Crear tabla nueva SIN la columna estado
+                db.execSQL(
+                    """
+                    CREATE TABLE `pedidos_new` (
+                        `id` TEXT NOT NULL, 
+                        `vendedorId` TEXT NOT NULL, 
+                        `routeId` TEXT NOT NULL, 
+                        `clienteId` TEXT, 
+                        `subtotal` REAL NOT NULL, 
+                        `descuentoGlobal` REAL NOT NULL, 
+                        `total` REAL NOT NULL, 
+                        `version` INTEGER NOT NULL, 
+                        `actualizadoPor` TEXT NOT NULL, 
+                        `creadoEn` INTEGER NOT NULL, 
+                        `actualizadoEn` INTEGER NOT NULL, 
+                        `syncStatus` TEXT NOT NULL, 
+                        `createdAt` INTEGER NOT NULL, 
+                        `updatedAt` INTEGER NOT NULL, 
+                        PRIMARY KEY(`id`)
+                    )
+                    """.trimIndent()
+                )
+
+                // 2. Copiar datos manteniendo todas las columnas EXCEPTO estado
+                db.execSQL(
+                    """
+                    INSERT INTO pedidos_new (
+                        id, vendedorId, routeId, clienteId, subtotal, descuentoGlobal, total,
+                        version, actualizadoPor, creadoEn, actualizadoEn, syncStatus, createdAt, updatedAt
+                    )
+                    SELECT 
+                        id, vendedorId, routeId, clienteId, subtotal, descuentoGlobal, total,
+                        version, actualizadoPor, creadoEn, actualizadoEn, syncStatus, createdAt, updatedAt
+                    FROM pedidos
+                    """.trimIndent()
+                )
+
+                // 3. Reemplazar tabla
+                db.execSQL("DROP TABLE pedidos")
+                db.execSQL("ALTER TABLE pedidos_new RENAME TO pedidos")
+
+                // 4. Recrear índices
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_pedidos_vendedorId` ON `pedidos` (`vendedorId`)")
+                
+                // 5. Validar integridad referencial
+                val cursor = db.query("PRAGMA foreign_key_check")
+                try {
+                    if (cursor.count > 0) {
+                        throw IllegalStateException("Foreign Key constraint failed during migration 16->17")
+                    }
+                } finally {
+                    cursor.close()
+                }
+                
+            } finally {
+                // Restaurar chequeo de FKs
+                db.execSQL("PRAGMA foreign_keys=ON")
+            }
+        }
+    }
+
+    /**
+     * v17 -> v18
+     * - Make clienteId nullable.
+     * - Add snapshot columns: clienteNombre, clienteTelefono, clienteDireccion.
+     * - Populate snapshot from clients table.
+     */
+    val MIGRATION_17_18: Migration = object : Migration(17, 18) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+             db.execSQL("PRAGMA foreign_keys=OFF")
+             try {
+                 // 1. Create new table with new schema
+                 db.execSQL(
+                     """
+                     CREATE TABLE `pedidos_new` (
+                        `id` TEXT NOT NULL, 
+                        `vendedorId` TEXT NOT NULL, 
+                        `routeId` TEXT NOT NULL, 
+                        `clienteId` TEXT, 
+                        `clienteNombre` TEXT NOT NULL,
+                        `clienteTelefono` TEXT,
+                        `clienteDireccion` TEXT,
+                        `subtotal` REAL NOT NULL, 
+                        `descuentoGlobal` REAL NOT NULL, 
+                        `total` REAL NOT NULL, 
+                        `version` INTEGER NOT NULL, 
+                        `actualizadoPor` TEXT NOT NULL, 
+                        `creadoEn` INTEGER NOT NULL, 
+                        `actualizadoEn` INTEGER NOT NULL, 
+                        `syncStatus` TEXT NOT NULL, 
+                        `createdAt` INTEGER NOT NULL, 
+                        `updatedAt` INTEGER NOT NULL, 
+                        PRIMARY KEY(`id`)
+                     )
+                     """.trimIndent()
+                 )
+
+                 // 2. Copy data and populate snapshot
+                 db.execSQL(
+                     """
+                     INSERT INTO pedidos_new (
+                        id, vendedorId, routeId, clienteId, 
+                        clienteNombre, clienteTelefono, clienteDireccion,
+                        subtotal, descuentoGlobal, total,
+                        version, actualizadoPor, creadoEn, actualizadoEn, syncStatus, createdAt, updatedAt
+                     )
+                     SELECT 
+                        id, vendedorId, routeId, clienteId,
+                        COALESCE((SELECT name FROM clients WHERE id = pedidos.clienteId), 'Cliente Desconocido'),
+                        (SELECT phone FROM clients WHERE id = pedidos.clienteId),
+                        (SELECT address FROM clients WHERE id = pedidos.clienteId),
+                        subtotal, descuentoGlobal, total,
+                        version, actualizadoPor, creadoEn, actualizadoEn, syncStatus, createdAt, updatedAt
+                     FROM pedidos
+                     """.trimIndent()
+                 )
+
+                 // 3. Drop and rename
+                 db.execSQL("DROP TABLE pedidos")
+                 db.execSQL("ALTER TABLE pedidos_new RENAME TO pedidos")
+
+                 // 4. Indices
+                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_pedidos_vendedorId` ON `pedidos` (`vendedorId`)")
+                 
+                 // 5. Validation
+                 val cursor = db.query("PRAGMA foreign_key_check")
+                 try {
+                     if (cursor.count > 0) {
+                         throw IllegalStateException("Foreign Key constraint failed during migration 17->18")
+                     }
+                 } finally {
+                     cursor.close()
+                 }
+             } finally {
+                 db.execSQL("PRAGMA foreign_keys=ON")
+             }
+        }
+    }
+
+    /**
+     * v18 -> v19
+     * - Agrega índice UNIQUE compuesto (orderId, productId) en order_items.
+     * - Antes de crear el índice, elimina filas duplicadas conservando solo la primera
+     *   (menor id) para no violar la restricción en datos existentes.
+     */
+    val MIGRATION_18_19: Migration = object : Migration(18, 19) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1) Eliminar duplicados: conservar solo el registro con menor id por (orderId, productId)
+            db.execSQL(
+                """
+                DELETE FROM order_items
+                WHERE id NOT IN (
+                    SELECT MIN(id)
+                    FROM order_items
+                    GROUP BY orderId, productId
+                )
+                """.trimIndent()
+            )
+
+            // 2) Crear índice UNIQUE
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_order_items_orderId_productId ON order_items(orderId, productId)"
+            )
+        }
+    }
+
+    /**
+     * v19 -> v20
+     * - Agrega `deliveryDate` (TEXT NOT NULL DEFAULT '') a tabla `pedidos`.
+     * - Agrega `itemId` (TEXT NOT NULL DEFAULT '') a `order_items`.
+     * - Agrega `itemId` (TEXT NOT NULL DEFAULT '') a `order_items_staging`.
+     */
+    val MIGRATION_19_20: Migration = object : Migration(19, 20) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pedidos ADD COLUMN deliveryDate TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE order_items ADD COLUMN itemId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE order_items_staging ADD COLUMN itemId TEXT NOT NULL DEFAULT ''")
+        }
+    }
+
+    /**
+     * v20 -> v21
+     * Cambia la PK de order_items y order_items_staging de Long autoincrement a TEXT (itemId).
+     *
+     * Motivo: itemId es el docId estable de Firestore. Con PK TEXT + REPLACE, Room garantiza
+     * que insertar el mismo item dos veces reemplaza la fila en lugar de crear un duplicado.
+     *
+     * Estrategia: recrear tablas con la nueva estructura (SQLite no soporta DROP COLUMN/ALTER PK).
+     * Los items existentes con itemId='' se descartan (son datos de v19 sin ID estable).
+     */
+    val MIGRATION_20_21: Migration = object : Migration(20, 21) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // ── order_items ──────────────────────────────────────────────────
+            db.execSQL("ALTER TABLE order_items RENAME TO order_items_old")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS order_items (
+                    itemId TEXT NOT NULL PRIMARY KEY,
+                    orderId TEXT NOT NULL,
+                    productId TEXT NOT NULL,
+                    productName TEXT NOT NULL,
+                    unitPrice REAL NOT NULL,
+                    quantity INTEGER NOT NULL,
+                    createdAt INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            // Migrar filas con itemId no vacío; las de itemId='' se pierden (datos sin ID estable).
+            db.execSQL(
+                """
+                INSERT INTO order_items (itemId, orderId, productId, productName, unitPrice, quantity, createdAt)
+                SELECT itemId, orderId, productId, productName, unitPrice, quantity, createdAt
+                FROM order_items_old
+                WHERE itemId != ''
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE order_items_old")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_order_items_orderId ON order_items(orderId)")
+            db.execSQL(
+                "CREATE UNIQUE INDEX IF NOT EXISTS index_order_items_orderId_productId ON order_items(orderId, productId)"
+            )
+
+            // ── order_items_staging ──────────────────────────────────────────
+            db.execSQL("ALTER TABLE order_items_staging RENAME TO order_items_staging_old")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS order_items_staging (
+                    itemId TEXT NOT NULL PRIMARY KEY,
+                    orderId TEXT NOT NULL,
+                    productId TEXT NOT NULL,
+                    productName TEXT NOT NULL,
+                    unitPrice REAL NOT NULL,
+                    quantity INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+            // Staging es temporal; se limpia en cada intento de descarga. Descartamos todo.
+            db.execSQL("DROP TABLE order_items_staging_old")
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS index_order_items_staging_orderId ON order_items_staging(orderId)"
+            )
+        }
+    }
+
+    /**
+     * v21 -> v22
+     * - Agrega columna `vendedorId` (TEXT, nullable) a la tabla `orders`.
+     *
+     * Motivo: implementar Opción B (excluir pedidos propios en la descarga).
+     * El campo contiene el UID del vendedor creador del pedido, leído desde Firestore.
+     * Pedidos legacy sin este campo quedan con NULL (se conservan por defecto).
+     */
+    val MIGRATION_21_22: Migration = object : Migration(21, 22) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE orders ADD COLUMN vendedorId TEXT")
+        }
+    }
+
+    /**
+     * v22 -> v23
+     * - Agrega columna `orderKey` (TEXT, nullable) a la tabla `pedidos`.
+     * - Crea índice no único sobre `orderKey` para búsquedas rápidas de duplicados.
+     *
+     * Motivo: anti-duplicado de negocio.
+     * orderKey = SHA-256(routeId|deliveryDate|clienteId|vendedorId).
+     * NULL para pedidos de clientes temporales y pedidos legacy (no bloqueados).
+     */
+    val MIGRATION_22_23: Migration = object : Migration(22, 23) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pedidos ADD COLUMN orderKey TEXT")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_pedidos_orderKey ON pedidos(orderKey)")
+        }
+    }
+
+    /**
+     * v23 -> v24
+     * - Agrega columna `isDeleted` (INTEGER NOT NULL DEFAULT 0) a la tabla `orders`.
+     *
+     * Motivo: soft delete de pedidos descargados.
+     * Un pedido con isDeleted=1 NO se muestra en listas, NO descarga items
+     * y NO reaparece en futuras sincronizaciones.
+     *
+     * Consistente con el patrón de ProductEntity y ClientEntity (isDeleted: Boolean).
+     * SQLite almacena Boolean como INTEGER (0 = false, 1 = true).
+     * Pedidos existentes quedan con DEFAULT 0 (no eliminados).
+     */
+    val MIGRATION_23_24: Migration = object : Migration(23, 24) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE orders ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    /**
+     * v24 -> v25
+     * - Agrega columna `isDeleted` (INTEGER NOT NULL DEFAULT 0) a la tabla `pedidos`.
+     *
+     * Motivo: soft delete explícito de pedidos propios. Antes el flag de eliminación
+     * se expresaba únicamente a través de syncStatus=PENDING_DELETE, lo cual no
+     * era suficiente para:
+     *   1) Distinguir "en proceso de eliminación" de "eliminado confirmado".
+     *   2) Filtrar consistentemente con el patrón de OrderEntity/ProductEntity/ClientEntity.
+     *   3) Bloquear el worker de sync para que no intente subir pedidos eliminados.
+     *
+     * Pedidos existentes quedan con DEFAULT 0 (no eliminados). Los que ya tenían
+     * syncStatus=PENDING_DELETE siguen ocultos en la UI gracias al filtro existente
+     * en getAllWithItems() que ya los excluía.
+     */
+    val MIGRATION_24_25: Migration = object : Migration(24, 25) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pedidos ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    /**
+     * v25 -> v26
+     * - Agrega columna `comprometido` (INTEGER NOT NULL DEFAULT 0) a la tabla `products`.
+     *
+     * Motivo: cuando se confirma un pedido y la cantidad solicitada supera el stock
+     * disponible, el excedente se registra en `comprometido` en lugar de dejar el
+     * stock negativo.  Ejemplo: stock=2, pedido=10 → stock=0, comprometido=8.
+     *
+     * Registros existentes quedan con DEFAULT 0 (sin comprometido previo).
+     */
+    val MIGRATION_25_26: Migration = object : Migration(25, 26) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE products ADD COLUMN comprometido INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
+
+    /**
+     * v26 -> v27
+     * - Agrega columna `isDeleted` (INTEGER NOT NULL DEFAULT 0) a la tabla `pedido_items`.
+     *
+     * Motivo: soft delete de ítems al editar un pedido.
+     * Al guardar la edición, los ítems eliminados se marcan con isDeleted=1 en lugar
+     * de borrarse físicamente. El payload de sync solo incluye ítems con isDeleted=0.
+     * Esto garantiza integridad referencial y permite revertir en caso de fallo de sync.
+     * Consistente con el patrón de ProductEntity / ClientEntity / PedidoEntity / OrderEntity.
+     */
+    val MIGRATION_26_27: Migration = object : Migration(26, 27) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE pedido_items ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0"
+            )
+        }
+    }
+
+    /**
+     * v27 -> v28
+     * - Agrega columna `notes TEXT` (nullable, DEFAULT NULL) a la tabla `pedido_items`.
+     *
+     * Motivo: permitir guardar el detalle/instrucción especial que el usuario escribe
+     * al agregar un producto al carrito desde la pantalla de detalle del producto.
+     * El valor se muestra en el carrito y debe persistir en Room, sincronizarse
+     * a Firestore y aparecer en la factura impresa y en el PDF compartido.
+     */
+    val MIGRATION_27_28: Migration = object : Migration(27, 28) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "ALTER TABLE pedido_items ADD COLUMN notes TEXT"
+            )
+        }
+    }
+
+    /**
+     * v28 -> v29
+     * - Crea tabla `pending_uploads` para cola de subida offline-first de imágenes.
+     * - Agrega columnas `imageLocalUri` y `imageRemoteUrl` a `products`.
+     * - Inicializa imageRemoteUrl con el imageUrl existente si es http/https.
+     * - Inicializa imageLocalUri con la ruta extraída de imageUrl si es local://.
+     */
+    val MIGRATION_28_29: Migration = object : Migration(28, 29) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1. Crear tabla pending_uploads
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS pending_uploads (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    entityType TEXT NOT NULL DEFAULT 'PRODUCT',
+                    entityId TEXT NOT NULL,
+                    localUri TEXT NOT NULL,
+                    storagePath TEXT NOT NULL,
+                    state TEXT NOT NULL DEFAULT 'PENDING',
+                    attemptCount INTEGER NOT NULL DEFAULT 0,
+                    lastError TEXT,
+                    createdAt INTEGER NOT NULL
+                )
+                """.trimIndent()
+            )
+
+            // 2. Agregar nuevas columnas a products
+            db.execSQL("ALTER TABLE products ADD COLUMN imageLocalUri TEXT")
+            db.execSQL("ALTER TABLE products ADD COLUMN imageRemoteUrl TEXT")
+
+            // 3. Migrar datos existentes:
+            //    - Si imageUrl empieza con http -> copiar a imageRemoteUrl
+            db.execSQL(
+                """
+                UPDATE products SET imageRemoteUrl = imageUrl
+                WHERE imageUrl IS NOT NULL AND (imageUrl LIKE 'http://%' OR imageUrl LIKE 'https://%')
+                """.trimIndent()
+            )
+
+            //    - Si imageUrl empieza con local:// -> extraer path a imageLocalUri
+            db.execSQL(
+                """
+                UPDATE products SET imageLocalUri = SUBSTR(imageUrl, 9)
+                WHERE imageUrl IS NOT NULL AND imageUrl LIKE 'local://%'
+                """.trimIndent()
+            )
+        }
+    }
+
+    /**
+     * v29 -> v30
+     * - Crea tabla `pending_accounts` para cuentas pendientes de cobro por ruta/cliente.
+     */
+    val MIGRATION_29_30: Migration = object : Migration(29, 30) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS pending_accounts (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    routeId TEXT NOT NULL,
+                    clientId TEXT NOT NULL,
+                    clientName TEXT NOT NULL,
+                    routeName TEXT NOT NULL,
+                    amountCents INTEGER NOT NULL,
+                    invoicePhotoUri TEXT,
+                    dueDateMillis INTEGER NOT NULL,
+                    isPaid INTEGER NOT NULL DEFAULT 0,
+                    notes TEXT,
+                    createdAt INTEGER NOT NULL,
+                    updatedAt INTEGER NOT NULL,
+                    FOREIGN KEY (routeId) REFERENCES routes(id) ON DELETE CASCADE,
+                    FOREIGN KEY (clientId) REFERENCES clients(id) ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_pending_accounts_routeId ON pending_accounts(routeId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_pending_accounts_clientId ON pending_accounts(clientId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_pending_accounts_dueDateMillis ON pending_accounts(dueDateMillis)")
+        }
+    }
+
+    /**
+     * v30 -> v31
+     * - Agrega columna `invoiceRemoteUrl` a `pending_accounts` para la URL remota
+     *   de la foto de factura en Firebase Storage.
+     */
+    val MIGRATION_30_31: Migration = object : Migration(30, 31) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN invoiceRemoteUrl TEXT")
+        }
+    }
+
+    /**
+     * v31 -> v32
+     * - Elimina columna `imageRemoteUrl` de `products` (era redundante con `imageUrl`).
+     *   imageUrl es el campo autoritativo que se sincroniza con Firestore.
+     *   Se recrea la tabla para compatibilidad con SQLite < 3.35 que no soporta DROP COLUMN.
+     */
+    val MIGRATION_31_32: Migration = object : Migration(31, 32) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("PRAGMA foreign_keys=OFF")
+
+            // 1. Crear tabla nueva sin imageRemoteUrl
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `products_new` (
+                    `id` TEXT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `description` TEXT,
+                    `category` TEXT,
+                    `price` REAL NOT NULL,
+                    `imageUrl` TEXT,
+                    `imageLocalUri` TEXT,
+                    `barcode` TEXT,
+                    `stock` INTEGER NOT NULL,
+                    `comprometido` INTEGER NOT NULL DEFAULT 0,
+                    `isActive` INTEGER NOT NULL DEFAULT 1,
+                    `isDeleted` INTEGER NOT NULL DEFAULT 0,
+                    `syncStatus` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL,
+                    `lastSyncedAt` INTEGER,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+
+            // 2. Copiar datos: si imageUrl era local, se preserva imageRemoteUrl como imageUrl
+            db.execSQL(
+                """
+                INSERT INTO products_new
+                    (id, name, description, category, price, imageUrl, imageLocalUri,
+                     barcode, stock, comprometido, isActive, isDeleted, syncStatus,
+                     createdAt, updatedAt, lastSyncedAt)
+                SELECT
+                    id, name, description, category, price,
+                    CASE
+                        WHEN imageRemoteUrl IS NOT NULL THEN imageRemoteUrl
+                        WHEN imageUrl IS NOT NULL AND (imageUrl LIKE 'http://%' OR imageUrl LIKE 'https://%') THEN imageUrl
+                        ELSE NULL
+                    END AS imageUrl,
+                    CASE
+                        WHEN imageUrl IS NOT NULL AND imageUrl NOT LIKE 'http://%' AND imageUrl NOT LIKE 'https://%' THEN imageUrl
+                        ELSE imageLocalUri
+                    END AS imageLocalUri,
+                    barcode, stock, comprometido, isActive, isDeleted, syncStatus,
+                    createdAt, updatedAt, lastSyncedAt
+                FROM products
+                """.trimIndent()
+            )
+
+            // 3. Eliminar tabla vieja y renombrar la nueva
+            db.execSQL("DROP TABLE products")
+            db.execSQL("ALTER TABLE products_new RENAME TO products")
+
+            // 4. Recrear índice
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_products_name` ON `products` (`name`)")
+
+            db.execSQL("PRAGMA foreign_keys=ON")
+        }
+    }
+
+    /**
+     * v32 -> v33
+     * - Agrega columnas de sincronización y log de actividad a `pending_accounts`:
+     *   - `syncStatus` TEXT para el estado de sincronización con Firestore
+     *   - `resolvedBy` TEXT para el email del usuario que pagó/eliminó
+     *   - `resolvedAt` INTEGER para el timestamp de la acción
+     *   - `resolvedAction` TEXT para el tipo de acción ("PAID" / "DELETED")
+     */
+    val MIGRATION_32_33: Migration = object : Migration(32, 33) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN syncStatus TEXT NOT NULL DEFAULT 'SYNCED'")
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN resolvedBy TEXT")
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN resolvedAt INTEGER")
+            db.execSQL("ALTER TABLE pending_accounts ADD COLUMN resolvedAction TEXT")
+        }
+    }
 }

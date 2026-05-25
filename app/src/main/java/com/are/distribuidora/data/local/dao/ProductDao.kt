@@ -174,4 +174,63 @@ interface ProductDao {
 
     @Query("UPDATE products SET imageUrl = :imageUrl WHERE id = :id")
     suspend fun updateImageUrl(id: String, imageUrl: String?)
+
+    /**
+     * Alias de updateImageUrl — actualiza imageUrl con la URL remota tras subir a Storage.
+     * Mantiene compatibilidad con código existente que llamaba updateImageRemoteUrl.
+     */
+    @Query("UPDATE products SET imageUrl = :imageRemoteUrl WHERE id = :id")
+    suspend fun updateImageRemoteUrl(id: String, imageRemoteUrl: String?)
+
+    @Query("UPDATE products SET imageLocalUri = :imageLocalUri WHERE id = :id")
+    suspend fun updateImageLocalUri(id: String, imageLocalUri: String?)
+
+    /**
+     * Busca un producto activo por su código de barras.
+     * Usado por el flujo "Agregar stock".
+     */
+    @Query("SELECT * FROM products WHERE barcode = :barcode AND isDeleted = 0 LIMIT 1")
+    suspend fun findByBarcode(barcode: String): ProductEntity?
+
+    /**
+     * Restaura [cantidad] unidades al stock disponible y reduce [comprometido] en la misma
+     * cantidad (sin bajar de cero), deshaciendo un descuento previo.
+     *
+     * Lógica inversa de [deductStockAndCommit]:
+     *  - stock'       = stock + cantidad
+     *  - comprometido' = MAX(0, comprometido - cantidad)   → no baja de 0
+     *
+     * Ejemplos:
+     *  - stock=0,  comprometido=8,  cantidad=8  → stock=8,  comprometido=0
+     *  - stock=5,  comprometido=0,  cantidad=3  → stock=8,  comprometido=0
+     *  - stock=0,  comprometido=3,  cantidad=10 → stock=10, comprometido=0
+     */
+    @Query("""
+        UPDATE products
+        SET stock        = stock + :cantidad,
+            comprometido = MAX(0, comprometido - :cantidad)
+        WHERE id = :id
+    """)
+    suspend fun restoreStock(id: String, cantidad: Int)
+
+    /**
+     * Descuenta [cantidad] del stock disponible e incrementa [comprometido] por la
+     * diferencia que no pudo cubrirse con el stock restante.
+     *
+     * Lógica:
+     *  - stockDescontado = MIN(stock, cantidad)     → lo que realmente se resta del stock
+     *  - excedente       = cantidad - stockDescontado → lo que va a comprometido
+     *
+     * Ejemplos:
+     *  - stock=10, cantidad=10 → stock=0, comprometido sin cambio
+     *  - stock=2,  cantidad=10 → stock=0, comprometido += 8
+     *  - stock=0,  cantidad=5  → stock=0, comprometido += 5
+     */
+    @Query("""
+        UPDATE products
+        SET stock        = stock - MIN(stock, :cantidad),
+            comprometido = comprometido + MAX(0, :cantidad - stock)
+        WHERE id = :id
+    """)
+    suspend fun deductStockAndCommit(id: String, cantidad: Int)
 }

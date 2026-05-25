@@ -2,6 +2,7 @@ package com.are.distribuidora.orders
 
 import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
+import com.are.distribuidora.core.auth.CurrentUserIdProvider
 import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.data.local.DistribuidoraDatabase
 import com.are.distribuidora.orders.data.local.RoomOrderLocalDataSource
@@ -21,6 +22,9 @@ class OrdersOfflineIntegrationTest {
 
     private lateinit var db: DistribuidoraDatabase
     private val roomExecutor = Executors.newSingleThreadExecutor()
+    private val currentUserIdProvider = object : CurrentUserIdProvider {
+        override fun get(): String = "TEST_USER"
+    }
 
     @Before
     fun setUp() {
@@ -53,6 +57,7 @@ class OrdersOfflineIntegrationTest {
         val repository = OfflineFirstOrderRepository(
             local = local,
             remote = fakeRemote,
+            currentUserIdProvider = currentUserIdProvider
         )
 
         val fetchHeaders = FetchOrdersHeaderUseCase(repository)
@@ -61,7 +66,7 @@ class OrdersOfflineIntegrationTest {
         // WHEN: headers only
         val fetchResult = fetchHeaders.execute(
             routeId = "ROUTE_A",
-            deliveryDate = "2026-01-17",
+            deliveryDate = "2026-01-17"
         )
 
         // THEN: headers persisted, no items
@@ -141,6 +146,7 @@ class OrdersOfflineIntegrationTest {
                         clientAddress = "Dirección Small ${idx + 1}",
                         sellerName = "Seller A",
                         itemsCount = 3,
+                        vendedorId = "OTHER"
                     )
                 )
             }
@@ -155,6 +161,7 @@ class OrdersOfflineIntegrationTest {
                         clientAddress = "Dirección Med ${idx + 1}",
                         sellerName = "Seller A",
                         itemsCount = 8,
+                        vendedorId = "OTHER"
                     )
                 )
             }
@@ -169,6 +176,7 @@ class OrdersOfflineIntegrationTest {
                         clientAddress = "Dirección Big ${idx + 1}",
                         sellerName = "Seller A",
                         itemsCount = 12,
+                        vendedorId = "OTHER"
                     )
                 )
             }
@@ -182,6 +190,7 @@ class OrdersOfflineIntegrationTest {
                     clientAddress = "Dirección Muy Grande",
                     sellerName = "Seller A",
                     itemsCount = 20,
+                    vendedorId = "OTHER"
                 )
             )
         }
@@ -195,9 +204,17 @@ class OrdersOfflineIntegrationTest {
             return if (routeId == this.routeId && deliveryDate == date) orders else emptyList()
         }
 
+        override suspend fun fetchAllOrderHeaders(routeId: String): List<OrderRemoteDataSource.OrderHeaderDto> {
+            return if (routeId == this.routeId) orders else emptyList()
+        }
+
         override suspend fun fetchOrderItems(routeId: String, orderId: String): List<OrderRemoteDataSource.OrderItemDto> {
             if (routeId != this.routeId) return emptyList()
             return itemsByOrderId[orderId].orEmpty()
+        }
+
+        override suspend fun markOrderDeleted(routeId: String, orderId: String, deletedByUid: String?) {
+            // No-op for fake
         }
 
         fun expectedTotalForOrder(orderId: String): Double {
@@ -210,6 +227,7 @@ class OrdersOfflineIntegrationTest {
             // productId y productName únicos por pedido.
             return (1..count).map { i ->
                 OrderRemoteDataSource.OrderItemDto(
+                    itemId = "$orderId-ITEM-$i",
                     productId = "$orderId-P$i",
                     productName = "Producto $i ($orderId)",
                     unitPrice = 10.0 + i,

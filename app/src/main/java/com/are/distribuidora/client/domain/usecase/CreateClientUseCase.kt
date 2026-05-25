@@ -65,7 +65,7 @@ class CreateClientUseCase @Inject constructor(
             isActive = true,
             isDeleted = false,
             routeId = input.routeId,
-            syncStatus = com.are.distribuidora.data.local.SyncStatus.PENDING,
+            syncState = com.are.distribuidora.domain.core.SyncState.PENDING,
             createdAt = currentTime,
             updatedAt = currentTime,
             createdBy = session.userId,

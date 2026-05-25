@@ -5,6 +5,7 @@ import android.util.Log
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.are.distribuidora.client.sync.ClientSyncCoordinator
+import com.are.distribuidora.domain.pedido.PedidoRepository
 import com.are.distribuidora.domain.product.SyncProductsUseCase
 import com.are.distribuidora.route.domain.usecase.DownloadRoutesUseCase
 import dagger.hilt.EntryPoint
@@ -23,6 +24,8 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
 
     @Inject lateinit var workerFactory: HiltWorkerFactory
     @Inject lateinit var productSyncScheduler: com.are.distribuidora.workers.ProductSyncScheduler
+    @Inject lateinit var pedidoExpireScheduler: com.are.distribuidora.workers.PedidoExpireScheduler
+    @Inject lateinit var imageUploadSyncScheduler: com.are.distribuidora.workers.ImageUploadSyncScheduler
 
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -32,6 +35,7 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
         fun syncProductsUseCase(): SyncProductsUseCase
         fun downloadRoutesUseCase(): DownloadRoutesUseCase
         fun clientSyncCoordinator(): ClientSyncCoordinator
+        fun pedidoRepository(): PedidoRepository
     }
 
     override val workManagerConfiguration: Configuration
@@ -66,12 +70,27 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
         // Use Scheduler to keep consistency
         productSyncScheduler.schedulePeriodic()
 
+        // Drain any pending image uploads from previous sessions
+        imageUploadSyncScheduler.enqueueUploadWorker()
+
+        // Expira y borra pedidos con ≥ 14 días de antigüedad (local + Firestore)
+        pedidoExpireScheduler.schedule()
+
         // Sync manual logic for Routes (could be moved to Worker too in future)
         // Leaving it here to ensure Routes are present before Products if possible,
         // though Worker is async.
         appScope.launch {
             try {
                 Log.d("Sync", "=== Iniciando sincronización de startup ===")
+
+                // 0. Recuperar pedidos atascados en SYNCING por crash/kill de proceso previo.
+                //    Deben revertirse a PENDING_CREATE para que el Worker los reintente.
+                try {
+                    entryPoint.pedidoRepository().recoverStuckSyncingPedidos()
+                    Log.d("PedidoSync", "recoverStuckSyncingPedidos: completado")
+                } catch (e: Exception) {
+                    Log.e("PedidoSync", "recoverStuckSyncingPedidos: error (no bloqueante)", e)
+                }
 
                 // 1. Descargar rutas
                 Log.d("RouteSync", "Descargando rutas desde Firestore...")

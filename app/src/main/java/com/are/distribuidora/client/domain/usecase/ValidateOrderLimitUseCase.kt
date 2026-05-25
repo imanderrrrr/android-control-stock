@@ -25,12 +25,10 @@ class ValidateOrderLimitUseCase @Inject constructor() {
             ?: return Result.Success(Unit)
 
         if (orderTotalInCents > limit) {
-
-            val limitFormatted = limit / 100.0
-
             return Result.Error(
-                Failure.ValidationError(
-                    "El pedido excede el límite permitido de $$limitFormatted"
+                Failure.OrderLimitExceeded(
+                    limitInCents = limit,
+                    totalInCents = orderTotalInCents,
                 )
             )
         }

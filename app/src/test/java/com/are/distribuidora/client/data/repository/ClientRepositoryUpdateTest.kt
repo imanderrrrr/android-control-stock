@@ -10,6 +10,7 @@ import com.are.distribuidora.client.domain.validator.ClientValidator
 import com.are.distribuidora.client.sync.ClientSyncCoordinator
 import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -70,13 +71,13 @@ class ClientRepositoryUpdateTest {
             isActive = true,
             isDeleted = false,
             routeId = "route-1",
-            syncStatus = SyncStatus.SYNCED,
+            syncState = SyncState.SYNCED,
             createdAt = 1000L,
             updatedAt = 1000L,
             createdBy = "user-1",
             lastModifiedBy = "user-1"
         )
-        
+
         // Mock mapper behavior
         val mappedEntity = existingClientEntity.copy(name = "New Name")
         every { updateClient.toEntity() } returns mappedEntity
@@ -115,7 +116,7 @@ class ClientRepositoryUpdateTest {
             isActive = true,
             isDeleted = false,
             routeId = "route-1",
-            syncStatus = SyncStatus.SYNCED,
+            syncState = SyncState.SYNCED,
             createdAt = 1000L,
             updatedAt = 1000L,
             createdBy = "user-1",
@@ -127,17 +128,8 @@ class ClientRepositoryUpdateTest {
 
         // THEN
         assertTrue(result is Result.Error)
-        // Failure.ValidationError is expected
-        /*
-        Note: We can't easily check the specific type Failure.ValidationError here if it's not exposed or we need to cast.
-        Assuming Result.Error exposes failure properly.
-        Based on previous interaction, we know failure is available.
-        */
         val failure = (result as Result.Error).failure
-        // We know it should be ValidationError with specific message
-        // assertTrue(failure is Failure.ValidationError) // Need to import Failure if not imported
-        // For now just checking it is Error and verify no update occurred
-        
+        // Verify no update occurred
         coVerify(exactly = 0) { local.update(any()) }
     }
 }

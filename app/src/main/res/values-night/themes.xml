@@ -1,16 +1,28 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Base application theme. -->
-    <style name="Theme.Distribuidora" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
-        <!-- Primary brand color. -->
-        <item name="colorPrimary">@color/purple_200</item>
-        <item name="colorPrimaryVariant">@color/purple_700</item>
-        <item name="colorOnPrimary">@color/black</item>
-        <!-- Secondary brand color. -->
-        <item name="colorSecondary">@color/teal_200</item>
-        <item name="colorSecondaryVariant">@color/teal_200</item>
-        <item name="colorOnSecondary">@color/black</item>
-        <!-- Status bar color. -->
-        <item name="android:statusBarColor">?attr/colorPrimaryVariant</item>
-        <!-- Customize your theme here. -->
+    <!-- Tema oscuro — usa tonos profundos de la paleta -->
+    <style name="Theme.Distribuidora" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <!-- Primary brand color (tono claro sobre fondo oscuro) -->
+        <item name="colorPrimary">@color/palette_300</item>
+        <item name="colorPrimaryVariant">@color/palette_600</item>
+        <item name="colorOnPrimary">@color/palette_900</item>
+        <!-- Secondary brand color -->
+        <item name="colorSecondary">@color/palette_300</item>
+        <item name="colorSecondaryVariant">@color/palette_600</item>
+        <item name="colorOnSecondary">@color/palette_900</item>
+        <!-- Background / surfaces oscuras -->
+        <item name="android:colorBackground">@color/palette_900</item>
+        <item name="android:windowBackground">@color/palette_900</item>
+        <item name="colorSurface">@color/palette_800</item>
+        <item name="colorOnSurface">@color/palette_050</item>
+        <!-- Text colours -->
+        <item name="android:textColorPrimary">@color/palette_050</item>
+        <item name="android:textColorSecondary">@color/palette_300</item>
+        <!-- Status / Nav bars -->
+        <item name="android:statusBarColor">@color/palette_900</item>
+        <item name="android:navigationBarColor">@color/palette_900</item>
+        <item name="android:windowLightStatusBar" tools:targetApi="m">false</item>
+        <!-- Error -->
+        <item name="colorError">@color/palette_300</item>
+        <item name="colorOnError">@color/palette_900</item>
     </style>
 </resources>

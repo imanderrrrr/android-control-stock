@@ -142,17 +142,13 @@ class ProductDetailFragment : Fragment() {
 
                             // Chips: sync (reutiliza labels existentes)
                             chipSync.visibility = View.VISIBLE
-                            chipSync.text = when (state.syncStatus) {
+                            chipSync.text = when (state.syncState) {
                                 null -> getString(R.string.product_detail_sync_unknown)
-                                com.are.distribuidora.data.local.SyncStatus.SYNCED -> getString(R.string.product_detail_sync_synced)
-                                com.are.distribuidora.data.local.SyncStatus.SYNCING -> getString(R.string.product_detail_sync_syncing)
-                                com.are.distribuidora.data.local.SyncStatus.PENDING -> getString(R.string.product_detail_sync_pending)
-                                com.are.distribuidora.data.local.SyncStatus.PENDING_CREATE -> getString(R.string.product_detail_sync_pending_create)
-                                com.are.distribuidora.data.local.SyncStatus.PENDING_UPDATE -> getString(R.string.product_detail_sync_pending_update)
-                                com.are.distribuidora.data.local.SyncStatus.PENDING_DELETE -> getString(R.string.product_detail_sync_pending_delete)
-                                com.are.distribuidora.data.local.SyncStatus.FAILED -> getString(R.string.product_detail_sync_failed)
-                                com.are.distribuidora.data.local.SyncStatus.ERROR -> getString(R.string.product_detail_sync_failed)
-                                com.are.distribuidora.data.local.SyncStatus.CONFLICT -> getString(R.string.product_detail_sync_conflict)
+                                com.are.distribuidora.domain.core.SyncState.SYNCED   -> getString(R.string.product_detail_sync_synced)
+                                com.are.distribuidora.domain.core.SyncState.SYNCING  -> getString(R.string.product_detail_sync_syncing)
+                                com.are.distribuidora.domain.core.SyncState.PENDING  -> getString(R.string.product_detail_sync_pending)
+                                com.are.distribuidora.domain.core.SyncState.FAILED   -> getString(R.string.product_detail_sync_failed)
+                                com.are.distribuidora.domain.core.SyncState.CONFLICT -> getString(R.string.product_detail_sync_conflict)
                             }
                             chipSync.isChipIconVisible = false
 
@@ -179,7 +175,7 @@ class ProductDetailFragment : Fragment() {
                             }
                             tvUnitValue.text = unitValue ?: getString(R.string.value_not_available)
 
-                            bindImage(image, product.imageUrl)
+                            bindImage(image, product.imageUrl, product.imageLocalUri)
                         }
                     }
                 }
@@ -187,37 +183,34 @@ class ProductDetailFragment : Fragment() {
         }
     }
 
-    private fun bindImage(imageView: ImageView, rawUrl: String?) {
-        val raw = rawUrl?.trim()?.takeIf { it.isNotEmpty() }
+    private fun bindImage(imageView: ImageView, imageUrl: String?, localUri: String?) {
+        // Priority: imageUrl (remote https) -> localUri -> placeholder
+        val remoteUrl = imageUrl?.trim()
+            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        val effectiveLocal = localUri?.trim()?.takeIf { it.isNotEmpty() }
 
-        if (raw == null) {
-            Glide.with(imageView).clear(imageView)
-            imageView.setImageResource(R.drawable.ic_image_placeholder)
-            return
-        }
-
-        val req = when {
-            ProductImageUrl.isLocal(raw) -> {
-                val path = ProductImageUrl.localPathOrNull(raw)
-                Glide.with(imageView).load(File(path ?: ""))
+        when {
+            remoteUrl != null -> {
+                Glide.with(imageView).load(remoteUrl)
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_error)
+                    .centerCrop()
+                    .transition(DrawableTransitionOptions.withCrossFade())
+                    .into(imageView)
             }
-
-            ProductImageUrl.isRemoteHttp(raw) -> {
-                Glide.with(imageView).load(raw)
+            effectiveLocal != null -> {
+                Glide.with(imageView).load(File(effectiveLocal))
+                    .placeholder(R.drawable.ic_image_placeholder)
+                    .error(R.drawable.ic_image_error)
+                    .centerCrop()
+                    .transition(DrawableTransitionOptions.withCrossFade())
+                    .into(imageView)
             }
-
             else -> {
                 Glide.with(imageView).clear(imageView)
                 imageView.setImageResource(R.drawable.ic_image_placeholder)
-                return
             }
         }
-
-        req.placeholder(R.drawable.ic_image_placeholder)
-            .error(R.drawable.ic_image_error)
-            .centerCrop()
-            .transition(DrawableTransitionOptions.withCrossFade())
-            .into(imageView)
     }
 
     companion object {

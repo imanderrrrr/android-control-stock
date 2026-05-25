@@ -48,7 +48,7 @@ class ClientSyncRepositoryImpl @Inject constructor(
         val dtos = remote.fetchClientsAfter(lastTimestamp)
         
         Log.d(TAG, "fetchRemoteClients: remote returned delta dtos=${dtos.size}")
-        dtos.map { dto -> mapper.toDomain(dto).copy(syncStatus = SyncStatus.SYNCED) }
+        dtos.map { dto -> mapper.toDomain(dto).copy(syncState = com.are.distribuidora.domain.core.SyncState.SYNCED) }
     }
 
     /**

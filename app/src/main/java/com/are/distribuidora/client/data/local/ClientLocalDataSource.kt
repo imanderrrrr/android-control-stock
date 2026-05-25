@@ -54,4 +54,13 @@ class ClientLocalDataSource(
         dao.markPending(id = id, pendingStatus = pendingStatus)
 
     suspend fun getMaxUpdatedAt(): Long? = dao.getMaxUpdatedAt()
+
+    suspend fun searchClients(query: String, limit: Int): List<ClientEntity> =
+        dao.searchClients(query = query, limit = limit)
+
+    suspend fun searchClientsByRoute(routeId: String, query: String): List<ClientEntity> =
+        dao.searchClientsByRoute(routeId, query)
+
+    suspend fun getInitialClientsByRoute(routeId: String): List<ClientEntity> =
+        dao.getInitialClientsByRoute(routeId)
 }

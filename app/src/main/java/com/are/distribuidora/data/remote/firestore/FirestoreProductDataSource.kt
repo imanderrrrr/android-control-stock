@@ -1,6 +1,7 @@
 package com.are.distribuidora.data.remote.firestore
 
 import android.util.Log
+import com.are.distribuidora.core.images.FirestoreImageUrlValidator
 import com.are.distribuidora.data.remote.product.ProductRemoteDataSource
 import com.are.distribuidora.data.remote.model.RemoteProduct
 import com.google.firebase.Timestamp
@@ -155,7 +156,11 @@ class FirestoreProductDataSource(
     override suspend fun uploadProduct(product: RemoteProduct) {
         try {
             Log.d(tag, "FirestoreProductDataSource.uploadProduct: Uploading ${product.id}")
-            val data = hashMapOf(
+
+            // VALIDACIÓN G: NUNCA escribir rutas locales en Firestore
+            FirestoreImageUrlValidator.validateForFirestore(product.imageUrl)
+
+            val data = hashMapOf<String, Any?>(
                 "name" to product.name,
                 "description" to product.description,
                 "category" to product.category,
@@ -168,11 +173,19 @@ class FirestoreProductDataSource(
                 "createdAt" to product.createdRemoteAt?.let { Date(it) },
                 "updatedAt" to FieldValue.serverTimestamp() // SERVER AUTHORITY: Always use server timestamp
             )
-            // Filter null values to avoid overwriting existing data with nulls if that's not intended,
-            // OR explicitly send nulls if domain logic requires it.
-            // For now, sending what we have.
 
-            firestore.collection(collectionName).document(product.id).set(data).await()
+            // FIX RACE CONDITION: filtrar campos null para no sobrescribir datos
+            // existentes en Firestore. Crítico para imageUrl: si la imagen aún no se
+            // subió (imageUrl=null), NO queremos borrar un imageUrl que ya exista
+            // remotamente (puesto por UploadPendingProductImagesWorker).
+            // Usamos SetOptions.merge() para que solo se actualicen los campos presentes.
+            val filteredData = data.filterValues { it != null }
+
+            Log.d(tag, "FirestoreProductDataSource.uploadProduct: fields=${filteredData.keys}, hasImageUrl=${filteredData.containsKey("imageUrl")}")
+
+            firestore.collection(collectionName).document(product.id)
+                .set(filteredData, com.google.firebase.firestore.SetOptions.merge())
+                .await()
             Log.d(tag, "FirestoreProductDataSource.uploadProduct: Successfully uploaded ${product.id}")
         } catch (e: Exception) {
             Log.e(tag, "FirestoreProductDataSource.uploadProduct: Error uploading product ${product.id}", e)

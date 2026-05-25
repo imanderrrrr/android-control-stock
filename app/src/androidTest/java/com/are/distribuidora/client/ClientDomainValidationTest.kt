@@ -6,8 +6,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.are.distribuidora.client.data.local.ClientLocalDataSource
 import com.are.distribuidora.client.data.mapper.ClientRemoteMapper
-import com.are.distribuidora.client.data.remote.ClientRemoteDataSource
-import com.are.distribuidora.client.data.remote.dto.ClientDto
 import com.are.distribuidora.client.data.repository.ClientRepositoryImpl
 import com.are.distribuidora.client.data.repository.ClientSyncRepositoryImpl
 import com.are.distribuidora.client.domain.model.Client
@@ -20,6 +18,7 @@ import com.are.distribuidora.client.sync.ClientSyncCoordinator
 import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.data.local.DistribuidoraDatabase
 import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 import com.are.distribuidora.route.data.local.entity.RouteEntity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
@@ -143,7 +142,7 @@ class ClientDomainValidationTest {
             isActive = true,
             isDeleted = false,
             routeId = "route-1",
-            syncStatus = SyncStatus.PENDING_CREATE,
+            syncState = SyncState.PENDING,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis(),
             createdBy = "tester",
@@ -171,7 +170,7 @@ class ClientDomainValidationTest {
             isActive = true,
             isDeleted = false,
             routeId = "route-1",
-            syncStatus = SyncStatus.PENDING_CREATE,
+            syncState = SyncState.PENDING,
             createdAt = System.currentTimeMillis(),
             updatedAt = System.currentTimeMillis(),
             createdBy = "tester",

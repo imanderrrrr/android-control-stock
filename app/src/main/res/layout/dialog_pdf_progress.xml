@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Diálogo de progreso para la generación del PDF de factura.
+    Usa componentes Material 2 (MaterialComponents) con los colores del sistema.
+    Se muestra de forma no cancelable mientras PdfTicketHelper genera el documento.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:paddingStart="24dp"
+    android:paddingEnd="24dp"
+    android:paddingTop="24dp"
+    android:paddingBottom="20dp">
+
+    <!-- Título del diálogo -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/pdf_progress_title"
+        android:textAppearance="?attr/textAppearanceHeadline6"
+        android:textColor="?attr/colorOnSurface"
+        android:layout_marginBottom="4dp" />
+
+    <!-- Subtítulo orientativo -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/pdf_progress_subtitle"
+        android:textAppearance="?attr/textAppearanceBody2"
+        android:textColor="?android:attr/textColorSecondary"
+        android:layout_marginBottom="20dp" />
+
+    <!-- Barra de progreso determinista — Material 2 LinearProgressIndicator -->
+    <com.google.android.material.progressindicator.LinearProgressIndicator
+        android:id="@+id/progressIndicatorPdf"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:max="100"
+        android:progress="0"
+        app:indicatorColor="?attr/colorPrimary"
+        app:trackColor="@color/palette_100"
+        app:trackCornerRadius="4dp"
+        android:layout_marginBottom="10dp" />
+
+    <!-- Porcentaje numérico centrado -->
+    <TextView
+        android:id="@+id/textPdfProgressPercent"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="@string/pdf_progress_percent"
+        android:textAlignment="center"
+        android:textAppearance="?attr/textAppearanceCaption"
+        android:textColor="?attr/colorOnSurface" />
+
+</LinearLayout>
+
+
+

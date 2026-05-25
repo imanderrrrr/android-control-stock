@@ -16,9 +16,14 @@ data class Product(
     val description: String? = null,
     val category: String? = null,
     val price: Money,
+    /** URL remota (https://...) de Firebase Storage. Campo autoritativo — coincide con Firestore "imageUrl". */
     val imageUrl: String? = null,
+    /** URI local de la imagen (solo para renderizar en este dispositivo). */
+    val imageLocalUri: String? = null,
     val barcode: String? = null,
     val stock: Quantity,
+    /** Unidades pedidas que exceden el stock disponible. Default 0. */
+    val comprometido: Int = 0,
     val isActive: Boolean = true,
     val isDeleted: Boolean = false,
     /**

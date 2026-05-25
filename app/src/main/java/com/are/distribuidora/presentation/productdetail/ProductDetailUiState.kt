@@ -1,6 +1,6 @@
 package com.are.distribuidora.presentation.productdetail
 
-import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.domain.core.SyncState
 import com.are.distribuidora.domain.model.Product
 
 sealed interface ProductDetailUiState {
@@ -8,7 +8,7 @@ sealed interface ProductDetailUiState {
 
     data class Success(
         val product: Product,
-        val syncStatus: SyncStatus?,
+        val syncState: SyncState?,
     ) : ProductDetailUiState
 
     data class Error(

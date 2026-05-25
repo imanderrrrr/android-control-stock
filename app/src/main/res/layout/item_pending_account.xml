@@ -1,0 +1,127 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="10dp"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardCornerRadius="14dp"
+    app:cardElevation="2dp"
+    app:strokeWidth="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
+
+        <!-- Badge FUERA DE TIEMPO (solo visible si vencida) -->
+        <TextView
+            android:id="@+id/textOverdueBadge"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="@color/palette_800"
+            android:gravity="center"
+            android:paddingVertical="4dp"
+            android:text="@string/pending_overdue_label"
+            android:textColor="@color/white"
+            android:textSize="12sp"
+            android:textStyle="bold"
+            android:visibility="gone"
+            tools:visibility="visible" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="14dp">
+
+            <!-- Thumbnail factura -->
+            <com.google.android.material.imageview.ShapeableImageView
+                android:id="@+id/imageInvoice"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:scaleType="centerCrop"
+                android:src="@drawable/ic_image_placeholder"
+                app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Distribuidora.ImageRounded" />
+
+            <!-- Info -->
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/textClientName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="@color/app_on_surface"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    tools:text="Tienda Doña María" />
+
+                <TextView
+                    android:id="@+id/textRouteName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="@color/palette_600"
+                    android:textSize="12sp"
+                    tools:text="Ruta Centro" />
+
+                <TextView
+                    android:id="@+id/textDueDate"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/palette_600"
+                    android:textSize="12sp"
+                    tools:text="Vence: 15 Mar 2026" />
+            </LinearLayout>
+
+            <!-- Monto -->
+            <TextView
+                android:id="@+id/textAmount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/app_on_surface"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                tools:text="Q 1,250.00" />
+        </LinearLayout>
+
+        <!-- Actions -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="end"
+            android:orientation="horizontal"
+            android:paddingHorizontal="8dp"
+            android:paddingBottom="8dp">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnDelete"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="@string/pending_action_delete"
+                android:textColor="@color/palette_600"
+                android:textSize="12sp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnMarkPaid"
+                style="@style/Widget.MaterialComponents.Button.UnelevatedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="@string/pending_action_mark_paid"
+                android:textSize="12sp"
+                app:backgroundTint="@color/app_primary" />
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>
+

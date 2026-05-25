@@ -3,7 +3,7 @@
     android:shape="rectangle">
 
     <!-- Fondo totalmente plano: sin gradient, sin inset, sin stroke -->
-    <solid android:color="@android:color/white" />
+    <solid android:color="@color/palette_050" />
     <corners android:radius="28dp" />
 
 </shape>

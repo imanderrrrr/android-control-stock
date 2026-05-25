@@ -15,4 +15,7 @@ interface RouteRepository {
     suspend fun assignClientToRoute(clientId: String, routeId: String): Result<Unit>
 
     suspend fun existsById(routeId: String): Boolean
+
+    /** Retorna el número de rutas almacenadas localmente. */
+    suspend fun countRoutes(): Int
 }

@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
@@ -7,10 +9,30 @@ plugins {
 
 apply(plugin = "com.google.gms.google-services")
 
+// Cargar las propiedades de la keystore de release
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = Properties()
+if (keystorePropertiesFile.exists()) {
+    keystoreProperties.load(keystorePropertiesFile.inputStream())
+}
+
 android {
     namespace = "com.are.distribuidora"
     compileSdk {
         version = release(36)
+    }
+
+    buildFeatures {
+        viewBinding = true
+    }
+
+    signingConfigs {
+        create("release") {
+            storeFile = file(keystoreProperties.getProperty("storeFile", "release-keystore.jks"))
+            storePassword = keystoreProperties.getProperty("storePassword", "")
+            keyAlias = keystoreProperties.getProperty("keyAlias", "")
+            keyPassword = keystoreProperties.getProperty("keyPassword", "")
+        }
     }
 
     defaultConfig {
@@ -28,17 +50,19 @@ android {
 
     buildTypes {
         release {
-            // Activar R8/Proguard en release para reducir tamano y detectar issues de shrink temprano.
+            // Activar R8/Proguard en release para reducir tamaño y ofuscar código
             isMinifyEnabled = true
             isShrinkResources = true
 
-            // Util para debuggear crashes en release con mapping.txt
             isDebuggable = false
 
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            // Firmar release con keystore de producción
+            signingConfig = signingConfigs.getByName("release")
         }
     }
     compileOptions {
@@ -80,8 +104,11 @@ dependencies {
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
     implementation("com.google.android.gms:play-services-location:21.0.1")
 
+
+    implementation("com.google.guava:guava:32.1.3-android")
     // Hilt - DI
     implementation("com.google.dagger:hilt-android:2.51")
+    implementation(libs.identity.jvm)
     kapt("com.google.dagger:hilt-android-compiler:2.51")
 
     // Room
@@ -114,6 +141,7 @@ dependencies {
     // Android instrumented tests separados
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
+    androidTestImplementation("androidx.room:room-testing:2.6.1")
 
     // MockK para Android tests
     androidTestImplementation("io.mockk:mockk-android:1.13.12")
@@ -135,4 +163,20 @@ dependencies {
 
     implementation(platform("com.google.firebase:firebase-bom:33.7.0"))
     implementation("com.google.firebase:firebase-storage-ktx")
+
+    // CameraX (escáner de código de barras)
+    val cameraxVersion = "1.3.4"
+    implementation("androidx.camera:camera-core:$cameraxVersion")
+    implementation("androidx.camera:camera-camera2:$cameraxVersion")
+    implementation("androidx.camera:camera-lifecycle:$cameraxVersion")
+    implementation("androidx.camera:camera-view:$cameraxVersion")
+
+    // Requerido por CameraX (ListenableFuture)
+    implementation("androidx.concurrent:concurrent-futures-ktx:1.1.0")
+
+    // ML Kit Barcode Scanning
+    implementation("com.google.mlkit:barcode-scanning:17.3.0")
+
+    // MPAndroidChart (gráficas en pantalla de reportes)
+    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 }

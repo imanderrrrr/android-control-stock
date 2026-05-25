@@ -4,6 +4,7 @@ import com.are.distribuidora.client.domain.model.Client
 import com.are.distribuidora.client.domain.repository.ClientRepository
 import com.are.distribuidora.core.result.Failure
 import com.are.distribuidora.core.result.Result
+import com.are.distribuidora.domain.core.SyncState
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.mockk
@@ -27,7 +28,7 @@ class UpdateClientUseCaseTest {
         isActive = true,
         isDeleted = false,
         routeId = "route-1",
-        syncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED,
+        syncState = SyncState.SYNCED,
         createdAt = 1000L,
         updatedAt = 1000L,
         createdBy = "user-1",

@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="utf-8"?>
+<com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginBottom="6dp"
+    app:cardCornerRadius="10dp"
+    app:cardElevation="0dp"
+    app:strokeWidth="0dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="12dp">
+
+        <!-- Ícono de acción -->
+        <ImageView
+            android:id="@+id/iconAction"
+            android:layout_width="28dp"
+            android:layout_height="28dp"
+            android:contentDescription="@string/pending_action_mark_paid"
+            android:src="@drawable/ic_check_circle"
+            app:tint="@color/app_primary" />
+
+        <!-- Texto del mensaje -->
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/textActivityMessage"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/app_on_surface"
+                android:textSize="13sp"
+                tools:text="user@email.com marcó como pagada la cuenta de Tienda X de la ruta Centro" />
+
+            <TextView
+                android:id="@+id/textActivityTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="@color/palette_600"
+                android:textSize="11sp"
+                tools:text="Hace 2 horas — Q 1,250.00" />
+        </LinearLayout>
+    </LinearLayout>
+</com.google.android.material.card.MaterialCardView>

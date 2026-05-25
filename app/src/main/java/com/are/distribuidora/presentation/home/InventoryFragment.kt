@@ -5,6 +5,7 @@ import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.core.widget.doAfterTextChanged
@@ -16,7 +17,9 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.presentation.product.AddProductFragment
+import com.are.distribuidora.presentation.product.AddStockScannerFragment
 import com.google.android.material.button.MaterialButton
+import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -50,14 +53,23 @@ class InventoryFragment : Fragment() {
             viewModel.onSearchQueryChanged(text?.toString().orEmpty())
         }
 
-        newProductButton.setOnClickListener {
-            parentFragmentManager.beginTransaction()
-                .replace(
-                    R.id.fragmentContainer,
-                    AddProductFragment.newInstance()
-                )
-                .addToBackStack(null)
-                .commit()
+        newProductButton.setOnClickListener { anchor ->
+            val popup = PopupMenu(requireContext(), anchor)
+            popup.menuInflater.inflate(R.menu.menu_product_plus, popup.menu)
+            popup.setOnMenuItemClickListener { item ->
+                when (item.itemId) {
+                    R.id.action_add_product -> {
+                        navigateToAddProduct()
+                        true
+                    }
+                    R.id.action_add_stock -> {
+                        navigateToAddStock()
+                        true
+                    }
+                    else -> false
+                }
+            }
+            popup.show()
         }
 
         val adapter = InventoryAdapter()
@@ -135,10 +147,32 @@ class InventoryFragment : Fragment() {
 
                             is InventoryEvent.SaleError ->
                                 Log.w("Inventory", "Venta FAIL productId=${event.productId} error=${event.message}")
+
+                            is InventoryEvent.StockAddedSuccess -> {
+                                Snackbar.make(
+                                    requireView(),
+                                    getString(R.string.add_stock_success, event.delta),
+                                    Snackbar.LENGTH_LONG
+                                ).show()
+                            }
                         }
                     }
                 }
             }
         }
+    }
+
+    private fun navigateToAddProduct() {
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragmentContainer, AddProductFragment.newInstance())
+            .addToBackStack(null)
+            .commit()
+    }
+
+    private fun navigateToAddStock() {
+        parentFragmentManager.beginTransaction()
+            .replace(R.id.fragmentContainer, AddStockScannerFragment.newInstance())
+            .addToBackStack(null)
+            .commit()
     }
 }

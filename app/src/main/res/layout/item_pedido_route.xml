@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Tarjeta de ruta en la pantalla principal de Pedidos -->
+<com.google.android.material.card.MaterialCardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="160dp"
+    android:layout_marginBottom="12dp"
+    android:clickable="true"
+    android:focusable="true"
+    app:cardCornerRadius="16dp"
+    app:cardElevation="0dp"
+    app:strokeColor="@color/palette_300"
+    app:strokeWidth="1dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:minHeight="160dp"
+        android:padding="24dp">
+
+        <ImageView
+            android:id="@+id/iconRoute"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@drawable/ic_orders_outline"
+            android:alpha="0.8"
+            app:tint="?attr/colorPrimary"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <TextView
+            android:id="@+id/textRouteName"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
+            android:textStyle="bold"
+            android:maxLines="1"
+            android:ellipsize="end"
+            app:layout_constraintStart_toEndOf="@id/iconRoute"
+            app:layout_constraintEnd_toStartOf="@id/badgeCount"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toTopOf="@id/textRouteSubtitle" />
+
+        <TextView
+            android:id="@+id/textRouteSubtitle"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:alpha="0.6"
+            app:layout_constraintStart_toEndOf="@id/iconRoute"
+            app:layout_constraintEnd_toStartOf="@id/badgeCount"
+            app:layout_constraintTop_toBottomOf="@id/textRouteName"
+            app:layout_constraintBottom_toTopOf="@id/textRouteTotal" />
+
+        <!-- Total de todos los pedidos de la ruta -->
+        <TextView
+            android:id="@+id/textRouteTotal"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="16dp"
+            android:layout_marginTop="4dp"
+            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
+            android:textStyle="bold"
+            android:textColor="?attr/colorPrimary"
+            app:layout_constraintStart_toEndOf="@id/iconRoute"
+            app:layout_constraintEnd_toStartOf="@id/badgeCount"
+            app:layout_constraintTop_toBottomOf="@id/textRouteSubtitle"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+        <!-- Badge con cantidad de pedidos -->
+        <TextView
+            android:id="@+id/badgeCount"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:minWidth="36dp"
+            android:gravity="center"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="4dp"
+            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
+            android:textStyle="bold"
+            android:background="@drawable/bg_badge_qty"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintBottom_toBottomOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+
+</com.google.android.material.card.MaterialCardView>
+

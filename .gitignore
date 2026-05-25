@@ -1,4 +1,4 @@
-# =========================
+cls# =========================
 # Android / Gradle
 # =========================
 .gradle/
@@ -33,15 +33,22 @@ Thumbs.db
 # Logs
 # =========================
 *.log
+*.txt
 build_log*.txt
 build_output*.txt
 kapt_*_log.txt
+
+# =========================
+# Markdown docs (root level only)
+# =========================
+/*.md
 
 # =========================
 # Keystore files (MUY IMPORTANTE)
 # =========================
 *.jks
 *.keystore
+build_release.bat
 
 # =========================
 # Firebase / Google Services

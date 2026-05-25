@@ -3,6 +3,10 @@ package com.are.distribuidora.data.local
 import androidx.room.Database
 import androidx.room.RoomDatabase
 import androidx.room.withTransaction
+import com.are.distribuidora.data.local.dao.PendingAccountDao
+import com.are.distribuidora.data.local.dao.PendingUploadDao
+import com.are.distribuidora.data.local.entity.PendingAccountEntity
+import com.are.distribuidora.data.local.entity.PendingUploadEntity
 import com.are.distribuidora.client.data.local.dao.ClientDao
 import com.are.distribuidora.data.local.dao.PedidoDao
 import com.are.distribuidora.data.local.dao.PedidoItemDao
@@ -39,9 +43,16 @@ import com.are.distribuidora.route.data.local.entity.RouteEntity
         OrderEntity::class,
         OrderItemEntity::class,
         OrderItemStagingEntity::class,
+        // Upload queue
+        PendingUploadEntity::class,
+        // Pending accounts
+        PendingAccountEntity::class,
     ],
-    version = 16,
+    version = 33,
     exportSchema = true,
+)
+@androidx.room.TypeConverters(
+    com.are.distribuidora.data.local.converter.SyncStatusConverters::class
 )
 abstract class DistribuidoraDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
@@ -59,9 +70,14 @@ abstract class DistribuidoraDatabase : RoomDatabase() {
     abstract fun orderItemDao(): OrderItemDao
     abstract fun orderItemStagingDao(): OrderItemStagingDao
 
+    // Upload queue
+    abstract fun pendingUploadDao(): PendingUploadDao
+
+    // Pending accounts
+    abstract fun pendingAccountDao(): PendingAccountDao
+
     /**
      * Wrapper para ejecutar operaciones en una transacción.
-     * Evita que los repositorios dependan de extensiones de RoomDatabase en llamadas externas.
      */
     suspend fun <R> runInTransaction(block: suspend () -> R): R = withTransaction { block() }
 }

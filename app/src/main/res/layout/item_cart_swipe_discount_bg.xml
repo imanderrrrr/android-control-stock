@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Fondo naranja que aparece al deslizar a la IZQUIERDA (acción: Descuento) -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/swipeDiscountBackground"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#FFFF6F00"
+    android:gravity="center_vertical|end"
+    android:orientation="horizontal"
+    android:paddingEnd="24dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginEnd="10dp"
+        android:text="Descuento"
+        android:textColor="@android:color/white"
+        android:textSize="14sp"
+        android:textStyle="bold" />
+
+    <ImageView
+        android:id="@+id/iconSwipeDiscount"
+        android:layout_width="28dp"
+        android:layout_height="28dp"
+        android:src="@drawable/ic_discount"
+        android:tint="@android:color/white" />
+
+</LinearLayout>
+
