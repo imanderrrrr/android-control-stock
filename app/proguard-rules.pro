@@ -58,3 +58,13 @@
 -keep class com.are.distribuidora.domain.model.** { *; }
 -keep class com.are.distribuidora.domain.valueobject.** { *; }
 -keep class com.are.distribuidora.data.** { *; }
+
+# ---- Crash reporter: nombres de Fragments/Activities legibles en breadcrumbs ----
+# El NavigationBreadcrumbTracker registra el nombre de cada Activity/Fragment
+# en el LogBuffer. Sin estas reglas, los reportes mostrarían nombres ofuscados
+# como "w4.g" en vez de "OrderCatalogFragment". -keepnames permite la
+# eliminación de miembros no usados pero preserva el nombre de la clase.
+-keepnames class * extends androidx.fragment.app.Fragment
+-keepnames class * extends androidx.appcompat.app.AppCompatActivity
+-keepnames class * extends androidx.activity.ComponentActivity
+-keepnames class * extends androidx.fragment.app.FragmentActivity

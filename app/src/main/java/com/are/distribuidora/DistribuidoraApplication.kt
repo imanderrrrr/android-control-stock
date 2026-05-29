@@ -6,6 +6,7 @@ import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.are.distribuidora.client.sync.ClientSyncCoordinator
 import com.are.distribuidora.crash.CrashReporter
+import com.are.distribuidora.crash.breadcrumb.NavigationBreadcrumbTracker
 import com.are.distribuidora.domain.pedido.PedidoRepository
 import com.are.distribuidora.domain.product.SyncProductsUseCase
 import com.are.distribuidora.route.domain.usecase.DownloadRoutesUseCase
@@ -35,6 +36,14 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
      */
     @Inject lateinit var crashReporter: CrashReporter
 
+    /**
+     * Tracker de breadcrumbs: alimenta automáticamente el LogBuffer con
+     * cada navegación entre Activities/Fragments. Así, si la app crashea,
+     * el reporte incluye el camino exacto de pantallas previas sin que
+     * cada Activity/Fragment necesite logguearse a sí misma.
+     */
+    @Inject lateinit var navigationBreadcrumbTracker: NavigationBreadcrumbTracker
+
     private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     @EntryPoint
@@ -61,6 +70,11 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
         // PRIMERO de todo: instalar el handler de crashes para capturar
         // cualquier fallo durante el resto del arranque.
         crashReporter.install()
+
+        // Justo después, registrar el tracker de navegación. Cualquier
+        // Activity creada a partir de ahora (incluida la LauncherActivity)
+        // y sus Fragments quedan automáticamente registrados en el LogBuffer.
+        navigationBreadcrumbTracker.install(this)
 
         Log.d("DistribuidoraApplication", "onCreate() started, workerFactory injected: ${::workerFactory.isInitialized}")
 
