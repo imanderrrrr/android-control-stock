@@ -14,6 +14,7 @@ internal fun RouteEntity.toDomain(clientsCount: Int): Route =
         synced = (syncStatus == SyncStatus.SYNCED),
         createdAt = createdAt,
         updatedAt = updatedAt,
+        isDeleted = isDeleted,
     )
 
 internal fun Route.toEntity(synced: Boolean): RouteEntity =
@@ -24,6 +25,7 @@ internal fun Route.toEntity(synced: Boolean): RouteEntity =
         syncStatus = if (synced) SyncStatus.SYNCED else SyncStatus.PENDING,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        isDeleted = isDeleted,
     )
 
 internal fun Route.toDto(synced: Boolean): RouteDto =
@@ -34,6 +36,7 @@ internal fun Route.toDto(synced: Boolean): RouteDto =
         synced = synced,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        isDeleted = isDeleted,
     )
 
 internal fun RouteDto.toEntity(): RouteEntity =
@@ -44,4 +47,5 @@ internal fun RouteDto.toEntity(): RouteEntity =
         syncStatus = if (synced) SyncStatus.SYNCED else SyncStatus.PENDING,
         createdAt = createdAt,
         updatedAt = updatedAt,
+        isDeleted = isDeleted,
     )

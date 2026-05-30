@@ -13,6 +13,7 @@ import com.are.distribuidora.data.local.entity.PendingUploadEntity
 import com.are.distribuidora.presentation.home.model.AccountActivityUiModel
 import com.are.distribuidora.presentation.home.model.PendingAccountUiModel
 import com.are.distribuidora.route.domain.model.Route
+import com.are.distribuidora.route.domain.repository.RouteRepository
 import com.are.distribuidora.route.domain.usecase.CreateRouteUseCase
 import com.are.distribuidora.route.domain.usecase.GetRoutesUseCase
 import com.are.distribuidora.workers.ImageUploadSyncScheduler
@@ -45,6 +46,7 @@ class ClientsViewModel @Inject constructor(
     @ApplicationContext private val appContext: Context,
     private val createRouteUseCase: CreateRouteUseCase,
     private val getRoutesUseCase: GetRoutesUseCase,
+    private val routeRepository: RouteRepository,
     private val pendingAccountDao: PendingAccountDao,
     private val pendingUploadDao: PendingUploadDao,
     private val clientDao: ClientDao,
@@ -56,6 +58,7 @@ class ClientsViewModel @Inject constructor(
 
     sealed interface Event {
         data object RouteCreated : Event
+        data object RouteDeleted : Event
         data object AccountCreated : Event
         data object AccountMarkedPaid : Event
         data object AccountDeleted : Event
@@ -122,6 +125,17 @@ class ClientsViewModel @Inject constructor(
                     loadRoutes()
                 }
                 .onError { _events.send(Event.Error("Error al crear ruta")) }
+        }
+    }
+
+    fun deleteRoute(routeId: String) {
+        viewModelScope.launch {
+            routeRepository.delete(routeId)
+                .onSuccess {
+                    _events.send(Event.RouteDeleted)
+                    loadRoutes()
+                }
+                .onError { _events.send(Event.Error("Error al eliminar la ruta")) }
         }
     }
 
@@ -197,12 +211,19 @@ class ClientsViewModel @Inject constructor(
     }
 
     fun loadClientsForRoute(routeId: String) {
+        // Limpiar inmediatamente para evitar mostrar clientes de una ruta anterior
+        _clientsForRoute.value = emptyList()
         viewModelScope.launch {
             val clients = clientDao.getInitialClientsByRoute(routeId)
             _clientsForRoute.value = clients.map {
                 ClientPickerItem(id = it.id, name = it.name)
             }
         }
+    }
+
+    /** Limpia la lista de clientes para que el diálogo no muestre datos stale. */
+    fun clearClientsForRoute() {
+        _clientsForRoute.value = emptyList()
     }
 
     fun createPendingAccount(

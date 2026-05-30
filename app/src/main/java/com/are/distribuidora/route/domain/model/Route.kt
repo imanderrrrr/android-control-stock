@@ -22,4 +22,6 @@ data class Route(
     val synced: Boolean,
     val createdAt: Long,
     val updatedAt: Long,
+    /** Soft-delete: true = marcada para eliminación. */
+    val isDeleted: Boolean = false,
 )

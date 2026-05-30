@@ -12,13 +12,14 @@ import com.are.distribuidora.R
 import com.are.distribuidora.route.domain.model.Route
 
 class RouteCarouselAdapter(
-    private val onRouteClick: (Route) -> Unit
+    private val onRouteClick: (Route) -> Unit,
+    private val onRouteLongClick: (Route) -> Unit = {},
 ) : ListAdapter<Route, RouteCarouselAdapter.RouteViewHolder>(RouteDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RouteViewHolder {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_route_card, parent, false)
-        return RouteViewHolder(view, onRouteClick)
+        return RouteViewHolder(view, onRouteClick, onRouteLongClick)
     }
 
     override fun onBindViewHolder(holder: RouteViewHolder, position: Int) {
@@ -27,9 +28,10 @@ class RouteCarouselAdapter(
 
     class RouteViewHolder(
         itemView: View,
-        val onClick: (Route) -> Unit
+        val onClick: (Route) -> Unit,
+        val onLongClick: (Route) -> Unit,
     ) : RecyclerView.ViewHolder(itemView) {
-        
+
         private val nameView: TextView = itemView.findViewById(R.id.routeName)
         private val dayView: TextView = itemView.findViewById(R.id.routeDay)
         private val countView: TextView = itemView.findViewById(R.id.clientCount)
@@ -39,15 +41,19 @@ class RouteCarouselAdapter(
             itemView.setOnClickListener {
                 currentRoute?.let { onClick(it) }
             }
+            itemView.setOnLongClickListener {
+                currentRoute?.let { onLongClick(it) }
+                true
+            }
         }
 
         fun bind(route: Route) {
             currentRoute = route
             nameView.text = route.name
             dayView.text = getDayName(itemView.context, route.deliveryDay)
-            countView.text = itemView.context.getString(R.string.inventory_stock, route.clientsCount).replace("Stock:", "Clientes:") // Reusing string format or creating new if strict
+            countView.text = itemView.context.getString(R.string.inventory_stock, route.clientsCount).replace("Stock:", "Clientes:")
         }
-        
+
         private fun getDayName(context: Context, day: Int): String {
             return when (day) {
                 1 -> context.getString(R.string.day_monday)

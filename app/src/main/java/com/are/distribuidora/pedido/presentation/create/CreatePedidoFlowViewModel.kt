@@ -45,11 +45,14 @@ data class CartItem(
     val discountPercent: Double = 0.0,
     val discountType: DiscountType = DiscountType.PERCENTAGE,
 ) {
-    /** Subtotal sin descuento: precio × cantidad. */
-    val subtotalBase: Double get() = priceAmount * quantity
+    /** Subtotal sin descuento, redondeado al múltiplo de Q 0.25 más cercano. */
+    val subtotalBase: Double get() = RoundToQuarterQuetzalUseCase(priceAmount * quantity)
 
-    /** Subtotal final ya con el monto de descuento aplicado. */
-    val subtotal: Double get() = (subtotalBase - discountAmount).coerceAtLeast(0.0)
+    /** Subtotal final con descuento aplicado, redondeado al múltiplo de Q 0.25 más cercano. */
+    val subtotal: Double
+        get() = RoundToQuarterQuetzalUseCase(
+            ((priceAmount * quantity) - discountAmount).coerceAtLeast(0.0)
+        )
 
     /** true si hay descuento activo. */
     val hasDiscount: Boolean get() = discountAmount > 0.0

@@ -22,6 +22,7 @@ class FirestoreRouteRemoteDataSource(
             "id" to route.id,
             "name" to route.name,
             "deliveryDay" to route.deliveryDay,
+            "isDeleted" to route.isDeleted,
             "createdAt" to route.createdAt,
             "updatedAt" to route.updatedAt,
         )
@@ -33,12 +34,6 @@ class FirestoreRouteRemoteDataSource(
         val docs = snap.documents
         if (docs.isEmpty()) {
             return emptyList()
-        }
-
-        // Log each doc id and name when possible
-        docs.forEach { doc ->
-            val id = doc.getString("id") ?: doc.id
-            val name = doc.getString("name")?.trim().orEmpty()
         }
 
         return docs.mapNotNull { doc ->
@@ -53,8 +48,16 @@ class FirestoreRouteRemoteDataSource(
             }
             val createdAt = doc.getLong("createdAt") ?: 0L
             val updatedAt = doc.getLong("updatedAt") ?: createdAt
-            // Si viene de Firestore, consideramos synced=true.
-            RouteDto(id = id, name = name, deliveryDay = deliveryDay, synced = true, createdAt = createdAt, updatedAt = updatedAt)
+            val isDeleted = doc.getBoolean("isDeleted") ?: false
+            RouteDto(
+                id = id,
+                name = name,
+                deliveryDay = deliveryDay,
+                synced = true,
+                createdAt = createdAt,
+                updatedAt = updatedAt,
+                isDeleted = isDeleted,
+            )
         }
     }
 
@@ -68,9 +71,21 @@ class FirestoreRouteRemoteDataSource(
     }
 
     override suspend fun assignClientRoute(clientId: String, routeId: String?) {
-        // Si routeId es null, removemos la ruta.
         clientsCollection.document(clientId).update(
             mapOf("routeId" to routeId)
         ).await()
+    }
+
+    override suspend fun softDeleteRoute(routeId: String, updatedAt: Long) {
+        routesCollection.document(routeId).update(
+            mapOf(
+                "isDeleted" to true,
+                "updatedAt" to updatedAt,
+            )
+        ).await()
+    }
+
+    override suspend fun deleteRoute(routeId: String) {
+        routesCollection.document(routeId).delete().await()
     }
 }

@@ -22,7 +22,10 @@ import com.are.distribuidora.presentation.home.dialog.AccountDetailDialog
 import com.are.distribuidora.presentation.home.dialog.AddPendingAccountDialog
 import com.are.distribuidora.presentation.home.dialog.AddRouteDialog
 import com.are.distribuidora.presentation.home.model.PendingAccountUiModel
+import com.are.distribuidora.route.domain.model.Route
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -48,15 +51,20 @@ class ClientsFragment : Fragment() {
         }
 
         val carousel = view.findViewById<androidx.viewpager2.widget.ViewPager2>(R.id.routesCarousel)
-        val routeAdapter = com.are.distribuidora.presentation.home.adapter.RouteCarouselAdapter { route ->
-            parentFragmentManager.beginTransaction()
-                .replace(
-                    R.id.fragmentContainer,
-                    RouteClientsFragment.newInstance(route.id, route.name)
-                )
-                .addToBackStack(null)
-                .commit()
-        }
+        val routeAdapter = com.are.distribuidora.presentation.home.adapter.RouteCarouselAdapter(
+            onRouteClick = { route ->
+                parentFragmentManager.beginTransaction()
+                    .replace(
+                        R.id.fragmentContainer,
+                        RouteClientsFragment.newInstance(route.id, route.name)
+                    )
+                    .addToBackStack(null)
+                    .commit()
+            },
+            onRouteLongClick = { route ->
+                showDeleteRouteDialog(route)
+            },
+        )
         carousel.adapter = routeAdapter
 
         // ── Pending Accounts ─────────────────────────────────────────────────
@@ -96,6 +104,8 @@ class ClientsFragment : Fragment() {
                         when (event) {
                             is ClientsViewModel.Event.RouteCreated ->
                                 Toast.makeText(requireContext(), R.string.route_created_success, Toast.LENGTH_SHORT).show()
+                            is ClientsViewModel.Event.RouteDeleted ->
+                                Toast.makeText(requireContext(), R.string.route_deleted_success, Toast.LENGTH_SHORT).show()
                             is ClientsViewModel.Event.AccountCreated ->
                                 Toast.makeText(requireContext(), R.string.pending_created_success, Toast.LENGTH_SHORT).show()
                             is ClientsViewModel.Event.AccountMarkedPaid ->
@@ -163,6 +173,40 @@ class ClientsFragment : Fragment() {
                 viewModel.deleteAccount(account.id)
             }
             .show()
+    }
+
+    private fun showDeleteRouteDialog(route: Route) {
+        val inputLayout = TextInputLayout(requireContext()).apply {
+            hint = getString(R.string.route_delete_hint)
+            boxBackgroundMode = TextInputLayout.BOX_BACKGROUND_OUTLINE
+            setPadding(48, 16, 48, 0)
+        }
+        val input = TextInputEditText(inputLayout.context)
+        inputLayout.addView(input)
+
+        val dialog = MaterialAlertDialogBuilder(requireContext())
+            .setTitle(getString(R.string.route_delete_title))
+            .setMessage(getString(R.string.route_delete_message, route.name))
+            .setView(inputLayout)
+            .setNegativeButton(R.string.route_delete_cancel, null)
+            .setPositiveButton(R.string.route_delete_confirm) { _, _ ->
+                viewModel.deleteRoute(route.id)
+            }
+            .create()
+
+        dialog.setOnShowListener {
+            val positiveBtn = dialog.getButton(android.app.AlertDialog.BUTTON_POSITIVE)
+            positiveBtn.isEnabled = false
+            input.addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    positiveBtn.isEnabled = s?.toString()?.trim().equals("eliminar", ignoreCase = true)
+                }
+            })
+        }
+
+        dialog.show()
     }
 
     private fun showAccountDetail(account: PendingAccountUiModel) {

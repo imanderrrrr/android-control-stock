@@ -48,7 +48,11 @@ class PedidoRepositoryImpl @Inject constructor(
 
             var subtotal = 0.0
             val itemEntities = params.items.map { input ->
-                val totalItem = (input.precioUnitario * input.cantidad) - input.descuentoItem
+                // Redondear el total por línea al múltiplo de Q 0.25 más cercano para que
+                // el monto persistido coincida con el que el cliente ve en pantalla.
+                val totalItem = RoundToQuarterQuetzalUseCase(
+                    ((input.precioUnitario * input.cantidad) - input.descuentoItem).coerceAtLeast(0.0)
+                )
                 subtotal += totalItem
 
                 PedidoItemEntity(
@@ -66,6 +70,11 @@ class PedidoRepositoryImpl @Inject constructor(
                     updatedAt = now
                 )
             }
+
+            // Absorber drift de Double: la suma de múltiplos de 0.25 teóricamente sigue siendo
+            // múltiplo de 0.25, pero aritméticamente puede dar 0.7500000000000001. Redondear
+            // defensivamente mantiene la columna `subtotal` 100% alineada con las líneas.
+            val subtotalRedondeado = RoundToQuarterQuetzalUseCase(subtotal)
 
             // El total ya viene redondeado al Q 0.25 más cercano desde el UseCase de dominio.
             val total = params.totalRedondeado
@@ -87,7 +96,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 clienteNombre = params.clienteSnapshot.nombre,
                 clienteTelefono = params.clienteSnapshot.telefono,
                 clienteDireccion = params.clienteSnapshot.direccion,
-                subtotal = subtotal,
+                subtotal = subtotalRedondeado,
                 descuentoGlobal = params.descuentoGlobal,
                 total = total,
                 version = 1,
@@ -514,17 +523,22 @@ class PedidoRepositoryImpl @Inject constructor(
             pedidoDao.getById(params.pedidoId)
                 ?: return Result.Error(Failure.NotFound)
 
-            // Recalcular totales (itemsToUpsert ya son solo los activos)
-            val subtotal = params.itemsToUpsert
-                .sumOf { (it.precioUnitario * it.cantidad) - it.descuentoItem }
-            // Redondear al múltiplo de Q 0.25 más cercano, igual que al crear el pedido
+            // Recalcular totales (itemsToUpsert ya son solo los activos).
+            // Cada línea se redondea a Q 0.25 y el subtotal es la suma de las líneas
+            // ya redondeadas — así el monto agregado coincide con lo que ve el cliente.
+            val totalesItem = params.itemsToUpsert.map { input ->
+                RoundToQuarterQuetzalUseCase(
+                    ((input.precioUnitario * input.cantidad) - input.descuentoItem).coerceAtLeast(0.0)
+                )
+            }
+            val subtotal = RoundToQuarterQuetzalUseCase(totalesItem.sum())
             val total = RoundToQuarterQuetzalUseCase(
                 (subtotal - params.descuentoGlobal).coerceAtLeast(0.0)
             )
 
             // Construir entidades de ítems para upsert
-            val itemEntities = params.itemsToUpsert.map { input ->
-                val totalItem = (input.precioUnitario * input.cantidad) - input.descuentoItem
+            val itemEntities = params.itemsToUpsert.mapIndexed { index, input ->
+                val totalItem = totalesItem[index]
                 PedidoItemEntity(
                     id             = input.itemId ?: UUID.randomUUID().toString(),
                     pedidoId       = params.pedidoId,

@@ -48,6 +48,13 @@
     <string name="route_cancel_action">Cancelar</string>
     <string name="route_created_success">Ruta creada correctamente</string>
     <string name="route_created_error">Error al crear ruta</string>
+    <string name="route_delete_title">Eliminar ruta</string>
+    <string name="route_delete_message">Para eliminar la ruta \"%1$s\", escribe la palabra \"eliminar\" y presiona Aceptar.\n\nLa ruta desaparecerá de todos los dispositivos y será eliminada permanentemente en 2 días.</string>
+    <string name="route_delete_hint">Escribe \"eliminar\"</string>
+    <string name="route_delete_confirm">Aceptar</string>
+    <string name="route_delete_cancel">Cancelar</string>
+    <string name="route_deleted_success">Ruta eliminada correctamente</string>
+    <string name="route_delete_error">Error al eliminar la ruta</string>
 
     <!-- Dias de la semana -->
     <string name="day_monday">Lunes</string>

@@ -14,4 +14,6 @@ data class RouteEntity(
     val syncStatus: SyncStatus,
     val createdAt: Long,
     val updatedAt: Long,
+    /** Soft-delete: true = marcada para eliminación. Se purga tras 2 días. */
+    val isDeleted: Boolean = false,
 )

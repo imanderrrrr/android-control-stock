@@ -18,4 +18,7 @@ interface RouteRepository {
 
     /** Retorna el número de rutas almacenadas localmente. */
     suspend fun countRoutes(): Int
+
+    /** Soft-delete: marca la ruta como eliminada y encola sync. */
+    suspend fun delete(routeId: String): Result<Unit>
 }

@@ -13,5 +13,10 @@
     <cache-path
         name="cache_root"
         path="." />
+
+    <!-- filesDir/invoices/ — fotos de facturas copiadas permanentemente -->
+    <files-path
+        name="invoices"
+        path="invoices/" />
 </paths>
 

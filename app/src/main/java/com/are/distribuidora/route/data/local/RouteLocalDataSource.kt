@@ -30,12 +30,20 @@ class RouteLocalDataSource(
 
     suspend fun getRouteById(id: String): RouteEntity? = routeDao.getById(id)
 
+    suspend fun getByIdIncludingDeleted(id: String): RouteEntity? = routeDao.getByIdIncludingDeleted(id)
+
     suspend fun updateDeliveryDay(routeId: String, deliveryDay: Int, updatedAt: Long) =
         routeDao.updateDeliveryDay(id = routeId, deliveryDay = deliveryDay, updatedAt = updatedAt)
 
     suspend fun markSynced(routeId: String, syncStatus: SyncStatus) = routeDao.markSynced(routeId, syncStatus)
 
-    suspend fun getPendingRoutes(limit: Int): List<RouteEntity> = routeDao.getPendingSync(SyncStatus.PENDING, limit)
+    suspend fun getPendingRoutes(limit: Int): List<RouteEntity> = routeDao.getPendingSync(limit)
+
+    suspend fun softDelete(routeId: String, now: Long) = routeDao.softDelete(routeId, now)
+
+    suspend fun hardDeleteById(routeId: String) = routeDao.hardDeleteById(routeId)
+
+    suspend fun hardDeleteOldSoftDeleted(cutoffMillis: Long) = routeDao.hardDeleteOldSoftDeleted(cutoffMillis)
 
     suspend fun countClientsByRoute(routeId: String): Int =
         clientDao.countByRoute(routeId)
@@ -54,7 +62,6 @@ class RouteLocalDataSource(
         }
 
         db.runInTransaction {
-            // Borramos todas las rutas y luego insertamos las nuevas. Usamos las operaciones DAO existentes.
             routeDao.deleteAll()
             if (entities.isNotEmpty()) {
                 routeDao.upsertAll(entities)
@@ -62,6 +69,5 @@ class RouteLocalDataSource(
         }
     }
 
-    // Debug helper: retorna la cantidad de rutas en la tabla (usa DAO.countRoutes)
     suspend fun countRoutes(): Int = routeDao.countRoutes()
 }

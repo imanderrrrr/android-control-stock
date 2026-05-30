@@ -2,6 +2,7 @@ package com.are.distribuidora.pedido.presentation.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.are.distribuidora.core.money.RoundToQuarterQuetzalUseCase
 import com.are.distribuidora.orders.domain.usecase.GetOtrosPedidoDetalleUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -66,9 +67,12 @@ class OtrosPedidoDetalleViewModel @Inject constructor(
                                 lineTotalFormatted = currencyFormat.format(item.lineTotal),
                             )
                         }
-                        // Total: usa totalAmount del header si existe; si no, suma de líneas.
+                        // Total: usa totalAmount del header (ya redondeado al descargarse);
+                        // si no existe, cae al fallback sumando líneas. Como cada lineTotal
+                        // ya viene redondeado a Q 0.25, re-aplicamos el redondeo al agregado
+                        // de forma defensiva para absorber cualquier drift de Double.
                         val total = order.totalAmount
-                            ?: items.sumOf { it.lineTotal }
+                            ?: RoundToQuarterQuetzalUseCase(items.sumOf { it.lineTotal })
                         _uiState.value = UiState.Success(
                             clientName    = order.clientName,
                             sellerName    = order.sellerName,

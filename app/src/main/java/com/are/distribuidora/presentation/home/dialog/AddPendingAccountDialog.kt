@@ -146,6 +146,32 @@ class AddPendingAccountDialog : DialogFragment() {
     override fun onStart() {
         super.onStart()
 
+        // Limpiar clientes stale de un diálogo anterior
+        viewModel.clearClientsForRoute()
+
+        // Observar rutas reactivamente (evita lista vacía si aún no cargaron)
+        lifecycleScope.launch {
+            viewModel.routes.collect { routes ->
+                val spinnerRoute = dialog?.findViewById<AutoCompleteTextView>(R.id.spinnerRoute)
+                    ?: return@collect
+                val routeAdapter = ArrayAdapter(
+                    requireContext(),
+                    android.R.layout.simple_dropdown_item_1line,
+                    routes.map { it.name }
+                )
+                spinnerRoute.setAdapter(routeAdapter)
+                spinnerRoute.setOnItemClickListener { _, _, position, _ ->
+                    if (position < routes.size) {
+                        selectedRoute = routes[position]
+                        selectedClient = null
+                        dialog?.findViewById<AutoCompleteTextView>(R.id.spinnerClient)
+                            ?.setText("", false)
+                        viewModel.loadClientsForRoute(routes[position].id)
+                    }
+                }
+            }
+        }
+
         lifecycleScope.launch {
             viewModel.clientsForRoute.collect { clients ->
                 val spinnerClient = dialog?.findViewById<AutoCompleteTextView>(R.id.spinnerClient)
@@ -157,15 +183,15 @@ class AddPendingAccountDialog : DialogFragment() {
                 )
                 spinnerClient.setAdapter(clientAdapter)
                 spinnerClient.setOnItemClickListener { _, _, position, _ ->
-                    selectedClient = clients[position]
+                    if (position < clients.size) {
+                        selectedClient = clients[position]
+                    }
                 }
             }
         }
     }
 
     private fun setupViews(view: View) {
-        val spinnerRoute   = view.findViewById<AutoCompleteTextView>(R.id.spinnerRoute)
-        val spinnerClient  = view.findViewById<AutoCompleteTextView>(R.id.spinnerClient)
         val layoutAmount   = view.findViewById<TextInputLayout>(R.id.layoutAmount)
         val inputAmount    = view.findViewById<TextInputEditText>(R.id.inputAmount)
         val layoutDueDate  = view.findViewById<TextInputLayout>(R.id.layoutDueDate)
@@ -174,21 +200,6 @@ class AddPendingAccountDialog : DialogFragment() {
         val inputNotes     = view.findViewById<TextInputEditText>(R.id.inputNotes)
         val btnCancel      = view.findViewById<MaterialButton>(R.id.btnCancel)
         val btnSave        = view.findViewById<MaterialButton>(R.id.btnSave)
-
-        // Populate routes
-        val routes = viewModel.routes.value
-        val routeAdapter = ArrayAdapter(
-            requireContext(),
-            android.R.layout.simple_dropdown_item_1line,
-            routes.map { it.name }
-        )
-        spinnerRoute.setAdapter(routeAdapter)
-        spinnerRoute.setOnItemClickListener { _, _, position, _ ->
-            selectedRoute = routes[position]
-            selectedClient = null
-            spinnerClient.setText("", false)
-            viewModel.loadClientsForRoute(routes[position].id)
-        }
 
         // Date picker
         inputDueDate.setOnClickListener { showDatePicker(inputDueDate) }

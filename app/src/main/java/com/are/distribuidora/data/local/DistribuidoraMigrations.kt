@@ -1238,4 +1238,11 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE pending_accounts ADD COLUMN resolvedAction TEXT")
         }
     }
+
+    /** v33→34: Soft-delete para rutas. */
+    val MIGRATION_33_34: Migration = object : Migration(33, 34) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE routes ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+        }
+    }
 }

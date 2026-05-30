@@ -7,4 +7,5 @@ data class RouteDto(
     val synced: Boolean,
     val createdAt: Long,
     val updatedAt: Long,
+    val isDeleted: Boolean = false,
 )

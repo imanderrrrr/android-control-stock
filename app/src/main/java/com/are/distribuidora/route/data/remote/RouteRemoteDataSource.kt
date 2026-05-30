@@ -7,4 +7,8 @@ interface RouteRemoteDataSource {
     suspend fun fetchRoutes(limit: Int = 200): List<RouteDto>
     suspend fun updateRouteDeliveryDay(routeId: String, deliveryDay: Int, updatedAt: Long)
     suspend fun assignClientRoute(clientId: String, routeId: String?)
+    /** Marca la ruta como isDeleted=true en Firestore. */
+    suspend fun softDeleteRoute(routeId: String, updatedAt: Long)
+    /** Elimina el documento de Firestore permanentemente. */
+    suspend fun deleteRoute(routeId: String)
 }

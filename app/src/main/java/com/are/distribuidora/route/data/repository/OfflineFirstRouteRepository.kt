@@ -116,4 +116,24 @@ class OfflineFirstRouteRepository @Inject constructor(
     }
 
     override suspend fun countRoutes(): Int = local.countRoutes()
+
+    override suspend fun delete(routeId: String): Result<Unit> {
+        if (routeId.isBlank()) return Result.Error(Failure.ValidationError("routeId requerido"))
+        val now = System.currentTimeMillis()
+        return try {
+            // Soft-delete local + marcar PENDING_DELETE para sync
+            local.softDelete(routeId, now)
+
+            // Best-effort: intentar marcar en Firestore inmediatamente
+            try {
+                remote.softDeleteRoute(routeId, now)
+                local.markSynced(routeId = routeId, syncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED)
+            } catch (_: Exception) {
+                // Se sincronizará después via worker
+            }
+            Result.Success(Unit)
+        } catch (_: Exception) {
+            Result.Error(Failure.DatabaseError)
+        }
+    }
 }

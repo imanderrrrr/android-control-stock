@@ -323,9 +323,10 @@ class EditPedidoViewModel @Inject constructor(
     private fun rebuildUiState() {
         // _editItems solo contiene ítems activos: deleteItem() los elimina del mapa
         val activeItems = _editItems.value.values.toList()
-        val subtotal = activeItems.sumOf {
-            (it.precioUnitario * it.cantidad) - it.descuentoItem
-        }
+        // Subtotal = suma de subtotales por línea YA redondeados (EditItemUiModel.subtotal).
+        // Así el subtotal mostrado es exactamente la suma de los montos por línea que el
+        // cliente ve en pantalla, sin centavos "fantasma".
+        val subtotal = RoundToQuarterQuetzalUseCase(activeItems.sumOf { it.subtotal })
         val total = RoundToQuarterQuetzalUseCase((subtotal - descuentoGlobal).coerceAtLeast(0.0))
 
         _uiState.value = UiState.Editing(
@@ -356,8 +357,15 @@ data class EditItemUiModel(
     val discountPercent: Double = 0.0,
     val discountType: DiscountType = DiscountType.PERCENTAGE,
 ) {
-    val subtotalBase: Double get() = precioUnitario * cantidad
-    val subtotal: Double     get() = (subtotalBase - descuentoItem).coerceAtLeast(0.0)
+    /** Subtotal sin descuento redondeado al múltiplo de Q 0.25 más cercano. */
+    val subtotalBase: Double get() = RoundToQuarterQuetzalUseCase(precioUnitario * cantidad)
+
+    /** Subtotal con descuento aplicado redondeado al múltiplo de Q 0.25 más cercano. */
+    val subtotal: Double
+        get() = RoundToQuarterQuetzalUseCase(
+            ((precioUnitario * cantidad) - descuentoItem).coerceAtLeast(0.0)
+        )
+
     val hasDiscount: Boolean get() = descuentoItem > 0.0
 }
 
