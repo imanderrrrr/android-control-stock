@@ -12,7 +12,6 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.paging.LoadState
-import androidx.paging.map
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
@@ -31,7 +30,6 @@ import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 
 @AndroidEntryPoint
@@ -171,27 +169,27 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-                // 1. Datos paginados + carrito combinados → único submitData()
+                // 1a. Datos paginados → ÚNICA fuente de submitData (búsqueda/categoría).
                 //
-                //    Esta es la solución a la race condition que causaba el
-                //    crash "Inconsistency detected" del RecyclerView. Antes
-                //    teníamos dos coroutines tocando el adapter (submitData
-                //    + updateCartQuantities) que podían colisionar con el
-                //    layout pass. Ahora combinamos los dos flows en uno y
-                //    dejamos que DiffUtil maneje todo atómicamente.
+                //     Corrección de la race "Inconsistency detected": el carrito
+                //     YA NO viaja dentro del PagingData, así que solo un origen
+                //     dispara submitData y no hay dos generaciones compitiendo
+                //     con el layout pass del RecyclerView.
                 launch {
-                    viewModel.products
-                        .combine(flowViewModel.cartItems) { pagingData, cartMap ->
-                            pagingData.map { product ->
-                                ProductWithQty(
-                                    product = product,
-                                    qty = cartMap[product.id.value]?.quantity ?: 0,
-                                )
-                            }
-                        }
-                        .collectLatest { transformed ->
-                            adapter.submitData(transformed)
-                        }
+                    viewModel.products.collectLatest { pagingData ->
+                        adapter.submitData(pagingData)
+                    }
+                }
+
+                // 1b. Carrito → solo cantidades, por canal separado.
+                //     submitCartQuantities hace notifyItemChanged puntual con
+                //     PAYLOAD_QTY; nunca re-dispara submitData.
+                launch {
+                    flowViewModel.cartItems.collect { cart ->
+                        adapter.submitCartQuantities(
+                            cart.mapValues { (_, item) -> item.quantity }
+                        )
+                    }
                 }
 
                 // 2. LoadState → mostrar/ocultar empty state
