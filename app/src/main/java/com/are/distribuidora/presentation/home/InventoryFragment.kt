@@ -118,10 +118,22 @@ class InventoryFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // 1. Collect Paging Data
+                // 1a. Datos paginados → ÚNICA fuente de submitData (búsqueda).
                 launch {
                     viewModel.products.collectLatest { pagingData ->
                         adapter.submitData(pagingData)
+                    }
+                }
+
+                // 1b. Estados de sincronización → canal separado.
+                //     submitSyncStatuses hace notifyItemChanged puntual con
+                //     PAYLOAD_SYNC; nunca re-dispara submitData. Esto elimina la
+                //     race "Inconsistency detected. Invalid view holder adapter
+                //     position" que crasheaba el inventoryRecycler cuando el sync
+                //     de productos emitía estados a mitad del layout pass.
+                launch {
+                    viewModel.syncStatuses.collect { statuses ->
+                        adapter.submitSyncStatuses(statuses)
                     }
                 }
 

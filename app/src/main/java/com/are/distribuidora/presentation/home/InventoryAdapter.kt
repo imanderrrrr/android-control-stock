@@ -12,6 +12,9 @@ import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.domain.core.SyncState
+import com.are.distribuidora.domain.model.Product
+import com.are.distribuidora.presentation.home.mapper.toUiModel
 import com.are.distribuidora.presentation.home.model.ProductUiModel
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
@@ -24,11 +27,18 @@ import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
 
-class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.ProductVH>(DIFF) {
+class InventoryAdapter : PagingDataAdapter<Product, InventoryAdapter.ProductVH>(DIFF) {
 
     var onEditClick: ((ProductUiModel) -> Unit)? = null
     var onDeleteClick: ((ProductUiModel) -> Unit)? = null
     var onProductClick: ((String) -> Unit)? = null
+
+    /**
+     * Estados de sincronización por productId. Snapshot inmutable que empuja el
+     * Fragment vía [submitSyncStatuses] por un canal SEPARADO de submitData.
+     * El adapter lo lee en bind; nunca forma parte del PagingData.
+     */
+    private var syncStatuses: Map<String, SyncState> = emptyMap()
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProductVH {
         val view = LayoutInflater.from(parent.context)
@@ -37,8 +47,42 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
     }
 
     override fun onBindViewHolder(holder: ProductVH, position: Int) {
-        getItem(position)?.let { item ->
-            holder.bind(item)
+        getItem(position)?.let { product ->
+            holder.bind(product.toUiModel(syncStatuses[product.id.value]))
+        }
+    }
+
+    override fun onBindViewHolder(holder: ProductVH, position: Int, payloads: MutableList<Any>) {
+        if (payloads.contains(PAYLOAD_SYNC)) {
+            getItem(position)?.let { product ->
+                holder.bindSyncOnly(product.toUiModel(syncStatuses[product.id.value]))
+            }
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
+        }
+    }
+
+    /**
+     * Actualiza SOLO el indicador de sincronización sin re-disparar `submitData`.
+     *
+     * Recorre el snapshot presentado actualmente y emite un
+     * `notifyItemChanged(pos, PAYLOAD_SYNC)` únicamente en los ítems cuyo estado
+     * de sync cambió. Coexiste de forma segura con `submitData` porque:
+     *  - `submitData` tiene UNA sola fuente (búsqueda), así que no hay dos
+     *    generaciones de PagingData compitiendo con el layout pass.
+     *  - El notify es puntual y acotado a posiciones realmente presentadas
+     *    (nunca un rango ni `notifyDataSetChanged`), respetando el itemCount real.
+     *  - Ambos canales corren en el main thread, por lo que se serializan.
+     */
+    fun submitSyncStatuses(newStatuses: Map<String, SyncState>) {
+        val old = syncStatuses
+        syncStatuses = newStatuses
+        snapshot().forEachIndexed { index, product ->
+            if (product != null) {
+                val oldState = old[product.id.value]
+                val newState = newStatuses[product.id.value]
+                if (oldState != newState) notifyItemChanged(index, PAYLOAD_SYNC)
+            }
         }
     }
 
@@ -198,6 +242,15 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
                 .into(image)
         }
 
+        /**
+         * Actualiza únicamente el indicador de sincronización (canal PAYLOAD_SYNC).
+         * No recarga imagen ni re-renderiza el resto de la tarjeta.
+         */
+        fun bindSyncOnly(item: ProductUiModel) {
+            currentProduct = item
+            syncIndicator.text = item.syncIndicatorText
+        }
+
         private fun showPopupMenu(view: View, product: ProductUiModel) {
             val popup = PopupMenu(view.context, view)
             popup.menuInflater.inflate(R.menu.menu_product_item, popup.menu)
@@ -220,11 +273,18 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
     }
 
     companion object {
-        private val DIFF = object : DiffUtil.ItemCallback<ProductUiModel>() {
-            override fun areItemsTheSame(oldItem: ProductUiModel, newItem: ProductUiModel): Boolean =
-                oldItem.product.id == newItem.product.id
+        private const val PAYLOAD_SYNC = "payload_sync"
 
-            override fun areContentsTheSame(oldItem: ProductUiModel, newItem: ProductUiModel): Boolean =
+        /**
+         * DiffUtil sobre [Product] — el estado de sync ya NO vive en el item
+         * paginado; se aplica vía [submitSyncStatuses] con [PAYLOAD_SYNC]. Así
+         * `submitData` tiene una sola fuente y no compite con el layout pass.
+         */
+        private val DIFF = object : DiffUtil.ItemCallback<Product>() {
+            override fun areItemsTheSame(oldItem: Product, newItem: Product): Boolean =
+                oldItem.id == newItem.id
+
+            override fun areContentsTheSame(oldItem: Product, newItem: Product): Boolean =
                 oldItem == newItem
         }
     }

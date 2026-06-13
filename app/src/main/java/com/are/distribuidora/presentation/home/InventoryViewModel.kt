@@ -4,13 +4,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
-import androidx.paging.map
+import com.are.distribuidora.domain.core.SyncState
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.domain.product.ObserveProductSyncStatusesUseCase
 import com.are.distribuidora.domain.product.ObserveProductsUseCase
 import com.are.distribuidora.domain.sale.SellProductUseCase
-import com.are.distribuidora.presentation.home.mapper.toUiModel
-import com.are.distribuidora.presentation.home.model.ProductUiModel
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -21,7 +19,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
@@ -52,10 +49,20 @@ class InventoryViewModel @Inject constructor(
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     /**
-     * Stream paginado de productos (Raw Domain).
-     * Se mantiene cachedIn aquí para preservar el estado del Pager de Room.
+     * Stream paginado de productos (dominio puro).
+     *
+     * ÚNICA fuente de `submitData()` en la UI. El estado de sincronización NO
+     * viaja dentro del PagingData: llega por [syncStatuses], un canal separado
+     * que el adapter aplica con `notifyItemChanged` puntual.
+     *
+     * Esto evita la race "Inconsistency detected. Invalid view holder adapter
+     * position" del RecyclerView, que ocurría cuando un segundo flujo (los
+     * estados de sync) re-disparaba `submitData` a mitad del layout pass — el
+     * mismo bug ya corregido en OrderCatalog (commit 500e7bb), portado aquí.
+     *
+     * `cachedIn` preserva la generación del Pager de Room entre recreaciones de vista.
      */
-    private val productPaging: Flow<PagingData<Product>> = _searchQuery
+    val products: Flow<PagingData<Product>> = _searchQuery
         .debounce(300)
         .flatMapLatest { query ->
             observeProductsUseCase(query)
@@ -63,18 +70,10 @@ class InventoryViewModel @Inject constructor(
         .cachedIn(viewModelScope)
 
     /**
-     * Stream combinado: PagingData + SyncStatus (Side-channel).
-     * Se actualiza en tiempo real cuando cambia el estado de sincronización.
+     * Estados de sincronización por productId (canal lateral, fuera del PagingData).
+     * El adapter los aplica vía `submitSyncStatuses()` sin re-disparar `submitData`.
      */
-    val products: Flow<PagingData<ProductUiModel>> = combine(
-        productPaging,
-        observeProductSyncStatusesUseCase(),
-    ) { pagingData, syncStatuses ->
-        pagingData.map { product ->
-            val state = syncStatuses[product.id.value]
-            product.toUiModel(state)
-        }
-    }
+    val syncStatuses: Flow<Map<String, SyncState>> = observeProductSyncStatusesUseCase()
 
     // UI State para otros estados (si fuera necesario)
     // Por ahora Paging se maneja con 'products.collectAsLazyPagingItems()' en UI
