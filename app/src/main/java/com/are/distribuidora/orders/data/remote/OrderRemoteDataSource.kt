@@ -70,4 +70,23 @@ interface OrderRemoteDataSource {
      * @param deletedByUid  UID del usuario que realiza la eliminación (puede ser null si no hay sesión).
      */
     suspend fun markOrderDeleted(routeId: String, orderId: String, deletedByUid: String?)
+
+    /**
+     * Sube una EDICIÓN de ítems de un pedido (posiblemente AJENO) a Firestore.
+     *
+     * Hace un diff de la subcolección items: borra los docs que ya no están en [items]
+     * y hace set (crea/sobrescribe) de los demás. Actualiza SOLO los campos mutables del
+     * header (itemsCount, totalAmount, updatedAt, lastModifiedBy) con .update(): NO escribe
+     * vendedorId ni sellerName, de modo que el pedido conserva a su dueño original y sigue
+     * clasificándose como "ajeno" para el resto de vendedores.
+     *
+     * @param editedByUid UID de quien edita (auditoría en lastModifiedBy). Puede ser null.
+     */
+    suspend fun uploadOrderEdit(
+        routeId: String,
+        orderId: String,
+        items: List<OrderItemDto>,
+        totalAmount: Double,
+        editedByUid: String?,
+    )
 }

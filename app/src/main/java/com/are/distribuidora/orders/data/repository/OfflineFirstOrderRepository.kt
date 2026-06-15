@@ -11,6 +11,7 @@ import com.are.distribuidora.orders.data.local.entity.OrderItemStagingEntity
 import com.are.distribuidora.orders.data.mapper.toDomain
 import com.are.distribuidora.orders.data.remote.OrderRemoteDataSource
 import com.are.distribuidora.core.money.RoundToQuarterQuetzalUseCase
+import com.are.distribuidora.orders.domain.model.EditOrderItemInput
 import com.are.distribuidora.orders.domain.model.Order
 import com.are.distribuidora.orders.domain.model.OrderItem
 import com.are.distribuidora.orders.domain.repository.OrderRepository
@@ -138,6 +139,13 @@ class OfflineFirstOrderRepository(
                 // Preservar estado previo si ya existe en Room para no sobreescribir
                 // un pedido ya COMPLETED o IN_PROGRESS con datos vacíos.
                 val existing = try { local.getOrderById(orderId) } catch (_: Exception) { null }
+
+                // No pisar una edición local pendiente de subir: mientras pendingUpload=1, la
+                // edición local es la fuente de verdad hasta que el worker la confirme en remoto.
+                if (existing != null && existing.pendingUpload) {
+                    Log.i(tag, "header sync: skip overwrite (pendingUpload) orderId=$orderId")
+                    return@forEach
+                }
 
                 if (existing != null && existing.downloadStatus == "COMPLETED") {
                     // Pedido ya descargado correctamente; solo actualizar metadatos de cabecera
@@ -267,6 +275,13 @@ class OfflineFirstOrderRepository(
 
                 val existing = try { local.getOrderById(orderId) } catch (_: Exception) { null }
 
+                // No pisar una edición local pendiente de subir: mientras pendingUpload=1, la
+                // edición local es la fuente de verdad hasta que el worker la confirme en remoto.
+                if (existing != null && existing.pendingUpload) {
+                    Log.i(tag, "header sync: skip overwrite (pendingUpload) orderId=$orderId")
+                    return@forEach
+                }
+
                 if (existing != null && existing.downloadStatus == "COMPLETED") {
                     local.upsertOrderHeader(
                         existing.copy(
@@ -330,6 +345,13 @@ class OfflineFirstOrderRepository(
         if (order.isDeleted) {
             Log.w(tag, "downloadOrderItems: SKIP deleted orderId=$orderId")
             return Result.Error(Failure.ValidationError("ORDER_DELETED"))
+        }
+
+        // ── Guard: no re-descargar (y pisar) un pedido con edición local pendiente ──
+        // Si hay una edición sin subir, los ítems locales son la verdad hasta que se confirmen.
+        if (order.pendingUpload) {
+            Log.i(tag, "downloadOrderItems: SKIP (pendingUpload, edición local) orderId=$orderId")
+            return Result.Success(Unit)
         }
 
         // ── Guard rail Opción B: nunca descargar items de un pedido propio ──
@@ -624,5 +646,118 @@ class OfflineFirstOrderRepository(
             Log.w(tag, "getItemsByOrderId: error orderId=$orderId (${e.message})")
             emptyList()
         }
+    }
+
+    override suspend fun editOrderItems(orderId: String, items: List<EditOrderItemInput>): Result<Unit> {
+        if (orderId.isBlank()) return Result.Error(Failure.ValidationError("orderId requerido"))
+        if (items.isEmpty()) return Result.Error(Failure.ValidationError("El pedido debe tener al menos un ítem"))
+        if (items.any { it.quantity <= 0 }) {
+            return Result.Error(Failure.ValidationError("La cantidad de cada ítem debe ser mayor a 0"))
+        }
+        // Invariante del índice único (orderId, productId): no permitir productId duplicados.
+        if (items.map { it.productId }.toSet().size != items.size) {
+            return Result.Error(Failure.ValidationError("Hay ítems duplicados en el pedido"))
+        }
+
+        val now = System.currentTimeMillis()
+
+        val order = try {
+            local.getOrderById(orderId)
+        } catch (e: Exception) {
+            Log.e(tag, "editOrderItems: leer header local falló orderId=$orderId (${e.message})", e)
+            return Result.Error(Failure.DatabaseError)
+        } ?: return Result.Error(Failure.NotFound)
+
+        if (order.isDeleted) return Result.Error(Failure.ValidationError("ORDER_DELETED"))
+
+        val totalAmount = RoundToQuarterQuetzalUseCase(items.sumOf { it.unitPrice * it.quantity })
+
+        val finalItems = items.map { input ->
+            OrderItemEntity(
+                itemId = input.itemId,
+                orderId = orderId,
+                productId = input.productId,
+                productName = input.productName,
+                unitPrice = input.unitPrice,
+                quantity = input.quantity,
+                createdAt = now,
+                notes = input.notes,
+            )
+        }
+
+        return try {
+            local.commitEditedItems(
+                orderId = orderId,
+                finalItems = finalItems,
+                totalAmount = totalAmount,
+                now = now,
+            )
+            Log.i(tag, "editOrderItems: local ok orderId=$orderId items=${finalItems.size} total=$totalAmount pendingUpload=1")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(tag, "editOrderItems: commit local falló orderId=$orderId (${e.message})", e)
+            Result.Error(Failure.DatabaseError)
+        }
+    }
+
+    override suspend fun uploadPendingOrders(): Result<Unit> {
+        val pending = try {
+            local.getPendingUploadOrders()
+        } catch (e: Exception) {
+            Log.e(tag, "uploadPendingOrders: leer pendientes falló (${e.message})", e)
+            return Result.Error(Failure.DatabaseError)
+        }
+
+        if (pending.isEmpty()) {
+            Log.d(tag, "uploadPendingOrders: nada pendiente")
+            return Result.Success(Unit)
+        }
+
+        val uid = currentUserIdProvider.get()
+        var anyFailed = false
+
+        pending.forEach { order ->
+            val orderId = order.orderId
+            try {
+                val items = local.getItemsByOrderId(orderId)
+                if (items.isEmpty()) {
+                    // Sin ítems locales no hay nada válido que subir; limpiar el flag para no
+                    // reintentar indefinidamente (un pedido válido nunca queda sin ítems).
+                    Log.w(tag, "uploadPendingOrders: sin ítems locales orderId=$orderId; limpio flag")
+                    local.setPendingUpload(orderId = orderId, pending = false, now = System.currentTimeMillis())
+                    return@forEach
+                }
+
+                val dtos = items.map { e ->
+                    OrderRemoteDataSource.OrderItemDto(
+                        itemId = e.itemId,
+                        productId = e.productId,
+                        productName = e.productName,
+                        unitPrice = e.unitPrice,
+                        quantity = e.quantity,
+                        notes = e.notes,
+                    )
+                }
+                val total = order.totalAmount
+                    ?: RoundToQuarterQuetzalUseCase(items.sumOf { it.unitPrice * it.quantity })
+
+                remote.uploadOrderEdit(
+                    routeId = order.routeId,
+                    orderId = orderId,
+                    items = dtos,
+                    totalAmount = total,
+                    editedByUid = uid,
+                )
+
+                local.setPendingUpload(orderId = orderId, pending = false, now = System.currentTimeMillis())
+                Log.i(tag, "uploadPendingOrders: subido orderId=$orderId items=${dtos.size} total=$total")
+            } catch (e: Exception) {
+                anyFailed = true
+                // Mantener pendingUpload=1 para reintento del worker.
+                Log.w(tag, "uploadPendingOrders: falló orderId=$orderId (${e.message}); se reintentará")
+            }
+        }
+
+        return if (anyFailed) Result.Error(Failure.NetworkError) else Result.Success(Unit)
     }
 }

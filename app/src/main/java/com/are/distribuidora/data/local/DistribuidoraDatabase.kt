@@ -48,7 +48,7 @@ import com.are.distribuidora.route.data.local.entity.RouteEntity
         // Pending accounts
         PendingAccountEntity::class,
     ],
-    version = 34,
+    version = 35,
     exportSchema = true,
 )
 @androidx.room.TypeConverters(

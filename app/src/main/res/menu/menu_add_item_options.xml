@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- PopupMenu del botón "Agregar ítem" al editar un pedido (propio o ajeno). -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/action_add_item_catalog"
+        android:title="@string/add_item_from_catalog" />
+    <item
+        android:id="@+id/action_add_item_custom"
+        android:title="@string/add_item_custom" />
+</menu>

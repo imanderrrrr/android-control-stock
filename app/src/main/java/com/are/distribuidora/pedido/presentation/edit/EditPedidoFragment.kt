@@ -3,6 +3,7 @@ package com.are.distribuidora.pedido.presentation.edit
 import android.app.AlertDialog
 import android.os.Bundle
 import android.view.View
+import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.fragment.app.Fragment
@@ -16,6 +17,7 @@ import com.are.distribuidora.R
 import com.are.distribuidora.domain.pedido.DiscountType
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountByAmountUseCase
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountUseCase
+import com.are.distribuidora.pedido.presentation.common.CustomItemDialog
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
@@ -120,15 +122,36 @@ class EditPedidoFragment : Fragment(R.layout.fragment_edit_pedido) {
             }
         }
 
-        btnAddItem.setOnClickListener {
-            requireActivity().supportFragmentManager.beginTransaction()
-                .replace(R.id.fragmentContainer, EditPedidoCatalogFragment(), TAG_CATALOG)
-                .addToBackStack(TAG_CATALOG)
-                .commit()
+        btnAddItem.setOnClickListener { anchor ->
+            PopupMenu(requireContext(), anchor).apply {
+                menuInflater.inflate(R.menu.menu_add_item_options, menu)
+                setOnMenuItemClickListener { mi ->
+                    when (mi.itemId) {
+                        R.id.action_add_item_catalog -> {
+                            openCatalog()
+                            true
+                        }
+                        R.id.action_add_item_custom -> {
+                            CustomItemDialog.show(requireContext()) { name, qty, price, notes ->
+                                viewModel.addCustomItem(name = name, quantity = qty, price = price, notes = notes)
+                            }
+                            true
+                        }
+                        else -> false
+                    }
+                }
+            }.show()
         }
 
         btnSave.setOnClickListener { viewModel.save() }
         btnCancel.setOnClickListener { parentFragmentManager.popBackStack() }
+    }
+
+    private fun openCatalog() {
+        requireActivity().supportFragmentManager.beginTransaction()
+            .replace(R.id.fragmentContainer, EditPedidoCatalogFragment(), TAG_CATALOG)
+            .addToBackStack(TAG_CATALOG)
+            .commit()
     }
 
     // ── Diálogo de descuento con toggle % / Q ────────────────────────────────

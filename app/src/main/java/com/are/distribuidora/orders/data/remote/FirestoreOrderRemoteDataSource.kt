@@ -227,4 +227,85 @@ class FirestoreOrderRemoteDataSource(
 
         Log.i(tag, "markOrderDeleted: ok orderId=$orderId routeId=$routeId deletedBy=$deletedByUid")
     }
+
+    /**
+     * Sube una edición de ítems con un WriteBatch atómico:
+     *  - delete de los docs de items que ya no existen en [items],
+     *  - set (crea/sobrescribe) de los items presentes (cada itemId es el docId),
+     *  - update del header SOLO con itemsCount/totalAmount/updatedAt/lastModifiedBy.
+     *
+     * Importante (preservación del dueño): se usa .update() con un set acotado de campos;
+     * NUNCA se escribe vendedorId ni sellerName, así el pedido sigue siendo del vendedor
+     * original. Cada documento recibe a lo sumo una escritura en el batch (un id que se
+     * conserva va por `set`, nunca por `delete`), evitando el error de Firestore de
+     * "multiple writes per document".
+     */
+    override suspend fun uploadOrderEdit(
+        routeId: String,
+        orderId: String,
+        items: List<OrderRemoteDataSource.OrderItemDto>,
+        totalAmount: Double,
+        editedByUid: String?,
+    ) {
+        if (routeId.isBlank() || orderId.isBlank()) {
+            Log.w(tag, "uploadOrderEdit: routeId u orderId vacío; skip")
+            return
+        }
+        if (items.isEmpty()) {
+            // Un pedido editado nunca queda sin ítems (la validación de dominio lo impide).
+            Log.w(tag, "uploadOrderEdit: items vacío orderId=$orderId; skip para no corromper remoto")
+            return
+        }
+
+        val orderRef = firestore
+            .collection("routes")
+            .document(routeId)
+            .collection("orders")
+            .document(orderId)
+        val itemsRef = orderRef.collection("items")
+
+        // Leer los docs actuales para saber cuáles borrar (los que ya no están en la edición).
+        val existing = itemsRef.get().await()
+        val newIds = items.map { it.itemId }.toHashSet()
+
+        val batch = firestore.batch()
+
+        // 1) Borrar ítems quitados en la edición.
+        var deleted = 0
+        existing.documents.forEach { doc ->
+            if (doc.id !in newIds) {
+                batch.delete(doc.reference)
+                deleted++
+            }
+        }
+
+        // 2) Crear/actualizar los ítems vigentes (set por itemId = docId).
+        items.forEach { item ->
+            val data = hashMapOf(
+                "itemId" to item.itemId,
+                "productId" to item.productId,
+                "productName" to item.productName,
+                "unitPrice" to item.unitPrice,
+                "quantity" to item.quantity,
+                "notes" to item.notes,
+            )
+            batch.set(itemsRef.document(item.itemId), data)
+        }
+
+        // 3) Header: SOLO campos mutables. NO vendedorId/sellerName (preserva al dueño).
+        val headerUpdates: Map<String, Any> = buildMap {
+            put("itemsCount", items.size)
+            put("totalAmount", totalAmount)
+            put("updatedAt", Timestamp.now())
+            put("lastModifiedBy", editedByUid ?: "")
+        }
+        batch.update(orderRef, headerUpdates)
+
+        batch.commit().await()
+
+        Log.i(
+            tag,
+            "uploadOrderEdit: ok orderId=$orderId routeId=$routeId set=${items.size} deleted=$deleted total=$totalAmount editedBy=$editedByUid",
+        )
+    }
 }

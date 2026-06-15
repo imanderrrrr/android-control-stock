@@ -47,6 +47,17 @@ interface OrderDao {
     suspend fun markDeleted(orderId: String, now: Long)
 
     /**
+     * Pedidos con ediciones locales pendientes de subir a Firestore.
+     * Excluye eliminados. Lo consume el worker de subida (OrdersUploadWorker).
+     */
+    @Query("SELECT * FROM orders WHERE pendingUpload = 1 AND isDeleted = 0")
+    suspend fun getPendingUpload(): List<OrderEntity>
+
+    /** Marca/limpia el flag de edición local pendiente de subir. */
+    @Query("UPDATE orders SET pendingUpload = :pending, updatedAt = :now WHERE orderId = :orderId")
+    suspend fun setPendingUpload(orderId: String, pending: Boolean, now: Long)
+
+    /**
      * Flow reactivo: emite cada vez que cambia algún order de la ruta.
      * Excluye eliminados. No filtra vendedorId (el repositorio aplica el filtro en memoria).
      */

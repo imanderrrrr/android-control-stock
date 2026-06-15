@@ -12,6 +12,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.pedido.presentation.editotros.EditOtrosPedidoFragment
 import com.google.android.material.appbar.MaterialToolbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -46,6 +47,25 @@ class OtrosPedidoDetalleFragment : Fragment(R.layout.fragment_otros_pedido_detal
 
         toolbar.title = clientName.ifBlank { getString(R.string.pedidos_detalle_title) }
         toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
+
+        // Acción "Editar": abre el editor de pedido ajeno (agregar/quitar ítems).
+        toolbar.inflateMenu(R.menu.menu_otros_detalle)
+        toolbar.setOnMenuItemClickListener { mi ->
+            when (mi.itemId) {
+                R.id.action_edit_otros -> {
+                    requireActivity().supportFragmentManager.beginTransaction()
+                        .replace(
+                            R.id.fragmentContainer,
+                            EditOtrosPedidoFragment.newInstance(orderId = orderId, clientName = clientName),
+                            TAG_EDIT_OTROS,
+                        )
+                        .addToBackStack(TAG_EDIT_OTROS)
+                        .commit()
+                    true
+                }
+                else -> false
+            }
+        }
 
         val adapter = OtrosDetalleAdapter()
         recycler.layoutManager = LinearLayoutManager(requireContext())
@@ -106,6 +126,7 @@ class OtrosPedidoDetalleFragment : Fragment(R.layout.fragment_otros_pedido_detal
     companion object {
         private const val ARG_ORDER_ID    = "orderId"
         private const val ARG_CLIENT_NAME = "clientName"
+        private const val TAG_EDIT_OTROS  = "EDIT_OTROS"
 
         fun newInstance(orderId: String, clientName: String) =
             OtrosPedidoDetalleFragment().apply {

@@ -242,6 +242,17 @@
     <string name="edit_pedido_delete_item_title">Eliminar ítem</string>
     <string name="edit_pedido_delete_item_message">¿Eliminar %1$s del pedido?</string>
     <string name="edit_pedido_delete_confirm">Eliminar</string>
+
+    <!-- Agregar ítem: opciones (catálogo / personalizado) -->
+    <string name="add_item_from_catalog">Del catálogo</string>
+    <string name="add_item_custom">Ítem personalizado</string>
+
+    <!-- Editar pedidos ajenos ("Otros Pedidos") -->
+    <string name="otros_action_edit">Editar</string>
+    <string name="edit_otros_title">Editar pedido</string>
+    <string name="edit_otros_saved">Cambios guardados — pendiente de subir</string>
+    <string name="edit_otros_delete_item_message">¿Quitar %1$s del pedido?</string>
+    <string name="edit_otros_empty">El pedido no tiene ítems. Agrega al menos uno.</string>
     <string name="pedido_menu_edit">Editar</string>
 
     <!-- Menú botón "+" en Inventario -->

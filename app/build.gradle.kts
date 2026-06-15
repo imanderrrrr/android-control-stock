@@ -39,8 +39,8 @@ android {
         applicationId = "com.are.distribuidora"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 10112
+        versionName = "1.1.12"
 
         // Runner para Hilt en instrumented tests
         testInstrumentationRunner = "com.are.distribuidora.HiltTestRunner"

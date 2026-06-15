@@ -1256,4 +1256,20 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE order_items_staging ADD COLUMN notes TEXT")
         }
     }
+
+    /**
+     * v34 -> v35
+     * - Agrega columna `pendingUpload` (INTEGER NOT NULL DEFAULT 0) a la tabla `orders`.
+     *
+     * Motivo: habilita la edición de pedidos AJENOS (sistema `orders`, antes solo-lectura).
+     * Al agregar/quitar ítems en un pedido ajeno, la edición se persiste local y se marca
+     * pendingUpload=1; un worker la sube a Firestore preservando vendedorId/sellerName (el
+     * pedido sigue siendo ajeno). Mientras pendingUpload=1, el downsync no pisa la edición.
+     * Patrón idéntico a isDeleted (MIGRATION_30_31): boolean como INTEGER NOT NULL DEFAULT 0.
+     */
+    val MIGRATION_34_35: Migration = object : Migration(34, 35) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE orders ADD COLUMN pendingUpload INTEGER NOT NULL DEFAULT 0")
+        }
+    }
 }

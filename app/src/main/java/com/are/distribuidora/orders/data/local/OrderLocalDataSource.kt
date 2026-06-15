@@ -61,6 +61,25 @@ interface OrderLocalDataSource {
     )
 
     /**
+     * Commit atómico de una EDICIÓN local de un pedido ajeno: reemplaza los ítems,
+     * recalcula itemsCount/itemsDownloaded/totalAmount y marca pendingUpload=1 para
+     * que el worker lo suba a Firestore. NO toca vendedorId/sellerName (el pedido
+     * sigue siendo ajeno). downloadStatus queda COMPLETED (la edición es la verdad local).
+     */
+    suspend fun commitEditedItems(
+        orderId: String,
+        finalItems: List<OrderItemEntity>,
+        totalAmount: Double,
+        now: Long,
+    )
+
+    /** Pedidos con ediciones locales pendientes de subir a Firestore. */
+    suspend fun getPendingUploadOrders(): List<OrderEntity>
+
+    /** Marca/limpia el flag pendingUpload de un pedido. */
+    suspend fun setPendingUpload(orderId: String, pending: Boolean, now: Long)
+
+    /**
      * Flow reactivo: emite la lista de Orders de una ruta cada vez que Room detecta cambios.
      * Excluye órdenes con isDeleted=true.
      */

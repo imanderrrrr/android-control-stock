@@ -46,6 +46,16 @@ data class OrderEntity(
      * Consistente con el patrón de ProductEntity y ClientEntity.
      */
     val isDeleted: Boolean = false,
+    /**
+     * true = el pedido tiene ediciones locales (ítems agregados/quitados al editar un pedido
+     * AJENO) pendientes de subir a Firestore. El worker de subida lo procesa y lo vuelve a
+     * false al confirmar la escritura remota.
+     *
+     * Mientras es true, el downsync NO sobreescribe el header ni re-descarga los ítems: la
+     * edición local es la fuente de verdad hasta que se sube. Preserva vendedorId/sellerName
+     * (no se tocan en la subida), de modo que el pedido sigue siendo "ajeno".
+     */
+    val pendingUpload: Boolean = false,
 )
 
 @Entity(

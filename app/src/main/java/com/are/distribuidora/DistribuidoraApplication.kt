@@ -28,6 +28,7 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
     @Inject lateinit var productSyncScheduler: com.are.distribuidora.workers.ProductSyncScheduler
     @Inject lateinit var pedidoExpireScheduler: com.are.distribuidora.workers.PedidoExpireScheduler
     @Inject lateinit var imageUploadSyncScheduler: com.are.distribuidora.workers.ImageUploadSyncScheduler
+    @Inject lateinit var ordersUploadScheduler: com.are.distribuidora.workers.OrdersUploadScheduler
 
     /**
      * Capturador de crashes con persistencia local en `filesDir/crash_reports/`.
@@ -98,6 +99,9 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
 
         // Drain any pending image uploads from previous sessions
         imageUploadSyncScheduler.enqueueUploadWorker()
+
+        // Drain pending "otros" order edits from previous sessions (preserva el dueño).
+        ordersUploadScheduler.enqueueUploadWorker(reason = "STARTUP_DRAIN")
 
         // Expira y borra pedidos con ≥ 14 días de antigüedad (local + Firestore)
         pedidoExpireScheduler.schedule()

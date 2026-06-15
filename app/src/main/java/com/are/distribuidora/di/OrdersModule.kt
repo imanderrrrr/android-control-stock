@@ -13,11 +13,13 @@ import com.are.distribuidora.orders.data.repository.OfflineFirstOrderRepository
 import com.are.distribuidora.orders.domain.repository.OrderRepository
 import com.are.distribuidora.orders.domain.usecase.DeleteOrderUseCase
 import com.are.distribuidora.orders.domain.usecase.DownloadOrderItemsUseCase
+import com.are.distribuidora.orders.domain.usecase.EditOtrosOrderUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchAllOrdersHeaderUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchOrdersHeaderUseCase
 import com.are.distribuidora.orders.domain.usecase.GetOtrosPedidoDetalleUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteAndDateUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteUseCase
+import com.are.distribuidora.orders.domain.usecase.UploadPendingOrdersUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -86,4 +88,12 @@ object OrdersModule {
     @Provides
     fun provideGetOtrosPedidoDetalleUseCase(repository: OrderRepository): GetOtrosPedidoDetalleUseCase =
         GetOtrosPedidoDetalleUseCase(repository)
+
+    @Provides
+    fun provideUploadPendingOrdersUseCase(repository: OrderRepository): UploadPendingOrdersUseCase =
+        UploadPendingOrdersUseCase(repository)
+
+    @Provides
+    fun provideEditOtrosOrderUseCase(repository: OrderRepository): EditOtrosOrderUseCase =
+        EditOtrosOrderUseCase(repository)
 }

@@ -136,6 +136,49 @@ class RoomOrderLocalDataSource(
         }
     }
 
+    override suspend fun commitEditedItems(
+        orderId: String,
+        finalItems: List<OrderItemEntity>,
+        totalAmount: Double,
+        now: Long,
+    ) {
+        if (finalItems.isEmpty()) {
+            // Un pedido editado debe conservar al menos un ítem. Para "vaciarlo" se usa el
+            // flujo de eliminación (deleteOrder), no la edición.
+            throw IllegalArgumentException("commitEditedItems: finalItems vacío")
+        }
+
+        db.runInTransaction {
+            // 1) Reemplazo total de ítems (PK estable = itemId; índice único orderId+productId).
+            orderItemDao.deleteByOrderId(orderId)
+            orderItemDao.insertAll(finalItems)
+
+            // 2) Limpiar cualquier staging residual del flujo de descarga.
+            stagingDao.deleteByOrderId(orderId)
+
+            // 3) Actualizar cabecera SIN tocar vendedorId/sellerName (preserva al dueño).
+            val current = orderDao.getById(orderId) ?: throw IllegalStateException("Order not found")
+            val updated = current.copy(
+                itemsCount = finalItems.size,
+                itemsDownloaded = finalItems.size,
+                totalAmount = totalAmount,
+                downloadStatus = "COMPLETED",
+                failedReasonCode = null,
+                failedReasonMessage = null,
+                failedAttempts = 0,
+                pendingUpload = true,
+                updatedAt = now,
+            )
+            orderDao.upsert(updated)
+        }
+    }
+
+    override suspend fun getPendingUploadOrders(): List<OrderEntity> = orderDao.getPendingUpload()
+
+    override suspend fun setPendingUpload(orderId: String, pending: Boolean, now: Long) {
+        orderDao.setPendingUpload(orderId = orderId, pending = pending, now = now)
+    }
+
     override fun observeByRoute(routeId: String): Flow<List<OrderEntity>> =
         orderDao.observeByRoute(routeId)
 

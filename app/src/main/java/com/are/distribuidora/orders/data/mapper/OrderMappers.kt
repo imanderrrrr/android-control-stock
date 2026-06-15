@@ -38,5 +38,6 @@ internal fun OrderItemEntity.toDomain(): OrderItem =
         unitPrice = unitPrice,
         quantity = quantity,
         notes = notes,
+        itemId = itemId,
     )
 
