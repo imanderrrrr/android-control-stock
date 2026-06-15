@@ -57,8 +57,8 @@
         <!-- Imagen -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/imageCard"
-            android:layout_width="0dp"
-            android:layout_height="260dp"
+            android:layout_width="300dp"
+            android:layout_height="300dp"
             android:layout_marginTop="8dp"
             app:cardBackgroundColor="@color/bg_muted"
             app:cardCornerRadius="20dp"
