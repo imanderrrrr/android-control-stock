@@ -42,4 +42,36 @@
 
     <!-- Cart badges -->
     <color name="badge_qty_bg">@color/palette_300</color>
+
+    <!-- ===== Paleta "Bosque Pro" (rediseño Splash + Login) =====
+         Tokens semánticos NUEVOS. No reemplazan la paleta existente: solo los
+         usan las pantallas Splash y Login. No hardcodear hex en los layouts. -->
+    <!-- Fondos -->
+    <color name="bg_page">#F5F7F4</color>
+    <color name="bg_card">#FFFFFF</color>
+    <color name="bg_muted">#EFF2EE</color>
+    <color name="bg_inverse">#163832</color>
+    <!-- Bordes -->
+    <color name="border_subtle">#DCE4DC</color>
+    <color name="border_strong">#B7C5BB</color>
+    <!-- Texto -->
+    <color name="text_primary">#0E1F1C</color>
+    <color name="text_secondary">#5F756D</color>
+    <color name="text_tertiary">#8FA197</color>
+    <color name="text_on_inverse">#F5F7F4</color>
+    <color name="text_on_inverse_muted">#8FB39F</color>
+    <!-- Marca -->
+    <color name="brand_primary">#163832</color>
+    <color name="brand_accent">#2D6A4F</color>
+    <color name="brand_soft">#DAF1DE</color>
+    <color name="brand_soft_text">#0F3D26</color>
+    <!-- Estados -->
+    <color name="success_bg">#DAF1DE</color>
+    <color name="success_text">#0F3D26</color>
+    <color name="warning_bg">#FAEEDA</color>
+    <color name="warning_text">#854F0B</color>
+    <color name="danger_bg">#FCEBEB</color>
+    <color name="danger_text">#A32D2D</color>
+    <color name="info_bg">#E6F1FB</color>
+    <color name="info_text">#0C447C</color>
 </resources>

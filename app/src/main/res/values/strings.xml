@@ -18,12 +18,25 @@
     <string name="pdf_progress_subtitle">Por favor espera mientras se prepara el documento…</string>
     <string name="pdf_progress_percent">0%</string>
 
-    <!-- Login UI -->
-    <string name="login_title">Bienvenido</string>
-    <string name="login_subtitle">Inicia sesión para continuar</string>
-    <string name="login_email_hint">Correo</string>
-    <string name="login_password_hint">Contraseña</string>
-    <string name="login_button">Entrar</string>
+    <!-- Marca -->
+    <string name="brand_name">DailyStock</string>
+
+    <!-- Splash -->
+    <string name="splash_tagline">Distribución que no se detiene</string>
+    <string name="splash_version">v1.0.0</string>
+
+    <!-- Login UI (rediseño "Bosque Pro") -->
+    <string name="login_title">Bienvenido de vuelta</string>
+    <string name="login_subtitle">Inicia sesión para empezar tu jornada.</string>
+    <string name="login_user_label">Usuario</string>
+    <string name="login_password_label">Contraseña</string>
+    <string name="login_email_hint">Ingresa tu usuario</string>
+    <string name="login_password_hint">Ingresa tu contraseña</string>
+    <string name="login_forgot">¿Olvidaste tu contraseña?</string>
+    <string name="login_button">Iniciar sesión</string>
+    <string name="login_or">O</string>
+    <string name="login_scan_qr">Escanear QR del jefe</string>
+    <string name="login_footer">DailyStock v1.0.0 · OFFLINE LISTA</string>
 
     <!-- Login errors (humanos) -->
     <string name="login_error_invalid_credentials">Correo o contraseña incorrectos</string>

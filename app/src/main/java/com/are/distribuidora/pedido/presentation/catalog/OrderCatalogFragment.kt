@@ -87,6 +87,7 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         // ── FAB carrito ──────────────────────────────────────────────────────
         fabCart.setOnClickListener {
             parentFragmentManager.beginTransaction()
+                .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
                 .replace(R.id.fragmentContainer, OrderCartFragment(), "ORDER_CART")
                 .addToBackStack("FLOW_CATALOG")
                 .commit()
@@ -116,6 +117,7 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         adapter.onProductClicked = { product ->
             logger.d(tag, "Product clicked: id=${product.id.value} name=${product.name}")
             parentFragmentManager.beginTransaction()
+                .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
                 .replace(R.id.fragmentContainer, ProductDetailOrderFragment.newInstance(product), "PRODUCT_DETAIL")
                 .addToBackStack("FLOW_CATALOG")
                 .commit()

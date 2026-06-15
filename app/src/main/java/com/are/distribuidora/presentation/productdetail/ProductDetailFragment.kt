@@ -8,6 +8,9 @@ import android.widget.ImageView
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.fragment.app.Fragment
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -52,6 +55,17 @@ class ProductDetailFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
+
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
+        view.findViewById<View>(R.id.btnBack).setOnClickListener {
+            parentFragmentManager.popBackStack()
+        }
+
         val progress = view.findViewById<ProgressBar>(R.id.progress)
         val errorText = view.findViewById<TextView>(R.id.errorText)
 
@@ -153,7 +167,7 @@ class ProductDetailFragment : Fragment() {
                             chipSync.isChipIconVisible = false
 
                             // Resumen destacado
-                            priceValue.text = product.price.amount.toPlainString()
+                            priceValue.text = "Q" + product.price.amount.toPlainString()
                             stockValue.text = product.stock.value.toString()
 
                             // Detalles (label/value). Valores con fallback a resources.

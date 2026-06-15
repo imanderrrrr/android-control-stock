@@ -10,11 +10,10 @@ import androidx.activity.viewModels
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.lifecycleScope
+import androidx.core.view.WindowCompat
 import com.are.distribuidora.R
 import com.are.distribuidora.domain.product.GetProductCountUseCase
 import com.google.android.material.bottomnavigation.BottomNavigationView
-import com.google.android.material.card.MaterialCardView
-import com.google.android.material.floatingactionbutton.FloatingActionButton
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -22,6 +21,7 @@ import com.are.distribuidora.client.presentation.SelectClientFragment
 import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogFragment
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
 import com.are.distribuidora.pedido.presentation.list.PedidosFragment
+import com.are.distribuidora.route.presentation.SelectRouteFragment
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -36,12 +36,12 @@ class HomeActivity : FragmentActivity() {
 
     private val tag = "HOME_CHROME"
 
-    private lateinit var bottomNavPill: MaterialCardView
+    private lateinit var navBarContainer: View
     private lateinit var bottomNav: BottomNavigationView
-    private lateinit var fab: FloatingActionButton
 
     private fun isTopLevel(fragment: Fragment?): Boolean {
-        return fragment is HomeFragment ||
+        return fragment is InicioFragment ||
+                fragment is HomeFragment ||
                 fragment is InventoryFragment ||
                 fragment is PedidosFragment ||
                 fragment is ClientsFragment
@@ -58,10 +58,7 @@ class HomeActivity : FragmentActivity() {
 
     private fun updateChrome(fragment: Fragment?, source: String) {
         val show = isTopLevel(fragment)
-
-        bottomNavPill.visibility = if (show) View.VISIBLE else View.GONE
-        fab.visibility = if (show) View.VISIBLE else View.GONE
-
+        navBarContainer.visibility = if (show) View.VISIBLE else View.GONE
         logState(source, fragment)
     }
 
@@ -69,16 +66,21 @@ class HomeActivity : FragmentActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_home)
 
-        bottomNavPill = findViewById(R.id.bottomNavPill)
+        // Iconos de barras de sistema oscuros (contenido claro "Bosque Pro").
+        WindowCompat.getInsetsController(window, window.decorView).apply {
+            isAppearanceLightStatusBars = true
+            isAppearanceLightNavigationBars = true
+        }
+
+        navBarContainer = findViewById(R.id.navBarContainer)
         bottomNav = findViewById(R.id.bottomNavigation)
-        fab = findViewById(R.id.fabCreateOrder)
 
         supportFragmentManager.addOnBackStackChangedListener {
             updateChrome(currentFragment(), "OnBackStackChanged")
         }
 
         if (savedInstanceState == null) {
-            openRootFragment(HomeFragment())
+            openRootFragment(InicioFragment())
             bottomNav.selectedItemId = R.id.nav_home
         } else {
             // Estado restaurado (rotación). Aplicar chrome al fragment actual real.
@@ -116,8 +118,8 @@ class HomeActivity : FragmentActivity() {
                 logState("BeforeNavigateToCatalog", currentFragment())
 
                 supportFragmentManager.beginTransaction()
+                    .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
                     .replace(R.id.fragmentContainer, OrderCatalogFragment())
-                    // Usamos un nombre distinto para no duplicar FLOW_CREATE_ORDER.
                     .addToBackStack("FLOW_CREATE_ORDER_CATALOG")
                     .commit()
             }
@@ -126,7 +128,7 @@ class HomeActivity : FragmentActivity() {
         bottomNav.setOnItemSelectedListener { item ->
             when (item.itemId) {
                 R.id.nav_home -> {
-                    openRootFragment(HomeFragment())
+                    openRootFragment(InicioFragment())
                     true
                 }
                 R.id.nav_inventory -> {
@@ -141,20 +143,12 @@ class HomeActivity : FragmentActivity() {
                     openRootFragment(ClientsFragment())
                     true
                 }
-                R.id.nav_placeholder -> false
+                R.id.nav_reportes -> {
+                    openRootFragment(HomeFragment())
+                    true
+                }
                 else -> false
             }
-        }
-
-        fab.setOnClickListener {
-            // Iniciar flujo: SelectClient (Ruta + Cliente en un solo screen)
-            supportFragmentManager.beginTransaction()
-                .replace(
-                    R.id.fragmentContainer,
-                    SelectClientFragment.newInstance()
-                )
-                .addToBackStack("FLOW_CREATE_ORDER")
-                .commit()
         }
     }
 
@@ -171,6 +165,41 @@ class HomeActivity : FragmentActivity() {
         }
         // Re-aplicar por seguridad al volver al foreground
         updateChrome(currentFragment(), "onResume")
+    }
+
+    /** Cambia de pestaña inferior (usado por las acciones rápidas del dashboard). */
+    fun goToTab(itemId: Int) {
+        bottomNav.selectedItemId = itemId
+    }
+
+    /** Inicia el flujo de crear pedido: primero se elige la ruta (pantalla 03). */
+    fun startCreateOrder() {
+        supportFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+            .replace(R.id.fragmentContainer, SelectRouteFragment.newInstance())
+            .addToBackStack("FLOW_CREATE_ORDER")
+            .commit()
+    }
+
+    /** Abre la selección de ruta en modo "fijar ruta activa" (Elegir / Cambiar). */
+    fun openSelectActiveRoute() {
+        supportFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+            .replace(
+                R.id.fragmentContainer,
+                SelectRouteFragment.newInstance(SelectRouteFragment.MODE_SET_ACTIVE)
+            )
+            .addToBackStack("FLOW_SELECT_ACTIVE_ROUTE")
+            .commit()
+    }
+
+    /** Continúa la ruta activa: va directo a elegir cliente de esa ruta. */
+    fun continueActiveRoute(routeId: String) {
+        supportFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+            .replace(R.id.fragmentContainer, SelectClientFragment.newInstance(routeId))
+            .addToBackStack("FLOW_CONTINUE_ROUTE")
+            .commit()
     }
 
     private fun openRootFragment(fragment: Fragment) {

@@ -44,12 +44,12 @@
         <ImageView
             android:layout_width="48dp"
             android:layout_height="48dp"
-            android:src="@drawable/ic_clients_outline" 
+            android:src="@drawable/ic_clients_outline"
             android:alpha="0.2"
             app:tint="?attr/colorPrimary"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent" />
-            <!-- Placeholder icon, replace with existing resource if available -->
+        <!-- Placeholder icon, replace with existing resource if available -->
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

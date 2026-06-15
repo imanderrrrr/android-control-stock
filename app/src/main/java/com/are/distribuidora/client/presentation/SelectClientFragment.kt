@@ -6,6 +6,9 @@ import android.widget.ArrayAdapter
 import android.widget.TextView
 import androidx.core.os.bundleOf
 import androidx.core.widget.doAfterTextChanged
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.setFragmentResult
 import androidx.fragment.app.viewModels
@@ -53,12 +56,20 @@ class SelectClientFragment : Fragment(R.layout.fragment_select_client) {
         super.onViewCreated(view, savedInstanceState)
         binding = FragmentSelectClientBinding.bind(view)
 
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
+            v.updatePadding(top = bars.top, bottom = bars.bottom)
+            insets
+        }
+
         setupUI()
         observeState()
 
-        // Compat con flujo antiguo (si entra con ARG_ROUTE_ID)
+        // La ruta ya se eligió en la pantalla de selección de ruta (03):
+        // ocultamos el dropdown de ruta para no duplicar el paso.
         arguments?.getString(ARG_ROUTE_ID)?.let { routeIdArg ->
             viewModel.ensureRouteSelected(routeIdArg)
+            binding?.routeDropdownLayout?.visibility = View.GONE
         }
 
         renderNoRouteSelectedState()
@@ -72,7 +83,7 @@ class SelectClientFragment : Fragment(R.layout.fragment_select_client) {
         }
 
         binding?.apply {
-            toolbar.setNavigationOnClickListener {
+            btnBack.setOnClickListener {
                 parentFragmentManager.popBackStack()
             }
 

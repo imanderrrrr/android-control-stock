@@ -9,6 +9,9 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.core.widget.doAfterTextChanged
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
@@ -41,12 +44,18 @@ class InventoryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
         val progress = view.findViewById<ProgressBar>(R.id.inventoryProgress)
         val empty = view.findViewById<TextView>(R.id.inventoryEmpty)
         val recycler = view.findViewById<RecyclerView>(R.id.inventoryRecycler)
+        val inventoryCount = view.findViewById<TextView>(R.id.inventoryCount)
 
-        val searchEditText = view.findViewById<TextInputEditText>(R.id.searchEditText)
-        val newProductButton = view.findViewById<MaterialButton>(R.id.newProductButton)
+        val searchEditText = view.findViewById<android.widget.EditText>(R.id.searchEditText)
+        val newProductButton = view.findViewById<View>(R.id.newProductButton)
 
         // UI -> ViewModel: el Fragment NO filtra listas, solo envía el query.
         searchEditText.doAfterTextChanged { text ->
@@ -118,22 +127,22 @@ class InventoryFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // 1a. Datos paginados → ÚNICA fuente de submitData (búsqueda).
                 launch {
-                    viewModel.products.collectLatest { pagingData ->
-                        adapter.submitData(pagingData)
+                    viewModel.productCount.collect { count ->
+                        inventoryCount.text = if (count != null) "$count productos" else "Gestiona tus productos"
                     }
                 }
 
-                // 1b. Estados de sincronización → canal separado.
-                //     submitSyncStatuses hace notifyItemChanged puntual con
-                //     PAYLOAD_SYNC; nunca re-dispara submitData. Esto elimina la
-                //     race "Inconsistency detected. Invalid view holder adapter
-                //     position" que crasheaba el inventoryRecycler cuando el sync
-                //     de productos emitía estados a mitad del layout pass.
+                // 1. Datos paginados → ÚNICA fuente de submitData.
+                //    El estado de sync ya viaja fusionado en cada ProductUiModel
+                //    (ver InventoryViewModel.products), así que no hay un segundo
+                //    canal con notifyItemChanged manual compitiendo con el differ.
+                //    Eso elimina la race "Inconsistency detected. Invalid view
+                //    holder adapter position" que crasheaba el inventoryRecycler
+                //    cuando un sync invalidaba la tabla products a mitad del refresh.
                 launch {
-                    viewModel.syncStatuses.collect { statuses ->
-                        adapter.submitSyncStatuses(statuses)
+                    viewModel.products.collectLatest { pagingData ->
+                        adapter.submitData(pagingData)
                     }
                 }
 

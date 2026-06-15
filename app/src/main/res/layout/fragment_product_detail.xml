@@ -1,51 +1,73 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- DETALLE DE PRODUCTO (inventario) — rediseño "Bosque Pro".
+     Conserva ids que usa ProductDetailFragment: progress, errorText, productImage, productName,
+     chipStatus, chipSync, tvPriceValue, tvStockValue, itemDescription/Category/Barcode/Unit.
+     (Inset superior se aplica por código.) -->
 <androidx.core.widget.NestedScrollView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    android:background="@color/bg_page"
     android:fillViewport="true">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="28dp">
+
+        <ImageView
+            android:id="@+id/btnBack"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginTop="8dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Volver"
+            android:padding="8dp"
+            android:src="@drawable/ic_arrow_back"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:tint="@color/text_primary" />
 
         <ProgressBar
             android:id="@+id/progress"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            app:layout_constraintTop_toTopOf="parent"
+            android:indeterminateTint="@color/brand_accent"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent" />
+            app:layout_constraintTop_toTopOf="parent" />
 
         <TextView
             android:id="@+id/errorText"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
+            android:layout_marginTop="24dp"
+            android:fontFamily="sans-serif"
+            android:textColor="@color/danger_text"
+            android:textSize="14sp"
             android:visibility="gone"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
-            android:textColor="@color/login_error"
-            app:layout_constraintTop_toBottomOf="@id/progress"
-            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            tools:text="Error cargando producto" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/btnBack"
+            tools:text="Producto no encontrado" />
 
-        <!-- Image Card -->
+        <!-- Imagen -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/imageCard"
             android:layout_width="0dp"
-            android:layout_height="240dp"
-            android:layout_marginTop="12dp"
+            android:layout_height="260dp"
+            android:layout_marginTop="8dp"
+            app:cardBackgroundColor="@color/bg_muted"
             app:cardCornerRadius="20dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="?attr/colorSurface"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOnSurface"
-            app:layout_constraintTop_toBottomOf="@id/errorText"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintTop_toBottomOf="@id/btnBack"
+            app:strokeColor="@color/border_subtle"
+            app:strokeWidth="1dp">
 
             <ImageView
                 android:id="@+id/productImage"
@@ -54,42 +76,45 @@
                 android:contentDescription="@string/product_image"
                 android:scaleType="centerCrop"
                 tools:src="@drawable/ic_image_placeholder" />
-
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Product Title -->
         <TextView
             android:id="@+id/productName"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="16dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Headline6"
-            android:textColor="?attr/colorOnSurface"
+            android:fontFamily="sans-serif"
+            android:letterSpacing="-0.02"
+            android:textColor="@color/text_primary"
+            android:textSize="22sp"
             android:textStyle="bold"
-            app:layout_constraintTop_toBottomOf="@id/imageCard"
-            app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            tools:text="Coca Cola 2L" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/imageCard"
+            tools:text="Gaseosa Cola 2L" />
 
-        <!-- Badges -->
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/chipGroupBadges"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            app:singleLine="false"
+            android:layout_marginTop="10dp"
             app:chipSpacingHorizontal="8dp"
-            app:chipSpacingVertical="8dp"
-            app:layout_constraintTop_toBottomOf="@id/productName"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintTop_toBottomOf="@id/productName"
+            app:singleLine="true">
 
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipStatus"
                 style="@style/Widget.MaterialComponents.Chip.Action"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="?attr/colorOnSurface"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/brand_soft_text"
+                android:textSize="12sp"
+                app:chipBackgroundColor="@color/brand_soft"
+                app:chipStrokeWidth="0dp"
+                app:chipMinHeight="30dp"
                 tools:text="Activo" />
 
             <com.google.android.material.chip.Chip
@@ -97,90 +122,101 @@
                 style="@style/Widget.MaterialComponents.Chip.Action"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:textColor="?attr/colorOnSurface"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/info_text"
+                android:textSize="12sp"
+                app:chipBackgroundColor="@color/info_bg"
+                app:chipStrokeWidth="0dp"
+                app:chipMinHeight="30dp"
                 tools:text="Sincronizado" />
-
         </com.google.android.material.chip.ChipGroup>
 
-        <!-- Summary Card -->
+        <!-- Resumen -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardSummary"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
+            android:layout_marginTop="18dp"
+            app:cardBackgroundColor="@color/bg_card"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="?attr/colorSurface"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOnSurface"
-            app:layout_constraintTop_toBottomOf="@id/chipGroupBadges"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintTop_toBottomOf="@id/chipGroupBadges"
+            app:strokeColor="@color/border_subtle"
+            app:strokeWidth="1dp">
 
             <androidx.constraintlayout.widget.ConstraintLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:padding="16dp">
+                android:padding="18dp">
 
                 <TextView
                     android:id="@+id/tvSummaryTitle"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:letterSpacing="0.12"
                     android:text="@string/section_summary"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textColor="?attr/colorOnSurface"
-                    app:layout_constraintTop_toTopOf="parent"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="10sp"
+                    android:textStyle="bold"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toStartOf="parent"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintTop_toTopOf="parent" />
 
                 <TextView
                     android:id="@+id/tvPriceLabel"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="14dp"
+                    android:fontFamily="sans-serif"
                     android:text="@string/label_price"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-                    android:textColor="?attr/colorOnSurface"
-                    app:layout_constraintTop_toBottomOf="@id/tvSummaryTitle"
-                    app:layout_constraintStart_toStartOf="parent"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
                     app:layout_constraintEnd_toStartOf="@id/guideline"
-                    app:layout_constraintHorizontal_chainStyle="spread" />
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvSummaryTitle" />
 
                 <TextView
                     android:id="@+id/tvPriceValue"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
-                    android:textColor="?attr/colorOnSurface"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="sans-serif"
+                    android:textColor="@color/text_primary"
+                    android:textSize="22sp"
                     android:textStyle="bold"
-                    app:layout_constraintTop_toBottomOf="@id/tvPriceLabel"
-                    app:layout_constraintStart_toStartOf="parent"
                     app:layout_constraintEnd_toStartOf="@id/guideline"
-                    tools:text="Q 12.50" />
+                    app:layout_constraintStart_toStartOf="parent"
+                    app:layout_constraintTop_toBottomOf="@id/tvPriceLabel"
+                    tools:text="Q12.50" />
 
                 <TextView
                     android:id="@+id/tvStockLabel"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
                     android:text="@string/label_stock"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-                    android:textColor="?attr/colorOnSurface"
-                    app:layout_constraintTop_toTopOf="@id/tvPriceLabel"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp"
+                    app:layout_constraintEnd_toEndOf="parent"
                     app:layout_constraintStart_toEndOf="@id/guideline"
-                    app:layout_constraintEnd_toEndOf="parent" />
+                    app:layout_constraintTop_toTopOf="@id/tvPriceLabel" />
 
                 <TextView
                     android:id="@+id/tvStockValue"
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Headline5"
-                    android:textColor="?attr/colorOnSurface"
+                    android:layout_marginTop="2dp"
+                    android:fontFamily="sans-serif"
+                    android:textColor="@color/text_primary"
+                    android:textSize="22sp"
                     android:textStyle="bold"
-                    app:layout_constraintTop_toBottomOf="@id/tvStockLabel"
-                    app:layout_constraintStart_toEndOf="@id/guideline"
                     app:layout_constraintEnd_toEndOf="parent"
+                    app:layout_constraintStart_toEndOf="@id/guideline"
+                    app:layout_constraintTop_toBottomOf="@id/tvStockLabel"
                     tools:text="48" />
 
                 <androidx.constraintlayout.widget.Guideline
@@ -189,74 +225,69 @@
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
                     app:layout_constraintGuide_percent="0.5" />
-
             </androidx.constraintlayout.widget.ConstraintLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Details Card -->
+        <!-- Detalles -->
         <com.google.android.material.card.MaterialCardView
             android:id="@+id/cardDetails"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginTop="12dp"
+            app:cardBackgroundColor="@color/bg_card"
             app:cardCornerRadius="16dp"
             app:cardElevation="0dp"
-            app:cardBackgroundColor="?attr/colorSurface"
-            app:strokeWidth="1dp"
-            app:strokeColor="?attr/colorOnSurface"
-            app:layout_constraintTop_toBottomOf="@id/cardSummary"
+            app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent">
+            app:layout_constraintTop_toBottomOf="@id/cardSummary"
+            app:strokeColor="@color/border_subtle"
+            app:strokeWidth="1dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
-                android:padding="16dp">
+                android:padding="18dp">
 
                 <TextView
                     android:id="@+id/tvDetailsTitle"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp"
+                    android:fontFamily="sans-serif"
+                    android:letterSpacing="0.12"
                     android:text="@string/section_details"
-                    android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle1"
-                    android:textColor="?attr/colorOnSurface" />
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
 
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
-                    android:orientation="vertical">
+                <include
+                    android:id="@+id/itemDescription"
+                    layout="@layout/view_label_value" />
 
-                    <include
-                        android:id="@+id/itemDescription"
-                        layout="@layout/view_label_value" />
+                <include
+                    android:id="@+id/itemCategory"
+                    layout="@layout/view_label_value" />
 
-                    <include
-                        android:id="@+id/itemCategory"
-                        layout="@layout/view_label_value" />
+                <include
+                    android:id="@+id/itemBarcode"
+                    layout="@layout/view_label_value" />
 
-                    <include
-                        android:id="@+id/itemBarcode"
-                        layout="@layout/view_label_value" />
-
-                    <include
-                        android:id="@+id/itemUnit"
-                        layout="@layout/view_label_value" />
-
-                </LinearLayout>
-
+                <include
+                    android:id="@+id/itemUnit"
+                    layout="@layout/view_label_value" />
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
         <Space
             android:id="@+id/bottomSpacer"
             android:layout_width="0dp"
-            android:layout_height="24dp"
-            app:layout_constraintTop_toBottomOf="@id/cardDetails"
-            app:layout_constraintStart_toStartOf="parent"
+            android:layout_height="8dp"
+            app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/cardDetails" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 </androidx.core.widget.NestedScrollView>

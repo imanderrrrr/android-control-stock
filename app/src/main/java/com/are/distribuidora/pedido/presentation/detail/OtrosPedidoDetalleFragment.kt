@@ -54,6 +54,7 @@ class OtrosPedidoDetalleFragment : Fragment(R.layout.fragment_otros_pedido_detal
             when (mi.itemId) {
                 R.id.action_edit_otros -> {
                     requireActivity().supportFragmentManager.beginTransaction()
+                        .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
                         .replace(
                             R.id.fragmentContainer,
                             EditOtrosPedidoFragment.newInstance(orderId = orderId, clientName = clientName),

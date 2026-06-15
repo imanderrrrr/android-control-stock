@@ -149,6 +149,7 @@ class EditPedidoFragment : Fragment(R.layout.fragment_edit_pedido) {
 
     private fun openCatalog() {
         requireActivity().supportFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
             .replace(R.id.fragmentContainer, EditPedidoCatalogFragment(), TAG_CATALOG)
             .addToBackStack(TAG_CATALOG)
             .commit()

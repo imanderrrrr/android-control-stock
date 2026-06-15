@@ -65,7 +65,8 @@
 
         <activity
             android:name=".presentation.app.LauncherActivity"
-            android:exported="true">
+            android:exported="true"
+            android:theme="@style/Theme.Distribuidora.Splash">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 

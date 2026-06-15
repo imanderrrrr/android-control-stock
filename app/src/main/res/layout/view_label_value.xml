@@ -1,23 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Fila etiqueta/valor — rediseño "Bosque Pro". Conserva ids tvLabel / tvValue. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:orientation="vertical"
-    android:layout_marginBottom="12dp">
+    android:layout_marginBottom="14dp"
+    android:orientation="vertical">
 
     <TextView
         android:id="@+id/tvLabel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-        android:textColor="?attr/colorOnSurface" />
+        android:fontFamily="sans-serif"
+        android:textColor="@color/text_tertiary"
+        android:textSize="11sp" />
 
     <TextView
         android:id="@+id/tvValue"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:textAppearance="@style/TextAppearance.MaterialComponents.Body1"
-        android:textColor="?attr/colorOnSurface" />
+        android:layout_marginTop="2dp"
+        android:fontFamily="sans-serif"
+        android:textColor="@color/text_primary"
+        android:textSize="14sp" />
 
 </LinearLayout>

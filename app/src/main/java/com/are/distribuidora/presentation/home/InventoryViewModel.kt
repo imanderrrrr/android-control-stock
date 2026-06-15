@@ -4,11 +4,15 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.paging.PagingData
 import androidx.paging.cachedIn
-import com.are.distribuidora.domain.core.SyncState
+import androidx.paging.map
 import com.are.distribuidora.domain.model.Product
+import com.are.distribuidora.domain.product.GetProductCountUseCase
 import com.are.distribuidora.domain.product.ObserveProductSyncStatusesUseCase
 import com.are.distribuidora.domain.product.ObserveProductsUseCase
 import com.are.distribuidora.domain.sale.SellProductUseCase
+import com.are.distribuidora.presentation.home.mapper.toUiModel
+import com.are.distribuidora.presentation.home.model.ProductUiModel
+import com.are.distribuidora.workers.ProductSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -19,6 +23,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.launch
@@ -39,30 +44,44 @@ sealed interface InventoryEvent {
 @HiltViewModel
 class InventoryViewModel @Inject constructor(
     private val observeProductsUseCase: ObserveProductsUseCase,
+    private val getProductCountUseCase: GetProductCountUseCase,
     observeProductSyncStatusesUseCase: ObserveProductSyncStatusesUseCase,
     private val sellProductUseCase: SellProductUseCase,
     private val deleteProductUseCase: com.are.distribuidora.domain.product.DeleteProductUseCase,
+    private val productSyncScheduler: ProductSyncScheduler,
 ) : ViewModel() {
+
+    init {
+        // Carga proactiva del catálogo al abrir Inventario.
+        //
+        // La descarga de productos (downstream) NO estaba acoplada a la apertura
+        // de la pantalla: sólo corría con el worker periódico (6h) o cuando el
+        // ProductSyncCoordinator detectaba cambios locales PENDIENTES de subir
+        // (exige countPending > 0). En un dispositivo recién instalado —sin
+        // productos ni pendientes— nada disparaba la PRIMERA descarga, y el
+        // inventario quedaba vacío hasta que el usuario creaba/editaba un producto
+        // (lo que daba un pendiente y, de rebote, traía todo el catálogo).
+        //
+        // Encolamos un sync puntual al entrar para bajar el catálogo de Firestore
+        // de inmediato. Seguro de repetir en cada apertura: el worker valida
+        // red/sesión, corre con mutex (descarta si ya hay uno activo) y deduplica
+        // por uniqueName (REPLACE).
+        productSyncScheduler.scheduleOneTimeNow("INVENTORY_OPEN")
+    }
 
     // Query de búsqueda
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     /**
-     * Stream paginado de productos (dominio puro).
+     * Stream paginado base (dominio puro), cacheado en el scope del ViewModel.
      *
-     * ÚNICA fuente de `submitData()` en la UI. El estado de sincronización NO
-     * viaja dentro del PagingData: llega por [syncStatuses], un canal separado
-     * que el adapter aplica con `notifyItemChanged` puntual.
-     *
-     * Esto evita la race "Inconsistency detected. Invalid view holder adapter
-     * position" del RecyclerView, que ocurría cuando un segundo flujo (los
-     * estados de sync) re-disparaba `submitData` a mitad del layout pass — el
-     * mismo bug ya corregido en OrderCatalog (commit 500e7bb), portado aquí.
-     *
-     * `cachedIn` preserva la generación del Pager de Room entre recreaciones de vista.
+     * `cachedIn` va ANTES del `combine` de [products] a propósito: así las
+     * emisiones del flujo de estados de sync re-mapean las páginas YA cargadas
+     * sin volver a consultar el PagingSource ni recrear la generación del Pager
+     * (y preserva la posición de scroll entre recreaciones de vista).
      */
-    val products: Flow<PagingData<Product>> = _searchQuery
+    private val pagedProducts: Flow<PagingData<Product>> = _searchQuery
         .debounce(300)
         .flatMapLatest { query ->
             observeProductsUseCase(query)
@@ -70,16 +89,46 @@ class InventoryViewModel @Inject constructor(
         .cachedIn(viewModelScope)
 
     /**
-     * Estados de sincronización por productId (canal lateral, fuera del PagingData).
-     * El adapter los aplica vía `submitSyncStatuses()` sin re-disparar `submitData`.
+     * ÚNICA fuente de `submitData()` de la UI: el producto paginado YA lleva su
+     * estado de sincronización fusionado vía [combine] + [PagingData.map].
+     *
+     * Antes el estado de sync viajaba por un canal lateral que hacía
+     * `notifyItemChanged` manual sobre el PagingDataAdapter. Como el PagingSource
+     * de productos y el flujo de sync observan la MISMA tabla `products`, cada
+     * sincronización los invalidaba a la vez: el `submitData` (refresh
+     * estructural del differ) y el `notifyItemChanged` manual corrían
+     * concurrentes y corrompían el bookkeeping del RecyclerView →
+     * "Inconsistency detected. Invalid view holder adapter position".
+     *
+     * Al fusionar el sync DENTRO del único stream paginado, el differ gestiona
+     * todo por un solo canal y la race desaparece. Los cambios de solo-sync se
+     * aplican como bind parcial (PAYLOAD_SYNC) vía `getChangePayload` del
+     * DiffUtil del adapter, sin recargar la imagen.
+     *
+     * (En OrderCatalog el canal lateral SÍ es seguro porque lo dispara el
+     * usuario —cantidades del carrito— y nunca coincide con un sync.)
      */
-    val syncStatuses: Flow<Map<String, SyncState>> = observeProductSyncStatusesUseCase()
+    val products: Flow<PagingData<ProductUiModel>> = combine(
+        pagedProducts,
+        observeProductSyncStatusesUseCase(),
+    ) { paging, statuses ->
+        paging.map { product -> product.toUiModel(statuses[product.id.value]) }
+    }
 
     // UI State para otros estados (si fuera necesario)
     // Por ahora Paging se maneja con 'products.collectAsLazyPagingItems()' en UI
 
     private val _events = MutableSharedFlow<InventoryEvent>()
     val events = _events.asSharedFlow()
+
+    private val _productCount = MutableStateFlow<Int?>(null)
+    val productCount: StateFlow<Int?> = _productCount.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _productCount.value = runCatching { getProductCountUseCase() }.getOrNull()
+        }
+    }
 
     /**
      * Acción (placeholder) para ejecutar una venta desde UI.
