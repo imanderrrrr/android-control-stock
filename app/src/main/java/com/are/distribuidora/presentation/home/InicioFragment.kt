@@ -133,7 +133,7 @@ class InicioFragment : Fragment(R.layout.fragment_inicio) {
         card.visibility = View.VISIBLE
         initials.text = c.initials
         name.text = c.name
-        address.text = c.address
+        address.text = c.saldoText?.let { "${c.address} · $it" } ?: c.address
         badge.visibility = if (c.debe) View.VISIBLE else View.GONE
     }
 

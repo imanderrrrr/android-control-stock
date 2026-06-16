@@ -4,8 +4,8 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.are.distribuidora.auth.domain.usecase.ObserveSessionUseCase
 import com.are.distribuidora.client.domain.usecase.ObserveClientsByRouteUseCase
-import com.are.distribuidora.data.local.dao.PendingAccountDao
 import com.are.distribuidora.domain.pedido.usecase.ObserveAllPedidosUseCase
+import com.are.distribuidora.pendingaccount.domain.usecase.ObserveClientDebtsUseCase
 import com.are.distribuidora.domain.product.GetProductCountUseCase
 import com.are.distribuidora.route.data.local.ActiveRouteStore
 import com.are.distribuidora.route.domain.model.Route
@@ -40,7 +40,7 @@ class InicioViewModel @Inject constructor(
     private val observeClientsByRouteUseCase: ObserveClientsByRouteUseCase,
     private val observeAllPedidosUseCase: ObserveAllPedidosUseCase,
     private val getProductCountUseCase: GetProductCountUseCase,
-    private val pendingAccountDao: PendingAccountDao,
+    private val observeClientDebtsUseCase: ObserveClientDebtsUseCase,
     private val activeRouteStore: ActiveRouteStore,
 ) : ViewModel() {
 
@@ -49,6 +49,7 @@ class InicioViewModel @Inject constructor(
         val name: String,
         val address: String,
         val debe: Boolean,
+        val saldoText: String? = null,
     )
 
     data class UiState(
@@ -92,10 +93,9 @@ class InicioViewModel @Inject constructor(
 
         return combine(
             observeClientsByRouteUseCase(route.id),
-            pendingAccountDao.observeAllActive(System.currentTimeMillis()),
+            observeClientDebtsUseCase(),
             observeAllPedidosUseCase(today),
-        ) { clients, pending, pedidosHoy ->
-            val debtorIds = pending.map { it.clientId }.toHashSet()
+        ) { clients, debts, pedidosHoy ->
             val attendedIds = pedidosHoy.asSequence()
                 .map { it.pedido }
                 .filter { it.routeId == route.id }
@@ -114,11 +114,13 @@ class InicioViewModel @Inject constructor(
                 atendidosHoy = atendidos,
                 progressPct = pct,
                 proximos = clients.take(2).map { c ->
+                    val debt = debts[c.id]
                     ProximoCliente(
                         initials = initialsOf(c.name),
                         name = c.name,
                         address = c.address?.takeIf { it.isNotBlank() } ?: "Sin dirección",
-                        debe = c.id in debtorIds,
+                        debe = debt != null,
+                        saldoText = debt?.let { "Saldo ${it.formattedTotal}" },
                     )
                 },
             )

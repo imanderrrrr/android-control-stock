@@ -3,8 +3,12 @@ package com.are.distribuidora.client.presentation.mapper
 import com.are.distribuidora.client.domain.model.Client
 import com.are.distribuidora.client.presentation.model.ClientUiModel
 import com.are.distribuidora.domain.core.SyncState
+import com.are.distribuidora.pendingaccount.domain.model.ClientDebt
 
-fun Client.toUiModel(): ClientUiModel {
+fun Client.toUiModel(
+    debt: ClientDebt? = null,
+    attended: Boolean = false,
+): ClientUiModel {
     val syncIndicatorText = when (syncState) {
         SyncState.SYNCED   -> "🟢 Sincronizado"
         SyncState.SYNCING  -> "🟡 Sincronizando"
@@ -28,5 +32,9 @@ fun Client.toUiModel(): ClientUiModel {
         syncState = syncState,
         syncIndicatorText = syncIndicatorText,
         activeIndicatorText = activeIndicatorText,
+        debtCents = debt?.totalCents,
+        debtText = debt?.let { "DEBE ${it.formattedTotal}" },
+        debtOverdue = debt?.hasOverdue ?: false,
+        attended = attended,
     )
 }

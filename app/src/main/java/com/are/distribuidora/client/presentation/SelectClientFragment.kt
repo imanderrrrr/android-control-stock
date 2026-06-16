@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.view.View
 import android.widget.ArrayAdapter
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.widget.doAfterTextChanged
 import androidx.core.view.ViewCompat
@@ -118,7 +119,41 @@ class SelectClientFragment : Fragment(R.layout.fragment_select_client) {
                 if (viewModel.selectedRouteId.value.isNullOrBlank()) return@setOnClickListener
                 showTemporaryClientDialog()
             }
+
+            chipMiRuta.setOnClickListener { viewModel.onFilterSelected(ClientFilter.MI_RUTA) }
+            chipPendientes.setOnClickListener { viewModel.onFilterSelected(ClientFilter.PENDIENTES) }
+            chipConSaldo.setOnClickListener { viewModel.onFilterSelected(ClientFilter.CON_SALDO) }
         }
+    }
+
+    /** Pinta el chip activo y refresca etiquetas (con conteo), la sección y el badge SIGUIENTE. */
+    private fun syncChipsAndSection() {
+        val b = binding ?: return
+        val f = viewModel.filter.value
+        val counts = viewModel.chipCounts.value
+        val q = viewModel.searchQuery.value
+
+        styleChip(b.chipMiRuta, "Mi ruta · ${counts.miRuta}", f == ClientFilter.MI_RUTA)
+        styleChip(b.chipPendientes, "Pendientes · ${counts.pendientes}", f == ClientFilter.PENDIENTES)
+        styleChip(b.chipConSaldo, "Con saldo · ${counts.conSaldo}", f == ClientFilter.CON_SALDO)
+
+        b.sectionLabel.text = when {
+            q.isNotBlank() -> "RESULTADOS"
+            f == ClientFilter.PENDIENTES -> "PENDIENTES DE ATENDER"
+            f == ClientFilter.CON_SALDO -> "CON SALDO"
+            else -> "PRÓXIMOS EN LA RUTA"
+        }
+
+        (b.recyclerView.adapter as? SelectClientAdapter)?.showSiguiente =
+            (f == ClientFilter.MI_RUTA && q.isBlank())
+    }
+
+    private fun styleChip(chip: TextView, label: String, isActive: Boolean) {
+        chip.text = label
+        val bg = if (isActive) R.color.brand_primary else R.color.bg_muted
+        val fg = if (isActive) R.color.text_on_inverse else R.color.text_secondary
+        chip.backgroundTintList = ContextCompat.getColorStateList(requireContext(), bg)
+        chip.setTextColor(ContextCompat.getColor(requireContext(), fg))
     }
 
     private fun showTemporaryClientDialog() {
@@ -234,8 +269,12 @@ class SelectClientFragment : Fragment(R.layout.fragment_select_client) {
                             binding.searchInput.setText(query)
                             binding.searchInput.setSelection(query.length)
                         }
+                        syncChipsAndSection()
                     }
                 }
+
+                launch { viewModel.filter.collect { syncChipsAndSection() } }
+                launch { viewModel.chipCounts.collect { syncChipsAndSection() } }
 
                 launch {
                     viewModel.uiState.collect { state ->
@@ -306,6 +345,8 @@ class SelectClientFragment : Fragment(R.layout.fragment_select_client) {
         val binding = binding ?: return
         binding.searchInput.isEnabled = false
         binding.btnTemporal.visibility = View.GONE
+        binding.chipsRow.visibility = View.GONE
+        binding.sectionLabel.visibility = View.GONE
         binding.recyclerView.visibility = View.GONE
         binding.progressBar.visibility = View.GONE
         binding.emptyState.visibility = View.VISIBLE
@@ -316,6 +357,8 @@ class SelectClientFragment : Fragment(R.layout.fragment_select_client) {
         val binding = binding ?: return
         binding.searchInput.isEnabled = true
         binding.btnTemporal.visibility = View.VISIBLE
+        binding.chipsRow.visibility = View.VISIBLE
+        binding.sectionLabel.visibility = View.VISIBLE
         // la lista/loader los controla uiState
         binding.emptyState.visibility = View.GONE
     }

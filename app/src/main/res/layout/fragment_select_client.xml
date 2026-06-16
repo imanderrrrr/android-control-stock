@@ -1,10 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- SELECCIONAR CLIENTE — rediseño "Bosque Pro" (paso de crear pedido tras elegir ruta).
-     Conserva los ids que usa SelectClientFragment/ViewBinding:
-     routeDropdownLayout, routeDropdown (ocultos), searchInput, recyclerView, btnTemporal, progressBar, emptyState.
-     El MaterialToolbar se reemplazó por un header (btnBack + título + subtítulo). -->
+<!-- SELECCIONAR CLIENTE — Pencil 05 "¿Para qué cliente?".
+     Eyebrow "Nuevo pedido" + título + búsqueda + chips (Mi ruta / Pendientes / Con saldo) +
+     sección "PRÓXIMOS EN LA RUTA" + lista con deuda. Conserva ids del binding:
+     btnBack, routeDropdownLayout, routeDropdown (ocultos), searchInput, recyclerView,
+     progressBar, emptyState, btnTemporal. Nuevos: chipMiRuta/chipPendientes/chipConSaldo, sectionLabel. -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/bg_page"
@@ -19,37 +21,61 @@
         android:contentDescription="Volver"
         android:padding="8dp"
         android:src="@drawable/ic_arrow_back"
-        app:tint="@color/text_primary"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/text_primary" />
+
+    <!-- Eyebrow: cajita + "Nuevo pedido" -->
+    <LinearLayout
+        android:id="@+id/eyebrowRow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btnBack">
+
+        <FrameLayout
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:background="@drawable/bg_pill"
+            android:backgroundTint="@color/brand_primary">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_brand_box"
+                app:tint="@color/text_on_inverse" />
+        </FrameLayout>
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:fontFamily="sans-serif-medium"
+            android:text="Nuevo pedido"
+            android:textColor="@color/text_primary"
+            android:textSize="15sp" />
+    </LinearLayout>
 
     <TextView
         android:id="@+id/headerTitle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="12dp"
+        android:layout_marginTop="14dp"
         android:fontFamily="sans-serif"
         android:letterSpacing="-0.02"
-        android:text="Selecciona el cliente"
+        android:text="¿Para qué cliente?"
         android:textColor="@color/text_primary"
-        android:textSize="24sp"
+        android:textSize="26sp"
         android:textStyle="bold"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/btnBack" />
+        app:layout_constraintTop_toBottomOf="@id/eyebrowRow" />
 
-    <TextView
-        android:id="@+id/headerSubtitle"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="4dp"
-        android:fontFamily="sans-serif"
-        android:text="Toca un cliente para continuar"
-        android:textColor="@color/text_secondary"
-        android:textSize="13sp"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/headerTitle" />
-
-    <!-- Dropdown de ruta: oculto (la ruta se elige en la pantalla 03). Conservado por compatibilidad de binding. -->
+    <!-- Dropdown de ruta: oculto (la ruta se elige en 03). Conservado por compat de binding. -->
     <com.google.android.material.textfield.TextInputLayout
         android:id="@+id/routeDropdownLayout"
         style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox.ExposedDropdownMenu"
@@ -59,7 +85,7 @@
         android:visibility="gone"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/headerSubtitle">
+        app:layout_constraintTop_toBottomOf="@id/headerTitle">
 
         <AutoCompleteTextView
             android:id="@+id/routeDropdown"
@@ -83,11 +109,11 @@
         android:layout_height="wrap_content"
         android:layout_marginTop="18dp"
         app:cardBackgroundColor="@color/bg_card"
-        app:cardCornerRadius="12dp"
+        app:cardCornerRadius="14dp"
         app:cardElevation="0dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/headerSubtitle"
+        app:layout_constraintTop_toBottomOf="@id/headerTitle"
         app:strokeColor="@color/border_subtle"
         app:strokeWidth="1dp">
 
@@ -113,30 +139,97 @@
                 android:layout_weight="1"
                 android:background="@null"
                 android:fontFamily="sans-serif"
-                android:hint="Buscar cliente…"
+                android:hint="Buscar tienda, nombre o NIT…"
                 android:inputType="text"
                 android:maxLines="1"
-                android:minHeight="48dp"
+                android:minHeight="50dp"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_tertiary"
                 android:textSize="14sp" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
+    <!-- Chips de filtro -->
+    <LinearLayout
+        android:id="@+id/chipsRow"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="14dp"
+        android:orientation="horizontal"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/searchCard">
+
+        <TextView
+            android:id="@+id/chipMiRuta"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_pill"
+            android:backgroundTint="@color/brand_primary"
+            android:fontFamily="sans-serif-medium"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="9dp"
+            android:text="Mi ruta"
+            android:textColor="@color/text_on_inverse"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/chipPendientes"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginEnd="8dp"
+            android:background="@drawable/bg_pill"
+            android:backgroundTint="@color/bg_muted"
+            android:fontFamily="sans-serif-medium"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="9dp"
+            android:text="Pendientes"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+
+        <TextView
+            android:id="@+id/chipConSaldo"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:background="@drawable/bg_pill"
+            android:backgroundTint="@color/bg_muted"
+            android:fontFamily="sans-serif-medium"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="9dp"
+            android:text="Con saldo"
+            android:textColor="@color/text_secondary"
+            android:textSize="13sp" />
+    </LinearLayout>
+
+    <TextView
+        android:id="@+id/sectionLabel"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="18dp"
+        android:fontFamily="sans-serif"
+        android:letterSpacing="0.08"
+        android:text="PRÓXIMOS EN LA RUTA"
+        android:textAllCaps="true"
+        android:textColor="@color/text_tertiary"
+        android:textSize="11sp"
+        android:textStyle="bold"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/chipsRow" />
+
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="14dp"
+        android:layout_marginTop="10dp"
         android:clipToPadding="false"
         android:layoutAnimation="@anim/layout_anim_fall_down"
         android:paddingBottom="8dp"
         app:layout_constraintBottom_toTopOf="@id/btnTemporal"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/searchCard"
-        tools:listitem="@layout/item_select_client_bosque"
-        xmlns:tools="http://schemas.android.com/tools" />
+        app:layout_constraintTop_toBottomOf="@id/sectionLabel"
+        tools:listitem="@layout/item_select_client_bosque" />
 
     <ProgressBar
         android:id="@+id/progressBar"
@@ -169,8 +262,10 @@
         android:layout_width="0dp"
         android:layout_height="54dp"
         android:layout_marginBottom="16dp"
-        android:text="Seleccionar cliente temporal"
+        android:text="Cliente temporal"
         app:cornerRadius="14dp"
+        app:icon="@drawable/ic_add"
+        app:iconGravity="textStart"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />
