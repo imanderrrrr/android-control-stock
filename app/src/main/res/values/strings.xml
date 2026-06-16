@@ -336,4 +336,103 @@
     <string name="pending_error_amount">Ingresa un monto válido</string>
     <string name="pending_error_date">Selecciona una fecha de pago</string>
     <string name="pending_route_label">Ruta: %1$s</string>
+
+    <!-- ===== Cuentas por cobrar (rediseño Bosque Pro) ===== -->
+    <string name="cxc_title">Cuentas por cobrar</string>
+    <string name="cxc_eyebrow">CLIENTES</string>
+    <string name="cxc_entry_title">Cuentas por cobrar</string>
+    <string name="cxc_entry_subtitle">Lo que tus clientes te deben</string>
+    <string name="cxc_total_label">TOTAL POR COBRAR</string>
+    <string name="cxc_summary_count">%1$d cuentas pendientes</string>
+    <string name="cxc_summary_count_one">1 cuenta pendiente</string>
+    <string name="cxc_summary_zero">Sin cuentas pendientes</string>
+    <string name="cxc_overdue_pill">%1$d vencidas</string>
+    <string name="cxc_overdue_pill_one">1 vencida</string>
+    <string name="cxc_chip_all">Todas · %1$d</string>
+    <string name="cxc_chip_overdue">Vencidas · %1$d</string>
+    <string name="cxc_chip_upcoming">Por vencer · %1$d</string>
+    <string name="cxc_section_pending">PENDIENTES</string>
+    <string name="cxc_view_activity">Ver actividad</string>
+    <string name="cxc_empty_title">Sin cuentas por cobrar</string>
+    <string name="cxc_empty_subtitle">Toca + para registrar lo que un cliente te debe.</string>
+    <string name="cxc_empty_filter">No hay cuentas en este filtro.</string>
+    <string name="cxc_debe_label">DEBE</string>
+    <string name="cxc_overdue_banner">VENCIDA · %1$s</string>
+    <string name="cxc_overdue_days_one">HACE 1 DÍA</string>
+    <string name="cxc_overdue_days">HACE %1$d DÍAS</string>
+    <string name="cxc_due_overdue">Venció el %1$s</string>
+    <string name="cxc_due_today">Vence hoy</string>
+    <string name="cxc_due_soon">Vence en %1$d días · %2$s</string>
+    <string name="cxc_due_soon_one">Vence mañana · %1$s</string>
+    <string name="cxc_due_normal">Vence el %1$s</string>
+    <string name="cxc_status_overdue">VENCIDA</string>
+    <string name="cxc_thumb_desc">Foto de factura</string>
+    <string name="cxc_back_desc">Volver</string>
+    <string name="cxc_add_desc">Nueva cuenta</string>
+
+    <!-- Formulario -->
+    <string name="cxc_form_title_new">Nueva cuenta por cobrar</string>
+    <string name="cxc_form_title_edit">Editar cuenta</string>
+    <string name="cxc_form_route">RUTA</string>
+    <string name="cxc_form_client">CLIENTE</string>
+    <string name="cxc_form_amount">MONTO QUE DEBE</string>
+    <string name="cxc_form_due">FECHA LÍMITE DE PAGO</string>
+    <string name="cxc_form_photo">FOTO DE FACTURA (OPCIONAL)</string>
+    <string name="cxc_form_notes">NOTAS (OPCIONAL)</string>
+    <string name="cxc_form_select_route">Selecciona una ruta</string>
+    <string name="cxc_form_select_client">Selecciona un cliente</string>
+    <string name="cxc_form_select_client_first">Elige una ruta primero</string>
+    <string name="cxc_form_due_hint">Elegir fecha</string>
+    <string name="cxc_form_notes_hint">Ej. Pago parcial acordado para el viernes</string>
+    <string name="cxc_form_photo_add">Tomar o elegir foto</string>
+    <string name="cxc_form_photo_change">Cambiar foto de factura</string>
+    <string name="cxc_form_save">Guardar cuenta</string>
+    <string name="cxc_form_save_edit">Guardar cambios</string>
+    <string name="cxc_photo_camera">Tomar foto</string>
+    <string name="cxc_photo_gallery">Elegir de galería</string>
+    <string name="cxc_photo_remove">Quitar foto</string>
+    <string name="cxc_form_err_route">Selecciona una ruta</string>
+    <string name="cxc_form_err_client">Selecciona un cliente</string>
+    <string name="cxc_form_err_amount">Ingresa un monto válido</string>
+    <string name="cxc_form_err_date">Selecciona una fecha de pago</string>
+
+    <!-- Detalle -->
+    <string name="cxc_detail_title">Detalle de cuenta</string>
+    <string name="cxc_detail_amount_label">MONTO PENDIENTE</string>
+    <string name="cxc_detail_invoice">FACTURA</string>
+    <string name="cxc_detail_invoice_hint">Toca para ampliar</string>
+    <string name="cxc_detail_no_invoice">Sin foto de factura</string>
+    <string name="cxc_detail_notes">NOTAS</string>
+    <string name="cxc_detail_meta">Registrada el %1$s</string>
+    <string name="cxc_detail_mark_paid">Marcar como pagada</string>
+    <string name="cxc_detail_edit">Editar</string>
+    <string name="cxc_detail_delete">Eliminar</string>
+
+    <!-- Actividad -->
+    <string name="cxc_activity_title">Actividad reciente</string>
+    <string name="cxc_activity_caption">Cuentas pagadas o eliminadas en los últimos 3 días.</string>
+    <string name="cxc_activity_empty">Sin actividad reciente.</string>
+    <string name="cxc_activity_footer">Las actividades se borran automáticamente después de 3 días.</string>
+    <string name="cxc_activity_group_today">HOY</string>
+    <string name="cxc_activity_group_earlier">ANTERIOR</string>
+    <string name="cxc_someone">Alguien</string>
+    <string name="cxc_activity_paid">%1$s pagó la cuenta de %2$s</string>
+    <string name="cxc_activity_deleted">%1$s eliminó la cuenta de %2$s</string>
+    <string name="cxc_activity_time_amount">%1$s · %2$s</string>
+
+    <!-- Confirmaciones -->
+    <string name="cxc_confirm_paid_title">¿Marcar como pagada?</string>
+    <string name="cxc_confirm_paid_msg">La cuenta de %1$s dejará de aparecer en cuentas por cobrar.</string>
+    <string name="cxc_confirm_paid_yes">Sí, ya pagó</string>
+    <string name="cxc_confirm_delete_title">¿Eliminar esta cuenta?</string>
+    <string name="cxc_confirm_delete_msg">Se eliminará la cuenta de %1$s por %2$s.</string>
+    <string name="cxc_confirm_delete_yes">Sí, eliminar</string>
+    <string name="cxc_confirm_cancel">Cancelar</string>
+
+    <!-- Toasts -->
+    <string name="cxc_toast_created">Cuenta registrada</string>
+    <string name="cxc_toast_updated">Cuenta actualizada</string>
+    <string name="cxc_toast_paid">Cuenta marcada como pagada</string>
+    <string name="cxc_toast_deleted">Cuenta eliminada</string>
+    <string name="cxc_error_generic">Algo salió mal. Inténtalo de nuevo.</string>
 </resources>

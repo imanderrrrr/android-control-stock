@@ -108,4 +108,38 @@ interface PendingAccountDao {
      */
     @Query("DELETE FROM pending_accounts WHERE resolvedAction IS NOT NULL AND resolvedAt < :beforeMillis")
     suspend fun deleteOldResolvedBefore(beforeMillis: Long)
+
+    /** Observa una cuenta por id (para la pantalla de detalle en vivo). */
+    @Query("SELECT * FROM pending_accounts WHERE id = :id LIMIT 1")
+    fun observeById(id: String): Flow<PendingAccountEntity?>
+
+    /** Edita los campos de una cuenta existente y la marca para re-sincronizar. */
+    @Query("""
+        UPDATE pending_accounts
+        SET routeId = :routeId,
+            clientId = :clientId,
+            clientName = :clientName,
+            routeName = :routeName,
+            amountCents = :amountCents,
+            dueDateMillis = :dueDateMillis,
+            notes = :notes,
+            invoicePhotoUri = :invoicePhotoUri,
+            invoiceRemoteUrl = :invoiceRemoteUrl,
+            updatedAt = :now,
+            syncStatus = 'PENDING_UPDATE'
+        WHERE id = :id
+    """)
+    suspend fun updateDetails(
+        id: String,
+        routeId: String,
+        clientId: String,
+        clientName: String,
+        routeName: String,
+        amountCents: Long,
+        dueDateMillis: Long,
+        notes: String?,
+        invoicePhotoUri: String?,
+        invoiceRemoteUrl: String?,
+        now: Long,
+    )
 }
