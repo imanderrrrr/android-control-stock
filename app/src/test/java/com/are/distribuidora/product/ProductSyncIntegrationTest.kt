@@ -74,7 +74,8 @@ class ProductSyncIntegrationTest {
             remote = fakeRemoteDataSource,
             local = productDao,
             database = mockDatabase,
-            imageStorage = mockk(relaxed = true) // No se testea upload aquí
+            imageStorage = mockk(relaxed = true), // No se testea upload aquí
+            pendingUploadDao = mockk(relaxed = true)
         )
 
         val scheduler = mockk<com.are.distribuidora.workers.ProductSyncScheduler>(relaxed = true)

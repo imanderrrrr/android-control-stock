@@ -49,7 +49,8 @@ class ProductSyncIntegrationTest {
             remote = remote,
             local = dao,
             database = db,
-            imageStorage = mockk(relaxed = true)
+            imageStorage = mockk(relaxed = true),
+            pendingUploadDao = db.pendingUploadDao()
         )
     }
 
