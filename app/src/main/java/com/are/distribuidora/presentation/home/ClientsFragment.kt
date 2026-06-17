@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -17,6 +18,9 @@ import com.are.distribuidora.client.presentation.RouteClientsFragment
 import com.are.distribuidora.pendingaccount.presentation.PendingAccountsFragment
 import com.are.distribuidora.presentation.home.adapter.RouteCarouselAdapter
 import com.are.distribuidora.presentation.home.dialog.AddRouteDialog
+import com.are.distribuidora.screenaccess.domain.model.AppScreen
+import com.are.distribuidora.screenaccess.presentation.NoAccessFragment
+import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -28,6 +32,9 @@ import kotlinx.coroutines.launch
 class ClientsFragment : Fragment() {
 
     private val viewModel: ClientsViewModel by viewModels()
+
+    // Compartido con HomeActivity (scope de Activity): mismos permisos, un solo listener.
+    private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -51,9 +58,13 @@ class ClientsFragment : Fragment() {
 
         val pendingBadge = view.findViewById<TextView>(R.id.pendingCountBadge)
         view.findViewById<View>(R.id.cardPendingEntry).setOnClickListener {
+            // Cuentas por cobrar (cuentasPendientes) puede estar denegada aunque Clientes
+            // esté permitida: si no hay acceso, mostramos el placeholder con el mensaje.
+            val allowed = screenAccessViewModel.access.value.isAllowed(AppScreen.CUENTAS_PENDIENTES)
+            val destination = if (allowed) PendingAccountsFragment() else NoAccessFragment.newPushedInstance()
             parentFragmentManager.beginTransaction()
                 .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
-                .replace(R.id.fragmentContainer, PendingAccountsFragment())
+                .replace(R.id.fragmentContainer, destination)
                 .addToBackStack(null)
                 .commit()
         }

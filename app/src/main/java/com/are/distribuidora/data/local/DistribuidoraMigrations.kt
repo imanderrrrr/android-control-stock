@@ -1272,4 +1272,27 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE orders ADD COLUMN pendingUpload INTEGER NOT NULL DEFAULT 0")
         }
     }
+
+    /**
+     * v35 -> v36
+     * - Nueva tabla `screen_access`: cache local del control de acceso por pantalla
+     *   (`userScreenAccess/{uid}` en Firestore). Banderas NULLABLE = default-allow.
+     */
+    val MIGRATION_35_36: Migration = object : Migration(35, 36) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `screen_access` (" +
+                    "`uid` TEXT NOT NULL, " +
+                    "`inicio` INTEGER, " +
+                    "`inventario` INTEGER, " +
+                    "`pedidos` INTEGER, " +
+                    "`clientes` INTEGER, " +
+                    "`reportes` INTEGER, " +
+                    "`cuentasPendientes` INTEGER, " +
+                    "`updatedAtMillis` INTEGER, " +
+                    "`updatedBy` TEXT, " +
+                    "PRIMARY KEY(`uid`))"
+            )
+        }
+    }
 }

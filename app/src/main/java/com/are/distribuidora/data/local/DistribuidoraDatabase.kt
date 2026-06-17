@@ -27,6 +27,8 @@ import com.are.distribuidora.orders.data.local.entity.OrderItemEntity
 import com.are.distribuidora.orders.data.local.entity.OrderItemStagingEntity
 import com.are.distribuidora.route.data.local.dao.RouteDao
 import com.are.distribuidora.route.data.local.entity.RouteEntity
+import com.are.distribuidora.screenaccess.data.local.dao.ScreenAccessDao
+import com.are.distribuidora.screenaccess.data.local.entity.ScreenAccessEntity
 
 @Database(
     entities = [
@@ -47,8 +49,10 @@ import com.are.distribuidora.route.data.local.entity.RouteEntity
         PendingUploadEntity::class,
         // Pending accounts
         PendingAccountEntity::class,
+        // Control de acceso por pantalla (panel web)
+        ScreenAccessEntity::class,
     ],
-    version = 35,
+    version = 36,
     exportSchema = true,
 )
 @androidx.room.TypeConverters(
@@ -75,6 +79,9 @@ abstract class DistribuidoraDatabase : RoomDatabase() {
 
     // Pending accounts
     abstract fun pendingAccountDao(): PendingAccountDao
+
+    // Control de acceso por pantalla
+    abstract fun screenAccessDao(): ScreenAccessDao
 
     /**
      * Wrapper para ejecutar operaciones en una transacción.

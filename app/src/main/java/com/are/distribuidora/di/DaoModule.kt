@@ -11,6 +11,7 @@ import com.are.distribuidora.orders.data.local.dao.OrderDao
 import com.are.distribuidora.orders.data.local.dao.OrderItemDao
 import com.are.distribuidora.orders.data.local.dao.OrderItemStagingDao
 import com.are.distribuidora.route.data.local.dao.RouteDao
+import com.are.distribuidora.screenaccess.data.local.dao.ScreenAccessDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -57,4 +58,7 @@ object DaoModule {
 
     @Provides
     fun providePendingAccountDao(db: DistribuidoraDatabase): PendingAccountDao = db.pendingAccountDao()
+
+    @Provides
+    fun provideScreenAccessDao(db: DistribuidoraDatabase): ScreenAccessDao = db.screenAccessDao()
 }

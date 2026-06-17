@@ -435,4 +435,9 @@
     <string name="cxc_toast_paid">Cuenta marcada como pagada</string>
     <string name="cxc_toast_deleted">Cuenta eliminada</string>
     <string name="cxc_error_generic">Algo salió mal. Inténtalo de nuevo.</string>
+
+    <!-- Control de acceso por pantalla (concuerda con el panel web de administración) -->
+    <string name="screen_access_denied_title">Sección restringida</string>
+    <string name="screen_access_denied_message">No tienes acceso a esta sección. Pídeselo a un administrador.</string>
+    <string name="screen_access_back">Volver</string>
 </resources>

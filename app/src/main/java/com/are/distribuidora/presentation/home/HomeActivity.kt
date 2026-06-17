@@ -9,7 +9,9 @@ import android.os.Looper
 import androidx.activity.viewModels
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.FragmentActivity
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.core.view.WindowCompat
 import com.are.distribuidora.R
 import com.are.distribuidora.domain.product.GetProductCountUseCase
@@ -22,6 +24,10 @@ import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogFragment
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
 import com.are.distribuidora.pedido.presentation.list.PedidosFragment
 import com.are.distribuidora.route.presentation.SelectRouteFragment
+import com.are.distribuidora.screenaccess.domain.model.AppScreen
+import com.are.distribuidora.screenaccess.domain.model.ScreenAccess
+import com.are.distribuidora.screenaccess.presentation.NoAccessFragment
+import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -32,6 +38,9 @@ class HomeActivity : FragmentActivity() {
     private val viewModel: HomeViewModel by viewModels()
     private val createPedidoFlowViewModel: CreatePedidoFlowViewModel by viewModels()
 
+    // Permisos de pantalla del usuario (compartido con los fragments vía activityViewModels()).
+    private val screenAccessViewModel: ScreenAccessViewModel by viewModels()
+
     @Inject lateinit var getProductCount: GetProductCountUseCase
 
     private val tag = "HOME_CHROME"
@@ -39,12 +48,18 @@ class HomeActivity : FragmentActivity() {
     private lateinit var navBarContainer: View
     private lateinit var bottomNav: BottomNavigationView
 
+    /** Pestaña inferior actualmente seleccionada (su contenido puede estar permitido o no). */
+    private var currentTab: AppScreen = AppScreen.INICIO
+
     private fun isTopLevel(fragment: Fragment?): Boolean {
         return fragment is InicioFragment ||
                 fragment is HomeFragment ||
                 fragment is InventoryFragment ||
                 fragment is PedidosFragment ||
-                fragment is ClientsFragment
+                fragment is ClientsFragment ||
+                // El placeholder "sin acceso" de una pestaña también es nivel superior:
+                // así la barra inferior sigue visible y el usuario puede ir a otra sección.
+                (fragment is NoAccessFragment && fragment.isTabLevel())
     }
 
     private fun currentFragment(): Fragment? =
@@ -77,13 +92,23 @@ class HomeActivity : FragmentActivity() {
 
         supportFragmentManager.addOnBackStackChangedListener {
             updateChrome(currentFragment(), "OnBackStackChanged")
+            // De vuelta a una pestaña raíz: re-evaluar el acceso por si cambió mientras
+            // navegábamos en un sub-flujo. Se difiere para no anidar transacciones con el pop.
+            if (supportFragmentManager.backStackEntryCount == 0) {
+                navBarContainer.post {
+                    if (supportFragmentManager.backStackEntryCount == 0) renderCurrentTab()
+                }
+            }
         }
 
         if (savedInstanceState == null) {
-            openRootFragment(InicioFragment())
             bottomNav.selectedItemId = R.id.nav_home
+            // Renderiza Inicio o, si está denegado, el placeholder "sin acceso".
+            selectTab(AppScreen.INICIO)
         } else {
-            // Estado restaurado (rotación). Aplicar chrome al fragment actual real.
+            // Estado restaurado (rotación). Deriva la pestaña actual del item seleccionado
+            // y aplica chrome al fragment actual real.
+            currentTab = tabForMenuId(bottomNav.selectedItemId) ?: AppScreen.INICIO
             updateChrome(currentFragment(), "onCreate-restore")
         }
 
@@ -126,28 +151,23 @@ class HomeActivity : FragmentActivity() {
         }
 
         bottomNav.setOnItemSelectedListener { item ->
-            when (item.itemId) {
-                R.id.nav_home -> {
-                    openRootFragment(InicioFragment())
-                    true
+            val screen = tabForMenuId(item.itemId) ?: return@setOnItemSelectedListener false
+            // El acceso se evalúa en selectTab: si la pestaña está denegada, se muestra
+            // el placeholder "sin acceso" (pero la pestaña sigue seleccionable).
+            selectTab(screen)
+            true
+        }
+
+        // Observa los permisos del usuario: atenúa las pestañas denegadas y corrige la
+        // pantalla raíz mostrada (allow→deny y deny→allow) cuando un admin cambia el acceso.
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                screenAccessViewModel.access.collect { access ->
+                    applyTabDimming(access)
+                    if (supportFragmentManager.backStackEntryCount == 0) {
+                        renderCurrentTab()
+                    }
                 }
-                R.id.nav_inventory -> {
-                    openRootFragment(InventoryFragment())
-                    true
-                }
-                R.id.nav_orders -> {
-                    openRootFragment(PedidosFragment())
-                    true
-                }
-                R.id.nav_clients -> {
-                    openRootFragment(ClientsFragment())
-                    true
-                }
-                R.id.nav_reportes -> {
-                    openRootFragment(HomeFragment())
-                    true
-                }
-                else -> false
             }
         }
     }
@@ -210,5 +230,77 @@ class HomeActivity : FragmentActivity() {
             .commitNow()
 
         updateChrome(fragment, "openRootFragment")
+    }
+
+    // ---------------------------------------------------------------------------
+    // Control de acceso por pantalla
+    // ---------------------------------------------------------------------------
+
+    /** Selecciona una pestaña y renderiza su contenido o el placeholder "sin acceso". */
+    private fun selectTab(screen: AppScreen) {
+        currentTab = screen
+        renderCurrentTab()
+    }
+
+    /**
+     * Muestra el fragment real de [currentTab] si está permitido; si no, el placeholder
+     * "sin acceso" (nivel pestaña). Idempotente: no recrea el fragment si ya es el correcto,
+     * por lo que puede llamarse desde el observador de acceso sin parpadeos.
+     */
+    private fun renderCurrentTab() {
+        val screen = currentTab
+        val allowed = screenAccessViewModel.access.value.isAllowed(screen)
+        if (isShowingCorrectRoot(screen, allowed)) return
+        openRootFragment(if (allowed) realFragmentFor(screen) else NoAccessFragment.newTabInstance())
+    }
+
+    private fun isShowingCorrectRoot(screen: AppScreen, allowed: Boolean): Boolean {
+        val current = currentFragment() ?: return false
+        return if (allowed) {
+            current.javaClass == realFragmentClassFor(screen)
+        } else {
+            current is NoAccessFragment && current.isTabLevel()
+        }
+    }
+
+    /** Atenúa el icono de las pestañas denegadas (sin deshabilitarlas: el tap muestra el mensaje). */
+    private fun applyTabDimming(access: ScreenAccess) {
+        setTabDim(R.id.nav_home, access.isAllowed(AppScreen.INICIO))
+        setTabDim(R.id.nav_inventory, access.isAllowed(AppScreen.INVENTARIO))
+        setTabDim(R.id.nav_orders, access.isAllowed(AppScreen.PEDIDOS))
+        setTabDim(R.id.nav_clients, access.isAllowed(AppScreen.CLIENTES))
+        setTabDim(R.id.nav_reportes, access.isAllowed(AppScreen.REPORTES))
+    }
+
+    private fun setTabDim(itemId: Int, allowed: Boolean) {
+        bottomNav.menu.findItem(itemId)?.icon?.alpha = if (allowed) 255 else 97
+    }
+
+    private fun tabForMenuId(itemId: Int): AppScreen? = when (itemId) {
+        R.id.nav_home -> AppScreen.INICIO
+        R.id.nav_inventory -> AppScreen.INVENTARIO
+        R.id.nav_orders -> AppScreen.PEDIDOS
+        R.id.nav_clients -> AppScreen.CLIENTES
+        R.id.nav_reportes -> AppScreen.REPORTES
+        else -> null
+    }
+
+    private fun realFragmentFor(screen: AppScreen): Fragment = when (screen) {
+        AppScreen.INICIO -> InicioFragment()
+        AppScreen.INVENTARIO -> InventoryFragment()
+        AppScreen.PEDIDOS -> PedidosFragment()
+        AppScreen.CLIENTES -> ClientsFragment()
+        AppScreen.REPORTES -> HomeFragment()
+        // CUENTAS_PENDIENTES no es una pestaña; se accede desde Clientes.
+        AppScreen.CUENTAS_PENDIENTES -> ClientsFragment()
+    }
+
+    private fun realFragmentClassFor(screen: AppScreen): Class<out Fragment> = when (screen) {
+        AppScreen.INICIO -> InicioFragment::class.java
+        AppScreen.INVENTARIO -> InventoryFragment::class.java
+        AppScreen.PEDIDOS -> PedidosFragment::class.java
+        AppScreen.CLIENTES -> ClientsFragment::class.java
+        AppScreen.REPORTES -> HomeFragment::class.java
+        AppScreen.CUENTAS_PENDIENTES -> ClientsFragment::class.java
     }
 }
