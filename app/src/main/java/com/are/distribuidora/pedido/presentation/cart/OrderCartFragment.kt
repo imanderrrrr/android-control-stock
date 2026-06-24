@@ -9,6 +9,9 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -21,10 +24,10 @@ import com.are.distribuidora.R
 import com.are.distribuidora.domain.pedido.DiscountType
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountByAmountUseCase
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountUseCase
+import com.are.distribuidora.pedido.presentation.confirmed.OrderConfirmedFragment
 import com.are.distribuidora.pedido.presentation.create.CartItem
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
 import com.are.distribuidora.pedido.presentation.list.PedidosFragment
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.snackbar.Snackbar
@@ -44,15 +47,24 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
     @Inject lateinit var applyItemDiscountByAmountUseCase: ApplyItemDiscountByAmountUseCase
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val toolbar           = view.findViewById<MaterialToolbar>(R.id.toolbarCart)
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
         val recyclerView      = view.findViewById<RecyclerView>(R.id.recyclerViewCart)
         val textEmpty         = view.findViewById<TextView>(R.id.textCartEmpty)
         val textTotal         = view.findViewById<TextView>(R.id.textCartTotal)
+        val textCliente       = view.findViewById<TextView>(R.id.textCartCliente)
+        val textCount         = view.findViewById<TextView>(R.id.textCartCount)
+        val textSubtotal      = view.findViewById<TextView>(R.id.textCartSubtotal)
+        val textDiscounts     = view.findViewById<TextView>(R.id.textCartDiscounts)
+        val rowDiscounts      = view.findViewById<View>(R.id.rowCartDiscounts)
         val buttonContinue    = view.findViewById<MaterialButton>(R.id.buttonContinue)
         val buttonOtherOptions = view.findViewById<MaterialButton>(R.id.buttonOtherOptions)
         val progressBar       = view.findViewById<ProgressBar>(R.id.progressBarCart)
         val textOrderLimit    = view.findViewById<TextView>(R.id.textOrderLimit)
-        toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
+        view.findViewById<View>(R.id.btnBackCart).setOnClickListener { parentFragmentManager.popBackStack() }
         val adapter = OrderCartAdapter(
             onEditQuantity = { item -> showEditQuantityDialog(item) },
             onEditDiscount = { item -> showEditDiscountDialog(item) },
@@ -69,6 +81,19 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
                     textEmpty.visibility     = if (items.isEmpty()) View.VISIBLE else View.GONE
                     recyclerView.visibility  = if (items.isEmpty()) View.GONE    else View.VISIBLE
                     buttonContinue.isEnabled = items.isNotEmpty()
+
+                    val nf = buildCurrencyFormat()
+                    textCount.text = getString(R.string.order_products_count, items.size)
+                        .uppercase(Locale("es", "GT"))
+                    val subtotalBase = items.sumOf { it.subtotalBase }
+                    val discounts    = items.sumOf { it.discountAmount }
+                    textSubtotal.text = nf.format(subtotalBase)
+                    if (discounts > 0.0) {
+                        textDiscounts.text = "-${nf.format(discounts)}"
+                        rowDiscounts.visibility = View.VISIBLE
+                    } else {
+                        rowDiscounts.visibility = View.GONE
+                    }
                 }
             }
         }
@@ -76,6 +101,13 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 flowViewModel.cartTotal.collect { total ->
                     textTotal.text = buildCurrencyFormat().format(total)
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                flowViewModel.clienteNombre.collect { name ->
+                    textCliente.text = name ?: ""
                 }
             }
         }
@@ -124,15 +156,25 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
                         }
                         is OrderCartViewModel.UiState.Success -> {
                             progressBar?.visibility = View.GONE
-                            Toast.makeText(requireContext(), "Pedido creado correctamente", Toast.LENGTH_SHORT).show()
-                            flowViewModel.clear()
+                            val pedidoId   = state.pedidoId
+                            val clientName = flowViewModel.clienteNombre.value ?: ""
                             orderCartViewModel.resetState()
+                            flowViewModel.clear()
                             // Notificar a PedidosFragment para que recargue la lista
                             parentFragmentManager.setFragmentResult(
                                 PedidosFragment.RESULT_PEDIDO_CREATED,
                                 Bundle.EMPTY
                             )
-                            parentFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                            // Mostrar la pantalla de confirmación (carga el pedido por id).
+                            parentFragmentManager.beginTransaction()
+                                .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+                                .replace(
+                                    R.id.fragmentContainer,
+                                    OrderConfirmedFragment.newInstance(pedidoId, clientName),
+                                    "ORDER_CONFIRMED",
+                                )
+                                .addToBackStack("ORDER_CONFIRMED")
+                                .commit()
                         }
                         is OrderCartViewModel.UiState.Error -> {
                             progressBar?.visibility  = View.GONE
