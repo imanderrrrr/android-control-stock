@@ -2,11 +2,10 @@ package com.are.distribuidora.pedido.presentation.detail
 
 import android.graphics.drawable.Drawable
 import android.os.Bundle
-import android.text.InputType
 import android.view.View
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.core.view.ViewCompat
@@ -32,13 +31,8 @@ import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
 import com.google.android.material.button.MaterialButton
-import com.google.android.material.chip.Chip
-import com.google.android.material.chip.ChipGroup
-import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.imageview.ShapeableImageView
 import com.google.android.material.snackbar.Snackbar
-import com.google.android.material.textfield.TextInputEditText
-import com.google.android.material.textfield.TextInputLayout
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 import java.io.File
@@ -47,6 +41,12 @@ import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
 
+/**
+ * Detalle de producto en el flujo de creación de pedido.
+ * Réplica del diseño Pencil "07": imagen, código/nombre/precio/stock, stepper de
+ * cantidad, subtotal en vivo, notas, y barra inferior "Agregar al pedido" (toda
+ * la barra es el botón). La cantidad seleccionada vive en [ProductDetailOrderViewModel].
+ */
 @AndroidEntryPoint
 class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_order) {
 
@@ -61,82 +61,58 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
             insets
         }
 
-        // ── Vistas ──────────────────────────────────────────────────────────
-        val imageDetail          = view.findViewById<ShapeableImageView>(R.id.imageDetail)
-        val imagePlaceholder     = view.findViewById<ImageView>(R.id.imagePlaceholderDetail)
-        val textName             = view.findViewById<TextView>(R.id.textDetailName)
-        val textDesc             = view.findViewById<TextView>(R.id.textDetailDescription)
-        val textPrice            = view.findViewById<TextView>(R.id.textDetailPrice)
-        val textCode             = view.findViewById<TextView>(R.id.textDetailCode)
-        val textStock            = view.findViewById<TextView>(R.id.textDetailStock)
-        val chipGroupPresets     = view.findViewById<ChipGroup>(R.id.chipGroupPresets)
-        val buttonOtros          = view.findViewById<MaterialButton>(R.id.buttonOtros)
-        val buttonAddPreset      = view.findViewById<MaterialButton>(R.id.buttonAddPreset)
-        val stepperMinus         = view.findViewById<MaterialButton>(R.id.stepperMinus)
-        val stepperQty           = view.findViewById<TextView>(R.id.stepperQty)
-        val stepperPlus          = view.findViewById<MaterialButton>(R.id.stepperPlus)
-        val textAddBarUnits      = view.findViewById<TextView>(R.id.textAddBarUnits)
-        val editNotes            = view.findViewById<TextInputEditText>(R.id.editNotes)
-        val buttonAddToCart      = view.findViewById<MaterialButton>(R.id.buttonAddToCart)
-        val textTemplatesLabel   = view.findViewById<TextView>(R.id.textTemplatesLabel)
-        val scrollTemplates      = view.findViewById<View>(R.id.scrollTemplates)
-        val chipGroupTemplates   = view.findViewById<ChipGroup>(R.id.chipGroupTemplates)
-        val buttonCreateTemplate = view.findViewById<MaterialButton>(R.id.buttonCreateTemplate)
+        val imageDetail      = view.findViewById<ShapeableImageView>(R.id.imageDetail)
+        val imagePlaceholder = view.findViewById<ImageView>(R.id.imagePlaceholderDetail)
+        val textCode         = view.findViewById<TextView>(R.id.textDetailCode)
+        val textName         = view.findViewById<TextView>(R.id.textDetailName)
+        val textPrice        = view.findViewById<TextView>(R.id.textDetailPrice)
+        val textStock        = view.findViewById<TextView>(R.id.textDetailStock)
+        val stepperMinus     = view.findViewById<MaterialButton>(R.id.stepperMinus)
+        val stepperQty       = view.findViewById<TextView>(R.id.stepperQty)
+        val stepperPlus      = view.findViewById<MaterialButton>(R.id.stepperPlus)
+        val textSubtotalLine = view.findViewById<TextView>(R.id.textDetailSubtotalLine)
+        val textSubtotalVal  = view.findViewById<TextView>(R.id.textDetailSubtotalValue)
+        val editNotes        = view.findViewById<EditText>(R.id.editNotes)
+        val textCartPill     = view.findViewById<TextView>(R.id.textCartPill)
+        val addBar           = view.findViewById<View>(R.id.addBar)
+        val textAddBarUnits  = view.findViewById<TextView>(R.id.textAddBarUnits)
+        val textAddBarTotal  = view.findViewById<TextView>(R.id.textAddBarTotal)
 
         view.findViewById<View>(R.id.btnBackDetail).setOnClickListener {
             parentFragmentManager.popBackStack()
         }
 
-        // ── Reconstruir el Product desde los argumentos ──────────────────────
-        val product = requireArguments().toProduct()
+        val product   = requireArguments().toProduct()
         detailViewModel.load(product)
 
-        // ── Imagen ───────────────────────────────────────────────────────────
-        bindImage(product.imageUrl, imageDetail, imagePlaceholder)
+        val nf        = buildCurrencyFormat()
+        val unitPrice = product.price.amount.toDouble()
 
-        // ── Textos fijos ─────────────────────────────────────────────────────
-        val nf = buildCurrencyFormat()
+        bindImage(product.imageUrl, imageDetail, imagePlaceholder)
         textName.text  = product.name
         textPrice.text = nf.format(product.price.amount)
 
-        // Código (categoría · barcode) + stock
+        // Categoría · código
         val codeParts = listOfNotNull(
             product.category?.trim()?.takeIf { it.isNotBlank() }?.uppercase(Locale("es", "GT")),
             product.barcode?.trim()?.takeIf { it.isNotBlank() }?.let { "CÓDIGO $it" },
         )
-        if (codeParts.isNotEmpty()) {
-            textCode.text = codeParts.joinToString(" · ")
-            textCode.visibility = View.VISIBLE
-        } else {
-            textCode.visibility = View.GONE
-        }
+        textCode.text = codeParts.joinToString(" · ")
+        textCode.visibility = if (codeParts.isEmpty()) View.GONE else View.VISIBLE
+
+        // Stock
         val stockValue = product.stock.value
         if (stockValue > 0) {
-            textStock.text = getString(R.string.order_stock_format, stockValue)
+            textStock.text = "STOCK · $stockValue"
         } else {
-            textStock.text = getString(R.string.order_no_stock)
+            textStock.text = getString(R.string.order_no_stock).uppercase(Locale("es", "GT"))
             textStock.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.danger_bg)
             textStock.setTextColor(ContextCompat.getColor(requireContext(), R.color.danger_text))
         }
 
-        val desc = product.description?.trim()
-        if (!desc.isNullOrBlank()) {
-            textDesc.text = desc
-            textDesc.visibility = View.VISIBLE
-        } else {
-            textDesc.visibility = View.GONE
-        }
-
-        // ── Notes input ───────────────────────────────────────────────────────
         editNotes.doAfterTextChanged { detailViewModel.onNotesChanged(it?.toString().orEmpty()) }
 
-        // ── Botones ───────────────────────────────────────────────────────────
-        buttonOtros.setOnClickListener { detailViewModel.onOtherClicked() }
-        buttonAddPreset.setOnClickListener { detailViewModel.onAddPresetClicked() }
-        buttonAddToCart.setOnClickListener { detailViewModel.onAddToCartClicked() }
-        buttonCreateTemplate.setOnClickListener { detailViewModel.onCreateTemplateClicked() }
-
-        // ── Stepper (ajusta la cantidad seleccionada) ─────────────────────────
+        // Stepper (ajusta selectedQty)
         stepperPlus.setOnClickListener {
             detailViewModel.onOtherQtyConfirmed((detailViewModel.selectedQty.value ?: 0) + 1)
         }
@@ -145,211 +121,54 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
             if (current > 1) detailViewModel.onOtherQtyConfirmed(current - 1)
         }
 
-        // ── Observadores ─────────────────────────────────────────────────────
+        // Toda la barra inferior es el botón "Agregar al pedido"
+        addBar.setOnClickListener { detailViewModel.onAddToCartClicked() }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
 
-                // Presets → reconstruir chips
-                launch {
-                    detailViewModel.presets.collect { presets ->
-                        val currentSelected = detailViewModel.selectedQty.value
-                        rebuildChips(chipGroupPresets, presets, currentSelected)
-                    }
-                }
-
-                // Cantidad seleccionada → stepper + barra inferior + botón + chips
+                // Cantidad → stepper, subtotal, barra inferior
                 launch {
                     detailViewModel.selectedQty.collect { qty ->
                         val q = qty ?: 0
                         stepperQty.text = q.toString()
-                        textAddBarUnits.text = getString(R.string.order_detail_units, q)
-                        buttonAddToCart.isEnabled = q > 0
-                        buttonAddToCart.text =
-                            if (q > 0) nf.format(product.price.amount.toDouble() * q)
-                            else getString(R.string.order_detail_add_cta)
-                        syncChipSelection(chipGroupPresets, qty)
+                        textAddBarUnits.text  = getString(R.string.order_detail_units, q)
+                        val subtotal = unitPrice * q
+                        textSubtotalLine.text = "Subtotal · $q × ${nf.format(product.price.amount)}"
+                        textSubtotalVal.text  = nf.format(subtotal)
+                        textAddBarTotal.text  = nf.format(subtotal)
                     }
                 }
 
-                // Plantillas de detalle
+                // Pastilla de carrito (cantidad · total) — refleja el carrito existente
                 launch {
-                    detailViewModel.templates.collect { templates ->
-                        val currentSelected = detailViewModel.selectedTemplate.value
-                        rebuildTemplateChips(chipGroupTemplates, templates, currentSelected)
-                        val hasTemplates = templates.isNotEmpty()
-                        textTemplatesLabel.visibility = if (hasTemplates) View.VISIBLE else View.GONE
-                        scrollTemplates.visibility = if (hasTemplates) View.VISIBLE else View.GONE
+                    flowViewModel.cartItems.collect { cart ->
+                        val count = cart.size
+                        val total = cart.values.sumOf { it.subtotal }
+                        textCartPill.text = "$count · ${nf.format(total)}"
                     }
                 }
 
-                // Plantilla seleccionada → sync chips de plantillas + actualizar input
-                launch {
-                    detailViewModel.selectedTemplate.collect { selected ->
-                        syncTemplateChipSelection(chipGroupTemplates, selected)
-                        // Si el notes actual no coincide con el selected (cuando se deselecciona),
-                        // actualizar input evitando loop: solo si viene de selección nueva
-                        if (selected != null && editNotes.text?.toString() != selected) {
-                            editNotes.setText(selected)
-                            editNotes.setSelection(selected.length)
-                        }
-                    }
-                }
-
-                // Eventos one-shot
+                // Eventos: agregar al carrito / error
                 launch {
                     detailViewModel.events.collect { event ->
                         when (event) {
-                            is ProductDetailOrderViewModel.Event.ShowOtherDialog ->
-                                showQtyDialog(
-                                    title   = getString(R.string.detail_otros_dialog_title),
-                                    onConfirm = { detailViewModel.onOtherQtyConfirmed(it) }
-                                )
-
-                            is ProductDetailOrderViewModel.Event.ShowAddPresetDialog ->
-                                showQtyDialog(
-                                    title   = getString(R.string.detail_add_preset_dialog_title),
-                                    onConfirm = { detailViewModel.onAddPresetConfirmed(it) }
-                                )
-
-                            is ProductDetailOrderViewModel.Event.ShowCreateTemplateDialog ->
-                                showCreateTemplateDialog()
-
                             is ProductDetailOrderViewModel.Event.AddedToCart -> {
                                 flowViewModel.addToCart(
                                     product  = product,
                                     quantity = event.qty,
                                     notes    = detailViewModel.notes.value.takeIf { it.isNotBlank() },
                                 )
-                                Snackbar.make(
-                                    view,
-                                    getString(R.string.detail_added_snackbar, event.qty),
-                                    Snackbar.LENGTH_SHORT
-                                ).show()
                                 parentFragmentManager.popBackStack()
                             }
-
                             is ProductDetailOrderViewModel.Event.Error ->
                                 Snackbar.make(view, event.message, Snackbar.LENGTH_SHORT).show()
+                            else -> Unit
                         }
                     }
                 }
             }
         }
-    }
-
-    // ── Chips ──────────────────────────────────────────────────────────────────
-
-    private fun rebuildChips(group: ChipGroup, presets: List<Int>, selectedQty: Int?) {
-        group.removeAllViews()
-        presets.forEach { qty ->
-            val chip = Chip(requireContext()).apply {
-                text = qty.toString()
-                isCheckable = true
-                isChecked = qty == selectedQty
-                setOnClickListener { detailViewModel.onPresetClicked(qty) }
-            }
-            styleOrderChip(chip)
-            group.addView(chip)
-        }
-    }
-
-    /** Aplica el estilo "Bosque Pro" a un chip creado programáticamente. */
-    private fun styleOrderChip(chip: Chip) {
-        chip.chipBackgroundColor = ContextCompat.getColorStateList(requireContext(), R.color.chip_catalog_bg)
-        chip.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.chip_catalog_text))
-        chip.chipStrokeColor = ContextCompat.getColorStateList(requireContext(), R.color.chip_catalog_stroke)
-        chip.chipStrokeWidth = resources.displayMetrics.density
-        chip.isCheckedIconVisible = false
-    }
-
-    private fun syncChipSelection(group: ChipGroup, selectedQty: Int?) {
-        for (i in 0 until group.childCount) {
-            val chip = group.getChildAt(i) as? Chip ?: continue
-            val chipQty = chip.text.toString().toIntOrNull()
-            chip.isChecked = chipQty != null && chipQty == selectedQty
-        }
-    }
-
-    // ── Diálogo numérico ────────────────────────────────────────────────────────
-
-    private fun showQtyDialog(title: String, onConfirm: (Int) -> Unit) {
-        val input = TextInputEditText(requireContext()).apply {
-            inputType = InputType.TYPE_CLASS_NUMBER
-            hint = getString(R.string.detail_qty_hint)
-        }
-        AlertDialog.Builder(requireContext())
-            .setTitle(title)
-            .setView(input)
-            .setPositiveButton(getString(R.string.detail_dialog_ok)) { _, _ ->
-                val qty = input.text?.toString()?.trim()?.toIntOrNull() ?: 0
-                onConfirm(qty)
-            }
-            .setNegativeButton(getString(R.string.detail_dialog_cancel), null)
-            .show()
-    }
-
-    // ── Chips de plantillas ────────────────────────────────────────────────────
-
-    private fun rebuildTemplateChips(group: ChipGroup, templates: List<String>, selected: String?) {
-        group.removeAllViews()
-        templates.forEach { text ->
-            val chip = Chip(requireContext()).apply {
-                this.text = text
-                isCheckable = true
-                isChecked = text == selected
-                setOnClickListener { detailViewModel.onTemplateSelected(text) }
-                setOnLongClickListener {
-                    showDeleteTemplateDialog(text)
-                    true
-                }
-            }
-            styleOrderChip(chip)
-            group.addView(chip)
-        }
-    }
-
-    private fun syncTemplateChipSelection(group: ChipGroup, selected: String?) {
-        for (i in 0 until group.childCount) {
-            val chip = group.getChildAt(i) as? Chip ?: continue
-            chip.isChecked = chip.text.toString() == selected
-        }
-    }
-
-    // ── Diálogo crear plantilla ────────────────────────────────────────────────
-
-    private fun showCreateTemplateDialog() {
-        val layout = TextInputLayout(requireContext(), null,
-            com.google.android.material.R.attr.textInputOutlinedStyle).apply {
-            hint = getString(R.string.detail_template_hint)
-            setPadding(48, 16, 48, 8)
-        }
-        val input = TextInputEditText(requireContext()).apply {
-            inputType = android.text.InputType.TYPE_CLASS_TEXT or
-                    android.text.InputType.TYPE_TEXT_FLAG_CAP_SENTENCES
-            maxLines = 3
-        }
-        layout.addView(input)
-
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(getString(R.string.detail_create_template_title))
-            .setView(layout)
-            .setPositiveButton(getString(R.string.detail_dialog_ok)) { _, _ ->
-                val text = input.text?.toString().orEmpty()
-                detailViewModel.onTemplateCreateConfirmed(text)
-            }
-            .setNegativeButton(getString(R.string.detail_dialog_cancel), null)
-            .show()
-    }
-
-    private fun showDeleteTemplateDialog(text: String) {
-        MaterialAlertDialogBuilder(requireContext())
-            .setTitle(getString(R.string.detail_delete_template_title))
-            .setMessage(getString(R.string.detail_delete_template_message, text))
-            .setPositiveButton(getString(R.string.detail_delete_template_confirm)) { _, _ ->
-                detailViewModel.onTemplateDeleteConfirmed(text)
-            }
-            .setNegativeButton(getString(R.string.detail_dialog_cancel), null)
-            .show()
     }
 
     // ── Imagen con Glide ────────────────────────────────────────────────────────
@@ -377,7 +196,7 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
         }
 
         request
-            .override(300, 300)
+            .override(600, 400)
             .centerCrop()
             .transition(DrawableTransitionOptions.withCrossFade())
             .listener(object : RequestListener<Drawable> {
@@ -452,7 +271,3 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
         }
     }
 }
-
-
-
-
