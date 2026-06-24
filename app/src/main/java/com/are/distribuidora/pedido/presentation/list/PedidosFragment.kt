@@ -2,11 +2,13 @@ package com.are.distribuidora.pedido.presentation.list
 
 import android.os.Bundle
 import android.view.View
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.viewpager2.adapter.FragmentStateAdapter
 import androidx.viewpager2.widget.ViewPager2
 import com.are.distribuidora.R
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.tabs.TabLayout
 import com.google.android.material.tabs.TabLayoutMediator
 import dagger.hilt.android.AndroidEntryPoint
@@ -24,6 +26,12 @@ class PedidosFragment : Fragment(R.layout.fragment_pedidos) {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        // Inset superior para que el encabezado no quede bajo la barra de estado.
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
 
         val viewPager = view.findViewById<ViewPager2>(R.id.viewPagerPedidos)
         val tabLayout = view.findViewById<TabLayout>(R.id.tabLayoutPedidos)

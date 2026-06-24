@@ -206,6 +206,7 @@
     <string name="pedidos_route_subtitle">%1$d pedido(s)</string>
     <string name="pedidos_item_count">%1$d ítem(s)</string>
     <string name="pedidos_detalle_title">Pedido</string>
+    <string name="pedido_detalle_subtitle">Detalle del pedido</string>
     <string name="pedido_menu_delete">Eliminar</string>
     <string name="pedido_delete_dialog_title">Eliminar pedido</string>
     <string name="pedido_delete_dialog_message">¿Estás seguro de que deseas eliminar el pedido de %1$s? Esta acción no se puede deshacer.</string>
@@ -218,11 +219,15 @@
     <string name="pedidos_date_filter_today">Hoy</string>
     <string name="pedidos_date_filter_title">Seleccionar fecha</string>
 
+    <!-- Encabezado Bosque Pro -->
+    <string name="pedidos_header_subtitle">Gestiona y consulta tus pedidos</string>
+
     <!-- Tabs de Pedidos -->
     <string name="pedidos_tab_mis_pedidos">Mis Pedidos</string>
     <string name="pedidos_tab_otros_pedidos">Otros Pedidos</string>
 
     <!-- Sección Otros Pedidos -->
+    <string name="otros_readonly_banner">Solo lectura · pedidos de tu equipo</string>
     <string name="otros_pedidos_empty">No hay pedidos de otros vendedores</string>
     <string name="otros_orders_route_subtitle">%1$d pedido(s) asignado(s)</string>
     <string name="otros_items_count">%1$d ítem(s)</string>
