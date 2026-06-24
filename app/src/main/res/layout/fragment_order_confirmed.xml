@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Pedido confirmado — rediseño "Bosque Pro" (pantalla de éxito, fondo verde).
-     Ids: textConfirmedRef, textConfirmedClientName, textConfirmedClientAddress,
-     textConfirmedProducts, textConfirmedTotal, btnContinueRoute, btnViewDetail.
+<!-- Pedido confirmado — réplica del diseño Pencil "09".
+     Ids: btnShare, textConfirmedRef, textConfirmedClientName, textConfirmedClientAddress,
+     textConfirmedProducts, textConfirmedTotal, btnContinueRoute, btnPrint, btnViewDetail.
      Inset superior por código. -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -10,134 +10,77 @@
     android:layout_height="match_parent"
     android:background="@color/brand_primary">
 
-    <!-- Contenido central -->
-    <LinearLayout
+    <!-- ── Contenido superior ── -->
+    <androidx.core.widget.NestedScrollView
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:gravity="center_horizontal"
-        android:orientation="vertical"
-        android:paddingHorizontal="28dp"
+        android:layout_height="0dp"
+        android:fillViewport="true"
         app:layout_constraintBottom_toTopOf="@id/confirmedButtons"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintVertical_bias="0.42">
+        app:layout_constraintTop_toTopOf="parent">
 
-        <!-- Check -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="84dp"
-            android:layout_height="84dp"
-            app:cardBackgroundColor="@color/brand_accent"
-            app:cardCornerRadius="42dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="0dp">
-
-            <ImageView
-                android:layout_width="46dp"
-                android:layout_height="46dp"
-                android:layout_gravity="center"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_check_circle"
-                app:tint="@color/text_on_inverse" />
-        </com.google.android.material.card.MaterialCardView>
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="20dp"
-            android:fontFamily="sans-serif"
-            android:letterSpacing="-0.02"
-            android:text="@string/order_confirmed_title"
-            android:textColor="@color/text_on_inverse"
-            android:textSize="26sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="6dp"
-            android:fontFamily="sans-serif"
-            android:text="@string/order_confirmed_subtitle"
-            android:textColor="@color/text_on_inverse_muted"
-            android:textSize="13sp" />
-
-        <!-- Referencia -->
-        <TextView
-            android:id="@+id/textConfirmedRef"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="14dp"
-            android:background="@drawable/bg_pill"
-            android:backgroundTint="@color/brand_accent"
-            android:fontFamily="sans-serif-medium"
-            android:letterSpacing="0.04"
-            android:paddingHorizontal="14dp"
-            android:paddingVertical="6dp"
-            android:textColor="@color/text_on_inverse"
-            android:textSize="13sp"
-            tools:text="#PED-2026-1284" />
-
-        <!-- Resumen -->
-        <com.google.android.material.card.MaterialCardView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            app:cardBackgroundColor="@color/bg_card"
-            app:cardCornerRadius="18dp"
-            app:cardElevation="0dp"
-            app:strokeWidth="0dp">
+            android:gravity="center_horizontal"
+            android:orientation="vertical"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="44dp">
 
-            <LinearLayout
-                android:layout_width="match_parent"
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                app:cardBackgroundColor="@color/brand_soft"
+                app:cardCornerRadius="40dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <ImageView
+                    android:layout_width="44dp"
+                    android:layout_height="44dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@null"
+                    android:src="@drawable/ic_check_circle"
+                    app:tint="@color/brand_primary" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <TextView
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="18dp">
+                android:layout_marginTop="24dp"
+                android:fontFamily="sans-serif"
+                android:letterSpacing="-0.02"
+                android:text="@string/order_confirmed_title"
+                android:textColor="@color/text_on_inverse"
+                android:textSize="28sp"
+                android:textStyle="bold" />
 
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif-medium"
-                    android:letterSpacing="0.06"
-                    android:text="@string/order_confirmed_client_label"
-                    android:textColor="@color/text_tertiary"
-                    android:textSize="10sp" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="sans-serif"
+                android:text="@string/order_confirmed_subtitle"
+                android:textColor="@color/text_on_inverse_muted"
+                android:textSize="14sp" />
 
-                <TextView
-                    android:id="@+id/textConfirmedClientName"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="2dp"
-                    android:ellipsize="end"
-                    android:fontFamily="sans-serif-medium"
-                    android:maxLines="1"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp"
-                    tools:text="Tienda Rosita" />
-
-                <TextView
-                    android:id="@+id/textConfirmedClientAddress"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:fontFamily="sans-serif"
-                    android:maxLines="1"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="13sp"
-                    android:visibility="gone"
-                    tools:text="10ª calle 7-32, Zona 11"
-                    tools:visibility="visible" />
-
-                <View
-                    android:layout_width="match_parent"
-                    android:layout_height="1dp"
-                    android:layout_marginVertical="14dp"
-                    android:background="@color/border_subtle" />
+            <!-- Tarjeta referencia -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="64dp"
+                android:layout_marginTop="28dp"
+                app:cardBackgroundColor="@color/brand_card_dark"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
+                    android:layout_height="match_parent"
                     android:gravity="center_vertical"
-                    android:orientation="horizontal">
+                    android:orientation="horizontal"
+                    android:paddingHorizontal="16dp">
 
                     <LinearLayout
                         android:layout_width="0dp"
@@ -148,96 +91,327 @@
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:fontFamily="sans-serif-medium"
-                            android:letterSpacing="0.06"
-                            android:text="@string/order_confirmed_products_label"
-                            android:textColor="@color/text_tertiary"
-                            android:textSize="10sp" />
+                            android:fontFamily="sans-serif"
+                            android:letterSpacing="0.14"
+                            android:text="@string/order_confirmed_ref_label"
+                            android:textColor="@color/text_on_inverse_muted"
+                            android:textSize="9sp"
+                            android:textStyle="bold" />
 
                         <TextView
-                            android:id="@+id/textConfirmedProducts"
+                            android:id="@+id/textConfirmedRef"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
                             android:fontFamily="sans-serif"
-                            android:textColor="@color/text_primary"
-                            android:textSize="14sp"
-                            tools:text="5 ítems · 31 unidades" />
+                            android:textColor="@color/text_on_inverse"
+                            android:textSize="18sp"
+                            android:textStyle="bold"
+                            tools:text="#PED-2026-1284" />
                     </LinearLayout>
 
-                    <LinearLayout
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/btnShare"
+                        android:layout_width="wrap_content"
+                        android:layout_height="32dp"
+                        android:clickable="true"
+                        android:focusable="true"
+                        app:cardBackgroundColor="@color/brand_soft"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeWidth="0dp">
+
+                        <TextView
+                            android:layout_width="wrap_content"
+                            android:layout_height="match_parent"
+                            android:fontFamily="sans-serif-medium"
+                            android:gravity="center"
+                            android:paddingHorizontal="14dp"
+                            android:text="@string/order_confirmed_share"
+                            android:textColor="@color/brand_soft_text"
+                            android:textSize="11sp" />
+                    </com.google.android.material.card.MaterialCardView>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Tarjeta resumen -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="14dp"
+                app:cardBackgroundColor="@color/bg_page"
+                app:cardCornerRadius="18dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:gravity="end"
-                        android:orientation="vertical">
+                        android:fontFamily="sans-serif"
+                        android:letterSpacing="0.14"
+                        android:text="@string/order_confirmed_client_label"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="9sp"
+                        android:textStyle="bold" />
 
-                        <TextView
+                    <TextView
+                        android:id="@+id/textConfirmedClientName"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif"
+                        android:maxLines="1"
+                        android:textColor="@color/text_primary"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        tools:text="Tienda Rosita" />
+
+                    <TextView
+                        android:id="@+id/textConfirmedClientAddress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:ellipsize="end"
+                        android:fontFamily="sans-serif"
+                        android:maxLines="1"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="12sp"
+                        android:visibility="gone"
+                        tools:text="10ª calle 7-32, Zona 11"
+                        tools:visibility="visible" />
+
+                    <View
+                        android:layout_width="match_parent"
+                        android:layout_height="1dp"
+                        android:layout_marginVertical="14dp"
+                        android:background="@color/border_subtle" />
+
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal">
+
+                        <LinearLayout
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="1"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif"
+                                android:letterSpacing="0.14"
+                                android:text="@string/order_confirmed_products_label"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/textConfirmedProducts"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:fontFamily="sans-serif-medium"
+                                android:textColor="@color/text_primary"
+                                android:textSize="14sp"
+                                tools:text="5 ítems · 31 unidades" />
+
+                            <LinearLayout
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="12dp"
+                                android:gravity="center_vertical"
+                                android:orientation="horizontal">
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:background="@drawable/bg_pill"
+                                    android:backgroundTint="@color/warning_bg"
+                                    android:fontFamily="sans-serif"
+                                    android:letterSpacing="0.05"
+                                    android:paddingHorizontal="10dp"
+                                    android:paddingVertical="3dp"
+                                    android:text="@string/order_confirmed_credito"
+                                    android:textColor="@color/warning_text"
+                                    android:textSize="10sp"
+                                    android:textStyle="bold" />
+
+                                <TextView
+                                    android:layout_width="wrap_content"
+                                    android:layout_height="wrap_content"
+                                    android:layout_marginStart="8dp"
+                                    android:fontFamily="sans-serif"
+                                    android:text="@string/order_confirmed_vence"
+                                    android:textColor="@color/text_secondary"
+                                    android:textSize="12sp" />
+                            </LinearLayout>
+                        </LinearLayout>
+
+                        <LinearLayout
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:fontFamily="sans-serif-medium"
-                            android:letterSpacing="0.06"
-                            android:text="@string/order_confirmed_total_label"
-                            android:textColor="@color/text_tertiary"
-                            android:textSize="10sp" />
+                            android:gravity="end"
+                            android:orientation="vertical">
 
-                        <TextView
-                            android:id="@+id/textConfirmedTotal"
-                            android:layout_width="wrap_content"
-                            android:layout_height="wrap_content"
-                            android:layout_marginTop="2dp"
-                            android:fontFamily="sans-serif"
-                            android:textColor="@color/brand_accent"
-                            android:textSize="20sp"
-                            android:textStyle="bold"
-                            tools:text="Q1,301.66" />
+                            <TextView
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="sans-serif"
+                                android:letterSpacing="0.14"
+                                android:text="@string/order_confirmed_total_label"
+                                android:textColor="@color/text_secondary"
+                                android:textSize="9sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/textConfirmedTotal"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:fontFamily="sans-serif"
+                                android:letterSpacing="-0.01"
+                                android:textColor="@color/brand_primary"
+                                android:textSize="20sp"
+                                android:textStyle="bold"
+                                tools:text="Q1,301.66" />
+                        </LinearLayout>
                     </LinearLayout>
                 </LinearLayout>
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-    </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 
-    <!-- Botones -->
+    <!-- ── Botones inferiores ── -->
     <LinearLayout
         android:id="@+id/confirmedButtons"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:paddingHorizontal="28dp"
-        android:paddingBottom="24dp"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="20dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <com.google.android.material.button.MaterialButton
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/btnContinueRoute"
             android:layout_width="match_parent"
-            android:layout_height="54dp"
-            android:fontFamily="sans-serif-medium"
-            android:text="@string/order_confirmed_continue"
-            android:textAllCaps="false"
-            android:textColor="@color/brand_primary"
-            android:textSize="15sp"
-            app:backgroundTint="@color/brand_soft"
-            app:cornerRadius="16dp"
-            app:icon="@drawable/ic_chevron_right"
-            app:iconGravity="textEnd"
-            app:iconTint="@color/brand_primary" />
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/btnViewDetail"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="10dp"
-            android:fontFamily="sans-serif-medium"
-            android:text="@string/order_confirmed_detail"
-            android:textAllCaps="false"
-            android:textColor="@color/text_on_inverse"
-            android:textSize="14sp"
-            app:cornerRadius="16dp"
+            android:layout_height="60dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@color/brand_soft"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
             app:rippleColor="@color/brand_accent"
-            app:strokeColor="@color/text_on_inverse_muted"
-            app:strokeWidth="1dp" />
+            app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:text="@string/order_confirmed_continue"
+                    android:textColor="@color/brand_soft_text"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    app:drawableEndCompat="@drawable/ic_chevron_right"
+                    app:drawableTint="@color/brand_soft_text" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:alpha="0.75"
+                    android:fontFamily="sans-serif"
+                    android:text="@string/order_confirmed_continue_sub"
+                    android:textColor="@color/brand_soft_text"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="52dp"
+            android:layout_marginTop="10dp"
+            android:orientation="horizontal">
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnPrint"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-medium"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/order_confirmed_print"
+                android:textAllCaps="false"
+                android:textColor="@color/brand_soft"
+                android:textSize="13sp"
+                app:backgroundTint="@color/brand_btn_dark"
+                app:cornerRadius="16dp"
+                app:strokeColor="@color/brand_accent"
+                app:strokeWidth="1dp" />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btnViewDetail"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="0dp"
+                android:layout_height="52dp"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:fontFamily="sans-serif-medium"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/order_confirmed_detail"
+                android:textAllCaps="false"
+                android:textColor="@color/brand_soft"
+                android:textSize="13sp"
+                app:backgroundTint="@color/brand_btn_dark"
+                app:cornerRadius="16dp"
+                app:strokeColor="@color/brand_accent"
+                app:strokeWidth="1dp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="36dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/bg_pill"
+            android:backgroundTint="@color/brand_card_dark"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
+
+            <View
+                android:layout_width="7dp"
+                android:layout_height="7dp"
+                android:background="@drawable/bg_pill"
+                android:backgroundTint="@color/text_on_inverse_muted" />
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:fontFamily="sans-serif-medium"
+                android:text="@string/order_confirmed_sync"
+                android:textColor="@color/text_on_inverse_muted"
+                android:textSize="11sp" />
+        </LinearLayout>
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
