@@ -7,7 +7,11 @@ import android.view.View
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
+import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -27,7 +31,6 @@ import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
 import com.bumptech.glide.request.RequestListener
 import com.bumptech.glide.request.target.Target
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
@@ -53,16 +56,26 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
         // ── Vistas ──────────────────────────────────────────────────────────
-        val toolbar              = view.findViewById<MaterialToolbar>(R.id.toolbarDetail)
         val imageDetail          = view.findViewById<ShapeableImageView>(R.id.imageDetail)
         val imagePlaceholder     = view.findViewById<ImageView>(R.id.imagePlaceholderDetail)
         val textName             = view.findViewById<TextView>(R.id.textDetailName)
         val textDesc             = view.findViewById<TextView>(R.id.textDetailDescription)
         val textPrice            = view.findViewById<TextView>(R.id.textDetailPrice)
+        val textCode             = view.findViewById<TextView>(R.id.textDetailCode)
+        val textStock            = view.findViewById<TextView>(R.id.textDetailStock)
         val chipGroupPresets     = view.findViewById<ChipGroup>(R.id.chipGroupPresets)
         val buttonOtros          = view.findViewById<MaterialButton>(R.id.buttonOtros)
         val buttonAddPreset      = view.findViewById<MaterialButton>(R.id.buttonAddPreset)
+        val stepperMinus         = view.findViewById<MaterialButton>(R.id.stepperMinus)
+        val stepperQty           = view.findViewById<TextView>(R.id.stepperQty)
+        val stepperPlus          = view.findViewById<MaterialButton>(R.id.stepperPlus)
+        val textAddBarUnits      = view.findViewById<TextView>(R.id.textAddBarUnits)
         val editNotes            = view.findViewById<TextInputEditText>(R.id.editNotes)
         val buttonAddToCart      = view.findViewById<MaterialButton>(R.id.buttonAddToCart)
         val textTemplatesLabel   = view.findViewById<TextView>(R.id.textTemplatesLabel)
@@ -70,7 +83,7 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
         val chipGroupTemplates   = view.findViewById<ChipGroup>(R.id.chipGroupTemplates)
         val buttonCreateTemplate = view.findViewById<MaterialButton>(R.id.buttonCreateTemplate)
 
-        toolbar.setNavigationOnClickListener {
+        view.findViewById<View>(R.id.btnBackDetail).setOnClickListener {
             parentFragmentManager.popBackStack()
         }
 
@@ -85,6 +98,26 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
         val nf = buildCurrencyFormat()
         textName.text  = product.name
         textPrice.text = nf.format(product.price.amount)
+
+        // Código (categoría · barcode) + stock
+        val codeParts = listOfNotNull(
+            product.category?.trim()?.takeIf { it.isNotBlank() }?.uppercase(Locale("es", "GT")),
+            product.barcode?.trim()?.takeIf { it.isNotBlank() }?.let { "CÓDIGO $it" },
+        )
+        if (codeParts.isNotEmpty()) {
+            textCode.text = codeParts.joinToString(" · ")
+            textCode.visibility = View.VISIBLE
+        } else {
+            textCode.visibility = View.GONE
+        }
+        val stockValue = product.stock.value
+        if (stockValue > 0) {
+            textStock.text = getString(R.string.order_stock_format, stockValue)
+        } else {
+            textStock.text = getString(R.string.order_no_stock)
+            textStock.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.danger_bg)
+            textStock.setTextColor(ContextCompat.getColor(requireContext(), R.color.danger_text))
+        }
 
         val desc = product.description?.trim()
         if (!desc.isNullOrBlank()) {
@@ -103,6 +136,15 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
         buttonAddToCart.setOnClickListener { detailViewModel.onAddToCartClicked() }
         buttonCreateTemplate.setOnClickListener { detailViewModel.onCreateTemplateClicked() }
 
+        // ── Stepper (ajusta la cantidad seleccionada) ─────────────────────────
+        stepperPlus.setOnClickListener {
+            detailViewModel.onOtherQtyConfirmed((detailViewModel.selectedQty.value ?: 0) + 1)
+        }
+        stepperMinus.setOnClickListener {
+            val current = detailViewModel.selectedQty.value ?: 0
+            if (current > 1) detailViewModel.onOtherQtyConfirmed(current - 1)
+        }
+
         // ── Observadores ─────────────────────────────────────────────────────
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
@@ -115,10 +157,16 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
                     }
                 }
 
-                // Cantidad seleccionada → habilitar botón + sync chips
+                // Cantidad seleccionada → stepper + barra inferior + botón + chips
                 launch {
                     detailViewModel.selectedQty.collect { qty ->
-                        buttonAddToCart.isEnabled = qty != null && qty > 0
+                        val q = qty ?: 0
+                        stepperQty.text = q.toString()
+                        textAddBarUnits.text = getString(R.string.order_detail_units, q)
+                        buttonAddToCart.isEnabled = q > 0
+                        buttonAddToCart.text =
+                            if (q > 0) nf.format(product.price.amount.toDouble() * q)
+                            else getString(R.string.order_detail_add_cta)
                         syncChipSelection(chipGroupPresets, qty)
                     }
                 }
@@ -200,8 +248,18 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
                 isChecked = qty == selectedQty
                 setOnClickListener { detailViewModel.onPresetClicked(qty) }
             }
+            styleOrderChip(chip)
             group.addView(chip)
         }
+    }
+
+    /** Aplica el estilo "Bosque Pro" a un chip creado programáticamente. */
+    private fun styleOrderChip(chip: Chip) {
+        chip.chipBackgroundColor = ContextCompat.getColorStateList(requireContext(), R.color.chip_catalog_bg)
+        chip.setTextColor(ContextCompat.getColorStateList(requireContext(), R.color.chip_catalog_text))
+        chip.chipStrokeColor = ContextCompat.getColorStateList(requireContext(), R.color.chip_catalog_stroke)
+        chip.chipStrokeWidth = resources.displayMetrics.density
+        chip.isCheckedIconVisible = false
     }
 
     private fun syncChipSelection(group: ChipGroup, selectedQty: Int?) {
@@ -245,6 +303,7 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
                     true
                 }
             }
+            styleOrderChip(chip)
             group.addView(chip)
         }
     }

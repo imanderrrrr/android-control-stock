@@ -1,251 +1,408 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Detalle de producto (pedido) — rediseño "Bosque Pro".
+     Conserva ids: imageDetail, imagePlaceholderDetail, textDetailName, textDetailDescription,
+     textDetailPrice, chipGroupPresets, buttonOtros, buttonAddPreset, inputLayoutNotes, editNotes,
+     textTemplatesLabel, scrollTemplates, chipGroupTemplates, buttonCreateTemplate, buttonAddToCart.
+     Nuevos: btnBackDetail, textDetailCode, textDetailStock, stepperMinus/stepperQty/stepperPlus,
+     textAddBarUnits. Inset superior por código. -->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface">
+    android:background="@color/bg_page">
 
-    <!-- AppBar -->
-    <com.google.android.material.appbar.AppBarLayout
-        android:id="@+id/appBarLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:elevation="0dp"
-        app:elevation="0dp">
+    <!-- Encabezado -->
+    <ImageView
+        android:id="@+id/btnBackDetail"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:layout_marginStart="12dp"
+        android:layout_marginTop="8dp"
+        android:background="?attr/selectableItemBackgroundBorderless"
+        android:contentDescription="Volver"
+        android:padding="8dp"
+        android:src="@drawable/ic_arrow_back"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:tint="@color/text_primary" />
 
-        <com.google.android.material.appbar.MaterialToolbar
-            android:id="@+id/toolbarDetail"
-            android:layout_width="match_parent"
-            android:layout_height="?attr/actionBarSize"
-            app:navigationIcon="@drawable/ic_arrow_back"
-            app:title="@string/detail_title" />
-
-    </com.google.android.material.appbar.AppBarLayout>
-
-    <!-- Contenido desplazable -->
     <androidx.core.widget.NestedScrollView
-        android:layout_width="match_parent"
-        android:layout_height="match_parent"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         android:clipToPadding="false"
-        android:paddingBottom="100dp"
-        app:layout_behavior="@string/appbar_scrolling_view_behavior">
+        android:paddingBottom="24dp"
+        app:layout_constraintBottom_toTopOf="@id/addBar"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/btnBackDetail">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingStart="20dp"
-            android:paddingEnd="20dp"
-            android:paddingTop="20dp"
-            android:paddingBottom="20dp">
+            android:paddingHorizontal="20dp"
+            android:paddingTop="4dp">
 
-            <!-- ── Imagen 300×300 ── -->
-            <FrameLayout
-                android:layout_width="300dp"
-                android:layout_height="300dp"
-                android:layout_gravity="center_horizontal"
-                android:background="@drawable/bg_image_container"
-                android:layout_marginBottom="20dp">
+            <!-- Imagen -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="240dp"
+                app:cardBackgroundColor="@color/bg_muted"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/border_subtle"
+                app:strokeWidth="1dp">
 
                 <com.google.android.material.imageview.ShapeableImageView
                     android:id="@+id/imageDetail"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
+                    android:contentDescription="@string/product_image"
                     android:scaleType="centerCrop"
-                    android:visibility="invisible"
-                    app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Distribuidora.ImageRounded" />
+                    android:visibility="invisible" />
 
                 <ImageView
                     android:id="@+id/imagePlaceholderDetail"
-                    android:layout_width="80dp"
-                    android:layout_height="80dp"
+                    android:layout_width="72dp"
+                    android:layout_height="72dp"
                     android:layout_gravity="center"
+                    android:alpha="0.4"
+                    android:contentDescription="@null"
                     android:src="@drawable/ic_product_placeholder"
-                    android:alpha="0.35" />
+                    app:tint="@color/text_tertiary" />
+            </com.google.android.material.card.MaterialCardView>
 
-            </FrameLayout>
+            <!-- Categoría · código -->
+            <TextView
+                android:id="@+id/textDetailCode"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.04"
+                android:textColor="@color/text_tertiary"
+                android:textSize="11sp"
+                android:visibility="gone"
+                tools:text="BEBIDAS · CÓDIGO 720-15"
+                tools:visibility="visible" />
 
-            <!-- ── Nombre ── -->
+            <!-- Nombre -->
             <TextView
                 android:id="@+id/textDetailName"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textAppearance="?attr/textAppearanceHeadline6"
+                android:layout_marginTop="4dp"
+                android:fontFamily="sans-serif"
+                android:letterSpacing="-0.02"
+                android:textColor="@color/text_primary"
+                android:textSize="22sp"
                 android:textStyle="bold"
-                android:textColor="?attr/colorOnSurface"
-                android:layout_marginBottom="6dp" />
+                tools:text="Gaseosa Cola 2L" />
 
-            <!-- ── Descripción ── -->
+            <!-- Precio + stock -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/textDetailPrice"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:fontFamily="sans-serif"
+                    android:textColor="@color/brand_accent"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    tools:text="Q18.50" />
+
+                <TextView
+                    android:id="@+id/textDetailStock"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_pill"
+                    android:backgroundTint="@color/success_bg"
+                    android:fontFamily="sans-serif"
+                    android:paddingHorizontal="10dp"
+                    android:paddingVertical="3dp"
+                    android:textColor="@color/success_text"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    tools:text="Stock 38" />
+            </LinearLayout>
+
+            <!-- Descripción (opcional) -->
             <TextView
                 android:id="@+id/textDetailDescription"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textAppearance="?attr/textAppearanceBody2"
-                android:textColor="?attr/colorOnSurface"
-                android:alpha="0.7"
-                android:layout_marginBottom="10dp"
-                android:visibility="gone" />
+                android:layout_marginTop="10dp"
+                android:fontFamily="sans-serif"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                android:visibility="gone"
+                tools:text="Descripción del producto" />
 
-            <!-- ── Precio ── -->
-            <TextView
-                android:id="@+id/textDetailPrice"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textAppearance="?attr/textAppearanceSubtitle1"
-                android:textColor="?attr/colorPrimary"
-                android:textStyle="bold"
-                android:layout_marginBottom="24dp" />
-
-            <!-- ── Sección Cantidad ── -->
+            <!-- ── Cantidad ── -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/detail_section_qty"
-                android:textAppearance="?attr/textAppearanceSubtitle2"
-                android:textStyle="bold"
-                android:textColor="?attr/colorOnSurface"
-                android:layout_marginBottom="10dp" />
+                android:layout_marginTop="22dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.04"
+                android:text="@string/order_detail_quantity"
+                android:textColor="@color/text_tertiary"
+                android:textSize="11sp" />
 
-            <!-- ChipGroup de presets (singleSelection) -->
+            <!-- Stepper -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="10dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/stepperMinus"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:padding="0dp"
+                    app:cornerRadius="16dp"
+                    app:icon="@drawable/ic_remove"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="22dp"
+                    app:iconTint="@color/brand_primary"
+                    app:strokeColor="@color/border_strong"
+                    app:strokeWidth="1dp" />
+
+                <TextView
+                    android:id="@+id/stepperQty"
+                    android:layout_width="0dp"
+                    android:layout_height="56dp"
+                    android:layout_marginHorizontal="10dp"
+                    android:layout_weight="1"
+                    android:background="@drawable/bg_field"
+                    android:fontFamily="sans-serif"
+                    android:gravity="center"
+                    android:textColor="@color/text_primary"
+                    android:textSize="22sp"
+                    android:textStyle="bold"
+                    tools:text="4" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/stepperPlus"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:minWidth="0dp"
+                    android:padding="0dp"
+                    app:backgroundTint="@color/brand_primary"
+                    app:cornerRadius="16dp"
+                    app:icon="@drawable/ic_add_centered"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="22dp"
+                    app:iconTint="@color/text_on_inverse" />
+            </LinearLayout>
+
+            <!-- Presets rápidos -->
             <com.google.android.material.chip.ChipGroup
                 android:id="@+id/chipGroupPresets"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                app:singleSelection="true"
+                android:layout_marginTop="12dp"
+                app:chipSpacingHorizontal="8dp"
                 app:selectionRequired="false"
-                android:layout_marginBottom="8dp" />
+                app:singleLine="false"
+                app:singleSelection="true" />
 
-            <!-- Fila: Otros + Agregar preset (+) -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="24dp">
+                android:layout_marginTop="4dp"
+                android:orientation="horizontal">
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonOtros"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="wrap_content"
                     android:layout_height="36dp"
-                    android:text="@string/detail_qty_otros"
-                    android:textAllCaps="false"
+                    android:layout_marginEnd="8dp"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
+                    android:text="@string/detail_qty_otros"
+                    android:textAllCaps="false"
+                    android:textColor="@color/brand_accent"
                     app:cornerRadius="18dp"
-                    android:layout_marginEnd="8dp" />
+                    app:strokeColor="@color/border_strong" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/buttonAddPreset"
                     style="@style/Widget.MaterialComponents.Button.OutlinedButton"
                     android:layout_width="36dp"
                     android:layout_height="36dp"
+                    android:contentDescription="@string/detail_add_preset_desc"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"
-                    android:padding="0dp"
-                    android:contentDescription="@string/detail_add_preset_desc"
-                    app:icon="@drawable/ic_add_centered"
-                    app:iconSize="18dp"
-                    app:iconPadding="0dp"
-                    app:iconGravity="textStart"
-                    app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Distribuidora.Circle"
                     android:minWidth="36dp"
-                    android:minHeight="36dp" />
-
+                    android:minHeight="36dp"
+                    android:padding="0dp"
+                    app:icon="@drawable/ic_add_centered"
+                    app:iconGravity="textStart"
+                    app:iconPadding="0dp"
+                    app:iconSize="18dp"
+                    app:iconTint="@color/brand_accent"
+                    app:shapeAppearanceOverlay="@style/ShapeAppearanceOverlay.Distribuidora.Circle"
+                    app:strokeColor="@color/border_strong" />
             </LinearLayout>
 
-            <!-- ── Sección Detalles ── -->
+            <!-- ── Notas ── -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="@string/detail_section_notes"
-                android:textAppearance="?attr/textAppearanceSubtitle2"
-                android:textStyle="bold"
-                android:textColor="?attr/colorOnSurface"
-                android:layout_marginBottom="10dp" />
+                android:layout_marginTop="22dp"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.04"
+                android:text="@string/order_detail_notes_label"
+                android:textColor="@color/text_tertiary"
+                android:textSize="11sp" />
 
             <com.google.android.material.textfield.TextInputLayout
                 android:id="@+id/inputLayoutNotes"
                 style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="@string/detail_notes_hint"
-                android:layout_marginBottom="12dp"
-                app:boxCornerRadiusTopStart="12dp"
-                app:boxCornerRadiusTopEnd="12dp"
+                android:layout_marginTop="8dp"
+                android:hint="@string/order_detail_notes_hint"
+                app:boxCornerRadiusBottomEnd="12dp"
                 app:boxCornerRadiusBottomStart="12dp"
-                app:boxCornerRadiusBottomEnd="12dp">
+                app:boxCornerRadiusTopEnd="12dp"
+                app:boxCornerRadiusTopStart="12dp"
+                app:boxStrokeColor="@color/brand_accent">
 
                 <com.google.android.material.textfield.TextInputEditText
                     android:id="@+id/editNotes"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:minLines="2"
-                    android:maxLines="4"
+                    android:gravity="top"
                     android:inputType="textMultiLine|textCapSentences"
-                    android:gravity="top" />
-
+                    android:maxLines="4"
+                    android:minLines="2" />
             </com.google.android.material.textfield.TextInputLayout>
 
-            <!-- ── Plantillas de detalle ── -->
+            <!-- Plantillas de detalle -->
             <TextView
                 android:id="@+id/textTemplatesLabel"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:fontFamily="sans-serif"
                 android:text="@string/detail_templates_label"
-                android:textAppearance="?attr/textAppearanceCaption"
-                android:textColor="?attr/colorOnSurface"
-                android:alpha="0.6"
-                android:layout_marginBottom="6dp"
+                android:textColor="@color/text_tertiary"
+                android:textSize="12sp"
                 android:visibility="gone" />
 
             <HorizontalScrollView
                 android:id="@+id/scrollTemplates"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
                 android:scrollbars="none"
-                android:layout_marginBottom="8dp"
                 android:visibility="gone">
 
                 <com.google.android.material.chip.ChipGroup
                     android:id="@+id/chipGroupTemplates"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    app:singleSelection="true"
                     app:selectionRequired="false"
-                    android:paddingEnd="4dp" />
-
+                    app:singleSelection="true" />
             </HorizontalScrollView>
 
-            <!-- Botón Crear detalle -->
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/buttonCreateTemplate"
-                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                style="@style/Widget.MaterialComponents.Button.TextButton"
                 android:layout_width="wrap_content"
-                android:layout_height="36dp"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:paddingHorizontal="6dp"
                 android:text="@string/detail_create_template"
                 android:textAllCaps="false"
-                android:insetTop="0dp"
-                android:insetBottom="0dp"
+                android:textColor="@color/brand_accent"
                 app:icon="@drawable/ic_add_centered"
                 app:iconSize="16dp"
-                app:cornerRadius="18dp"
-                android:layout_marginBottom="28dp" />
-
-            <!-- ── Botón Agregar al carrito ── -->
-            <com.google.android.material.button.MaterialButton
-                android:id="@+id/buttonAddToCart"
-                android:layout_width="match_parent"
-                android:layout_height="52dp"
-                android:text="@string/detail_add_to_cart"
-                android:textAllCaps="false"
-                android:textAppearance="?attr/textAppearanceButton"
-                android:enabled="false"
-                app:cornerRadius="26dp" />
+                app:iconTint="@color/brand_accent" />
 
         </LinearLayout>
 
     </androidx.core.widget.NestedScrollView>
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+    <!-- ── Barra fija: Agregar al pedido ── -->
+    <LinearLayout
+        android:id="@+id/addBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="@color/bg_card"
+        android:elevation="8dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="20dp"
+        android:paddingVertical="12dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
 
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:letterSpacing="0.04"
+                android:text="@string/order_detail_add_cta"
+                android:textColor="@color/text_tertiary"
+                android:textSize="10sp" />
+
+            <TextView
+                android:id="@+id/textAddBarUnits"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif-medium"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                tools:text="4 unidades" />
+        </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonAddToCart"
+            android:layout_width="wrap_content"
+            android:layout_height="52dp"
+            android:enabled="false"
+            android:fontFamily="sans-serif-medium"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:paddingHorizontal="22dp"
+            android:text="@string/order_detail_add_cta"
+            android:textAllCaps="false"
+            android:textSize="15sp"
+            app:backgroundTint="@color/brand_primary"
+            app:cornerRadius="16dp"
+            app:icon="@drawable/ic_chevron_right"
+            app:iconGravity="textEnd"
+            app:iconTint="@color/text_on_inverse" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
