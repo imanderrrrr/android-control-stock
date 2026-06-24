@@ -141,6 +141,7 @@ class OrderCatalogAdapter(
         private val image            = itemView.findViewById<ShapeableImageView>(R.id.imageProduct)
         private val placeholder      = itemView.findViewById<ImageView>(R.id.imagePlaceholder)
         private val name             = itemView.findViewById<TextView>(R.id.textName)
+        private val subtitle         = itemView.findViewById<TextView>(R.id.textSubtitle)
         private val price            = itemView.findViewById<TextView>(R.id.textPrice)
         private val textStock        = itemView.findViewById<TextView>(R.id.textStock)
         private val buttonAdd        = itemView.findViewById<MaterialButton>(R.id.buttonAdd)
@@ -172,15 +173,23 @@ class OrderCatalogAdapter(
             }
             price.text = nf.format(product.price.amount)
 
-            // Stock disponible = existencias − comprometido
+            // Subtítulo: categoría · código
             val ctx = itemView.context
+            val subtitleParts = listOfNotNull(
+                product.category?.trim()?.takeIf { it.isNotBlank() },
+                product.barcode?.trim()?.takeIf { it.isNotBlank() },
+            )
+            subtitle.text = subtitleParts.joinToString(" · ")
+            subtitle.visibility = if (subtitleParts.isEmpty()) View.GONE else View.VISIBLE
+
+            // Stock disponible = existencias − comprometido
             val available = (product.stock.value - product.comprometido).coerceAtLeast(0)
             if (available > 0) {
-                textStock.text = ctx.getString(R.string.order_stock_format, available)
-                textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.success_bg)
+                textStock.text = "STOCK $available"
+                textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.brand_soft)
                 textStock.setTextColor(ContextCompat.getColor(ctx, R.color.success_text))
             } else {
-                textStock.text = ctx.getString(R.string.order_no_stock)
+                textStock.text = "SIN STOCK"
                 textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.danger_bg)
                 textStock.setTextColor(ContextCompat.getColor(ctx, R.color.danger_text))
             }
@@ -191,6 +200,13 @@ class OrderCatalogAdapter(
 
         fun updateQuantity(qty: Int, animate: Boolean) {
             textQuantity.text = qty.toString()
+            // Borde verde de marca cuando el producto está en el carrito (como en Pencil).
+            card.setStrokeColor(
+                ContextCompat.getColor(
+                    itemView.context,
+                    if (qty > 0) R.color.brand_primary else R.color.border_subtle,
+                )
+            )
             if (qty > 0) showStepper(animate) else showAddButton(animate)
         }
 

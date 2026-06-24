@@ -67,10 +67,13 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         val textCatalogCliente = view.findViewById<TextView>(R.id.textCatalogCliente)
         val textCartBarCount   = view.findViewById<TextView>(R.id.textCartBarCount)
         val textCartBarTotal   = view.findViewById<TextView>(R.id.textCartBarTotal)
+        val textCatalogCartPill = view.findViewById<TextView>(R.id.textCatalogCartPill)
 
         val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "GT")).also {
             it.currency = Currency.getInstance("GTQ")
         }
+
+        view.findViewById<View>(R.id.btnScanCatalog).setOnClickListener { editSearch.requestFocus() }
 
         // ── Chips → map chip id to CategoryFilter ───────────────────────────
         val chipCategoryMap: Map<Int, CategoryFilter> = mapOf(
@@ -194,7 +197,8 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
                             cart.mapValues { (_, item) -> item.quantity }
                         )
                         val count = cart.size
-                        textCartBarCount.text = getString(R.string.order_products_count, count)
+                        textCartBarCount.text = "$count PRODUCTOS"
+                        textCatalogCartPill.text = "$count · ${currencyFormat.format(flowViewModel.cartTotal.value)}"
                         cartBar.visibility = if (count > 0) View.VISIBLE else View.GONE
                     }
                 }

@@ -61,6 +61,7 @@ class EditOtrosCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         val chipGroup      = view.findViewById<ChipGroup>(R.id.chipGroupCategories)
         val textEmptyState = view.findViewById<TextView>(R.id.textEmptyState)
         view.findViewById<View>(R.id.cartBar)?.visibility = View.GONE
+        view.findViewById<View>(R.id.cartPillCatalog)?.visibility = View.GONE
         view.findViewById<TextView>(R.id.textCatalogCliente)?.text = getString(R.string.order_add_product)
 
         view.findViewById<View>(R.id.btnBackCatalog).setOnClickListener { parentFragmentManager.popBackStack() }

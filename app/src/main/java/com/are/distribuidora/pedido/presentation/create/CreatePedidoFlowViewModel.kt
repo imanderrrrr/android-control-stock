@@ -40,6 +40,7 @@ data class CartItem(
     val category: String?,
     val quantity: Int,
     val imageUrl: String? = null,
+    val barcode: String? = null,
     val notes: String? = null,
     val discountAmount: Double = 0.0,
     val discountPercent: Double = 0.0,
@@ -162,6 +163,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
                 category    = product.category,
                 quantity    = 1,
                 imageUrl    = product.imageUrl,
+                barcode     = product.barcode,
             )
         }
         _cartItems.value = current
@@ -325,6 +327,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
                 category    = product.category,
                 quantity    = quantity,
                 imageUrl    = product.imageUrl,
+                barcode     = product.barcode,
                 notes       = notes?.takeIf { it.isNotBlank() },
             )
         }

@@ -63,6 +63,7 @@ class EditPedidoCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         val textEmptyState = view.findViewById<TextView>(R.id.textEmptyState)
         // El carrito no aplica en edición
         view.findViewById<View>(R.id.cartBar)?.visibility = View.GONE
+        view.findViewById<View>(R.id.cartPillCatalog)?.visibility = View.GONE
         view.findViewById<TextView>(R.id.textCatalogCliente)?.text = getString(R.string.order_add_product)
 
         logger.d(tag, "EditPedidoCatalog opened (add product to existing pedido flow)")

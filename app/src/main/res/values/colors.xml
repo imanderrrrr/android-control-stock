@@ -74,4 +74,7 @@
     <color name="danger_text">#A32D2D</color>
     <color name="info_bg">#E6F1FB</color>
     <color name="info_text">#0C447C</color>
+    <!-- Tonos verdes del flujo de pedido (réplica Pencil) -->
+    <color name="brand_card_dark">#0F2A24</color>
+    <color name="brand_btn_dark">#1F4A40</color>
 </resources>

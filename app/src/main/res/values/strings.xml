@@ -219,7 +219,7 @@
     <string name="order_add_product">Agregar producto</string>
     <string name="order_detail_quantity">Cantidad</string>
     <string name="order_detail_notes_label">Notas del pedido</string>
-    <string name="order_detail_notes_hint">Ej. empacado triple, entregar antes de…</string>
+    <string name="order_detail_notes_hint">Pedir empacado triple…</string>
     <string name="order_detail_add_cta">Agregar al pedido</string>
     <string name="order_detail_units">%1$d unidades</string>
     <string name="order_cart_title">Carrito</string>
@@ -227,6 +227,10 @@
     <string name="order_cart_discounts">Descuentos</string>
     <string name="order_cart_total_label">Total a cobrar</string>
     <string name="order_cart_close_cta">Cerrar pedido</string>
+    <string name="order_cart_iva">IVA (12%)</string>
+    <string name="order_cart_draft_title">Borrador en progreso</string>
+    <string name="order_cart_draft_subtitle">Termina el pedido para guardarlo</string>
+    <string name="order_cart_draft_btn">Borrador</string>
     <string name="order_confirmed_title">Pedido confirmado</string>
     <string name="order_confirmed_subtitle">Se guardó offline · sincroniza al volver</string>
     <string name="order_confirmed_client_label">CLIENTE</string>
@@ -237,6 +241,11 @@
     <string name="order_confirmed_print">Imprimir</string>
     <string name="order_confirmed_detail">Detalle del pedido</string>
     <string name="order_confirmed_share">Compartir</string>
+    <string name="order_confirmed_continue_sub">Sigue con los clientes de tu ruta</string>
+    <string name="order_confirmed_credito">CRÉDITO</string>
+    <string name="order_confirmed_vence">Vence en 30 días</string>
+    <string name="order_confirmed_sync">Esperando red para sincronizar</string>
+    <string name="order_confirmed_ref_label">PEDIDO</string>
     <string name="pedido_menu_delete">Eliminar</string>
     <string name="pedido_delete_dialog_title">Eliminar pedido</string>
     <string name="pedido_delete_dialog_message">¿Estás seguro de que deseas eliminar el pedido de %1$s? Esta acción no se puede deshacer.</string>

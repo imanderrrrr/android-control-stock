@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Producto del catálogo de pedido — rediseño "Bosque Pro" (lista horizontal).
-     Conserva ids del adapter: cardRoot, imageProduct, imagePlaceholder, textName, textPrice,
-     buttonAdd, stepperContainer, buttonDecrement, textQuantity, buttonIncrement. Nuevo: textStock. -->
+<!-- Producto del catálogo — réplica del diseño Pencil "06" (tarjeta 96dp).
+     Conserva ids: cardRoot, imageProduct, imagePlaceholder, textName, textPrice, buttonAdd,
+     stepperContainer, buttonDecrement, textQuantity, buttonIncrement, textStock. Nuevo: textSubtitle. -->
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -9,11 +9,11 @@
     android:id="@+id/cardRoot"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="10dp"
+    android:layout_marginBottom="12dp"
     android:clickable="true"
     android:focusable="true"
     app:cardBackgroundColor="@color/bg_card"
-    app:cardCornerRadius="16dp"
+    app:cardCornerRadius="14dp"
     app:cardElevation="0dp"
     app:rippleColor="@color/brand_soft"
     app:strokeColor="@color/border_subtle"
@@ -24,14 +24,14 @@
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:padding="12dp">
+        android:padding="16dp">
 
-        <!-- Imagen -->
+        <!-- Imagen 64 -->
         <com.google.android.material.card.MaterialCardView
-            android:layout_width="58dp"
-            android:layout_height="58dp"
+            android:layout_width="64dp"
+            android:layout_height="64dp"
             app:cardBackgroundColor="@color/bg_muted"
-            app:cardCornerRadius="12dp"
+            app:cardCornerRadius="10dp"
             app:cardElevation="0dp"
             app:strokeWidth="0dp">
 
@@ -44,8 +44,8 @@
 
             <ImageView
                 android:id="@+id/imagePlaceholder"
-                android:layout_width="26dp"
-                android:layout_height="26dp"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
                 android:layout_gravity="center"
                 android:alpha="0.5"
                 android:contentDescription="@null"
@@ -53,7 +53,7 @@
                 app:tint="@color/text_tertiary" />
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Nombre + stock + precio -->
+        <!-- Nombre + subtítulo + (stock + precio) -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -67,15 +67,27 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
-                android:maxLines="2"
+                android:maxLines="1"
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
                 tools:text="Agua Pura 600ml ×24" />
 
+            <TextView
+                android:id="@+id/textSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif"
+                android:maxLines="1"
+                android:textColor="@color/text_secondary"
+                android:textSize="11sp"
+                tools:text="Bebidas · 8451-22" />
+
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="5dp"
+                android:layout_marginTop="7dp"
                 android:gravity="center_vertical"
                 android:orientation="horizontal">
 
@@ -84,14 +96,16 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:background="@drawable/bg_pill"
-                    android:backgroundTint="@color/success_bg"
+                    android:backgroundTint="@color/brand_soft"
                     android:fontFamily="sans-serif"
-                    android:paddingHorizontal="8dp"
-                    android:paddingVertical="2dp"
+                    android:gravity="center"
+                    android:letterSpacing="0.05"
+                    android:paddingHorizontal="9dp"
+                    android:paddingVertical="3dp"
                     android:textColor="@color/success_text"
-                    android:textSize="10sp"
+                    android:textSize="9sp"
                     android:textStyle="bold"
-                    tools:text="Stock 84" />
+                    tools:text="STOCK 48" />
 
                 <TextView
                     android:id="@+id/textPrice"
@@ -102,10 +116,10 @@
                     android:ellipsize="end"
                     android:fontFamily="sans-serif"
                     android:maxLines="1"
-                    android:textColor="@color/brand_accent"
-                    android:textSize="14sp"
+                    android:textColor="@color/text_primary"
+                    android:textSize="13sp"
                     android:textStyle="bold"
-                    tools:text="Q98.00" />
+                    tools:text="Q36.00" />
             </LinearLayout>
         </LinearLayout>
 
@@ -113,33 +127,34 @@
         <com.google.android.material.button.MaterialButton
             android:id="@+id/buttonAdd"
             style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
+            android:layout_width="84dp"
+            android:layout_height="36dp"
             android:layout_marginStart="8dp"
             android:insetTop="0dp"
             android:insetBottom="0dp"
             android:minWidth="0dp"
-            android:paddingHorizontal="12dp"
+            android:paddingHorizontal="0dp"
             android:text="@string/order_add"
-            android:textColor="@color/brand_accent"
-            android:textSize="13sp"
-            app:cornerRadius="12dp"
+            android:textColor="@color/brand_primary"
+            android:textSize="11sp"
+            android:textStyle="bold"
+            app:cornerRadius="18dp"
             app:icon="@drawable/ic_add_centered"
             app:iconGravity="textStart"
-            app:iconPadding="3dp"
-            app:iconSize="16dp"
-            app:iconTint="@color/brand_accent"
-            app:strokeColor="@color/border_strong"
+            app:iconPadding="2dp"
+            app:iconSize="13dp"
+            app:iconTint="@color/brand_primary"
+            app:strokeColor="@color/brand_primary"
             app:strokeWidth="1dp" />
 
-        <!-- Stepper (qty > 0) -->
+        <!-- Stepper (qty > 0): pastilla brand_soft -->
         <LinearLayout
             android:id="@+id/stepperContainer"
-            android:layout_width="wrap_content"
-            android:layout_height="38dp"
+            android:layout_width="84dp"
+            android:layout_height="36dp"
             android:layout_marginStart="8dp"
             android:background="@drawable/bg_pill"
-            android:backgroundTint="@color/brand_primary"
+            android:backgroundTint="@color/brand_soft"
             android:gravity="center_vertical"
             android:orientation="horizontal"
             android:visibility="gone"
@@ -148,8 +163,9 @@
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/buttonDecrement"
                 style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="36dp"
-                android:layout_height="38dp"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:minWidth="0dp"
@@ -157,26 +173,28 @@
                 app:icon="@drawable/ic_remove"
                 app:iconGravity="textStart"
                 app:iconPadding="0dp"
-                app:iconSize="18dp"
-                app:iconTint="@color/text_on_inverse"
+                app:iconSize="16dp"
+                app:iconTint="@color/brand_primary"
                 app:rippleColor="@color/brand_accent" />
 
             <TextView
                 android:id="@+id/textQuantity"
-                android:layout_width="28dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_weight="1"
                 android:fontFamily="sans-serif-medium"
                 android:gravity="center"
-                android:textColor="@color/text_on_inverse"
-                android:textSize="15sp"
+                android:textColor="@color/brand_primary"
+                android:textSize="14sp"
                 android:textStyle="bold"
                 tools:text="2" />
 
             <com.google.android.material.button.MaterialButton
                 android:id="@+id/buttonIncrement"
                 style="@style/Widget.MaterialComponents.Button.TextButton"
-                android:layout_width="36dp"
-                android:layout_height="38dp"
+                android:layout_width="0dp"
+                android:layout_height="36dp"
+                android:layout_weight="1"
                 android:insetTop="0dp"
                 android:insetBottom="0dp"
                 android:minWidth="0dp"
@@ -184,8 +202,8 @@
                 app:icon="@drawable/ic_add_centered"
                 app:iconGravity="textStart"
                 app:iconPadding="0dp"
-                app:iconSize="18dp"
-                app:iconTint="@color/text_on_inverse"
+                app:iconSize="16dp"
+                app:iconTint="@color/brand_primary"
                 app:rippleColor="@color/brand_accent" />
         </LinearLayout>
 

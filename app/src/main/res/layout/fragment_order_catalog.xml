@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Catálogo de pedido — rediseño "Bosque Pro".
-     Conserva ids: editSearch, recyclerViewCatalog, chipGroupCategories (+chips), textEmptyState.
-     Nuevos: btnBackCatalog, textCatalogCliente, cartBar, textCartBarCount, textCartBarTotal.
-     Inset superior por código. -->
+<!-- Catálogo de pedido — réplica del diseño Pencil "06".
+     Conserva ids: editSearch, recyclerViewCatalog, chipGroupCategories (+chips), textEmptyState,
+     textCatalogCliente, cartBar, textCartBarCount, textCartBarTotal.
+     Nuevos: btnBackCatalog, textCatalogCartPill, btnScanCatalog. Inset superior por código. -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -10,45 +10,57 @@
     android:layout_height="match_parent"
     android:background="@color/bg_page">
 
-    <!-- Encabezado: atrás + cliente -->
+    <!-- ── Encabezado ── -->
     <LinearLayout
         android:id="@+id/catalogHeader"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="14dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="20dp"
+        android:paddingHorizontal="24dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <ImageView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/btnBackCatalog"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Volver"
-            android:padding="8dp"
-            android:src="@drawable/ic_arrow_back"
-            app:tint="@color/text_primary" />
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@color/bg_card"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:rippleColor="@color/brand_soft"
+            app:strokeColor="@color/border_subtle"
+            app:strokeWidth="1dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:contentDescription="Volver"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="@color/text_primary" />
+        </com.google.android.material.card.MaterialCardView>
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
+            android:layout_marginStart="16dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.08"
-                android:text="@string/order_pedido_label"
+                android:fontFamily="sans-serif"
+                android:letterSpacing="0.13"
+                android:text="@string/order_confirmed_client_label"
                 android:textColor="@color/text_tertiary"
-                android:textSize="11sp" />
+                android:textSize="9sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/textCatalogCliente"
@@ -56,22 +68,59 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif"
-                android:letterSpacing="-0.02"
                 android:maxLines="1"
                 android:textColor="@color/text_primary"
-                android:textSize="18sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
                 tools:text="Tienda Rosita" />
         </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cartPillCatalog"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            app:cardBackgroundColor="@color/brand_primary"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingHorizontal="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:letterSpacing="0.1"
+                    android:text="CARRITO"
+                    android:textColor="@color/text_on_inverse_muted"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/textCatalogCartPill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:textColor="@color/text_on_inverse"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    tools:text="12 · Q1,248" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
     </LinearLayout>
 
-    <!-- Búsqueda -->
+    <!-- ── Búsqueda + escáner ── -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/searchCard"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="20dp"
-        android:layout_marginTop="10dp"
+        android:layout_height="44dp"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginTop="16dp"
         app:cardBackgroundColor="@color/bg_card"
         app:cardCornerRadius="12dp"
         app:cardElevation="0dp"
@@ -83,14 +132,15 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingHorizontal="14dp">
+            android:paddingStart="14dp"
+            android:paddingEnd="8dp">
 
             <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
+                android:layout_width="16dp"
+                android:layout_height="16dp"
                 android:contentDescription="@null"
                 android:src="@drawable/ic_search"
                 app:tint="@color/text_tertiary" />
@@ -98,29 +148,48 @@
             <EditText
                 android:id="@+id/editSearch"
                 android:layout_width="0dp"
-                android:layout_height="wrap_content"
+                android:layout_height="match_parent"
                 android:layout_marginStart="10dp"
                 android:layout_weight="1"
                 android:background="@null"
                 android:fontFamily="sans-serif"
+                android:gravity="center_vertical"
                 android:hint="@string/order_catalog_search_hint"
                 android:imeOptions="actionSearch"
                 android:inputType="text"
                 android:maxLines="1"
-                android:minHeight="48dp"
                 android:textColor="@color/text_primary"
                 android:textColorHint="@color/text_tertiary"
                 android:textSize="14sp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnScanCatalog"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/brand_primary"
+                app:cardCornerRadius="6dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Escanear código"
+                    android:src="@drawable/ic_qr_scan"
+                    app:tint="@color/text_on_inverse" />
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 
-    <!-- Chips de categoría -->
+    <!-- ── Chips de categoría ── -->
     <HorizontalScrollView
         android:id="@+id/categoryScrollView"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:fillViewport="false"
+        android:layout_marginTop="14dp"
         android:scrollbars="none"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -130,7 +199,7 @@
             android:id="@+id/chipGroupCategories"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingHorizontal="20dp"
+            android:paddingHorizontal="24dp"
             app:chipSpacingHorizontal="8dp"
             app:selectionRequired="true"
             app:singleLine="true"
@@ -190,14 +259,14 @@
 
     </HorizontalScrollView>
 
-    <!-- Lista de productos -->
+    <!-- ── Lista ── -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewCatalog"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="8dp"
         android:clipToPadding="false"
-        android:paddingHorizontal="20dp"
+        android:paddingHorizontal="24dp"
         android:paddingTop="4dp"
         android:paddingBottom="96dp"
         android:scrollbars="none"
@@ -211,8 +280,8 @@
         android:id="@+id/textEmptyState"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:gravity="center"
         android:fontFamily="sans-serif"
+        android:gravity="center"
         android:text="No hay productos en esta categoría"
         android:textColor="@color/text_secondary"
         android:textSize="14sp"
@@ -222,18 +291,18 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@id/recyclerViewCatalog" />
 
-    <!-- Barra de carrito fija -->
+    <!-- ── Barra de carrito fija ── -->
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cartBar"
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:layout_marginHorizontal="20dp"
-        android:layout_marginBottom="16dp"
+        android:layout_height="64dp"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginBottom="20dp"
         android:clickable="true"
         android:focusable="true"
         android:visibility="gone"
         app:cardBackgroundColor="@color/brand_primary"
-        app:cardCornerRadius="16dp"
+        app:cardCornerRadius="18dp"
         app:cardElevation="0dp"
         app:rippleColor="@color/brand_accent"
         app:layout_constraintBottom_toBottomOf="parent"
@@ -244,47 +313,55 @@
 
         <LinearLayout
             android:layout_width="match_parent"
-            android:layout_height="wrap_content"
+            android:layout_height="match_parent"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingHorizontal="16dp"
-            android:paddingVertical="14dp">
+            android:paddingHorizontal="16dp">
 
             <ImageView
-                android:layout_width="20dp"
-                android:layout_height="20dp"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
                 android:contentDescription="@null"
                 android:src="@drawable/ic_shopping_cart"
                 app:tint="@color/text_on_inverse" />
 
-            <TextView
-                android:id="@+id/textCartBarCount"
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="10dp"
+                android:layout_marginStart="12dp"
                 android:layout_weight="1"
-                android:fontFamily="sans-serif-medium"
-                android:textColor="@color/text_on_inverse"
-                android:textSize="13sp"
-                tools:text="12 productos" />
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/textCartBarCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:letterSpacing="0.12"
+                    android:textColor="@color/text_on_inverse_muted"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    tools:text="12 PRODUCTOS" />
+
+                <TextView
+                    android:id="@+id/textCartBarTotal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:textColor="@color/text_on_inverse"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    tools:text="Q1,248.50" />
+            </LinearLayout>
 
             <TextView
-                android:id="@+id/textCartBarTotal"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginEnd="6dp"
                 android:fontFamily="sans-serif"
-                android:textColor="@color/text_on_inverse"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                tools:text="Q1,248.50" />
-
-            <ImageView
-                android:layout_width="18dp"
-                android:layout_height="18dp"
-                android:contentDescription="@null"
-                android:src="@drawable/ic_chevron_right"
-                app:tint="@color/text_on_inverse" />
+                android:text="Ver  →"
+                android:textColor="@color/brand_soft"
+                android:textSize="14sp"
+                android:textStyle="bold" />
         </LinearLayout>
     </com.google.android.material.card.MaterialCardView>
 

@@ -211,8 +211,9 @@
         <item name="chipStrokeColor">@color/chip_catalog_stroke</item>
         <item name="chipStrokeWidth">1dp</item>
         <item name="checkedIconVisible">false</item>
-        <item name="chipMinHeight">34dp</item>
-        <item name="android:textSize">13sp</item>
+        <item name="chipMinHeight">32dp</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:textStyle">bold</item>
         <item name="ensureMinTouchTargetSize">false</item>
     </style>
 
