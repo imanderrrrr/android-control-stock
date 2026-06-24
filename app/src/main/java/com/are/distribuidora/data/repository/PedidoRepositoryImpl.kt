@@ -791,17 +791,10 @@ class PedidoRepositoryImpl @Inject constructor(
 
                 try {
                     when (entity.syncStatus) {
-                        // ── Pedido nunca subido: borra solo local ──────────────────
-                        SyncStatus.PENDING_CREATE,
-                        SyncStatus.FAILED,
-                        SyncStatus.ERROR -> {
-                            pedidoItemDao.deleteByPedidoId(pedidoId)
-                            pedidoDao.deleteById(pedidoId)
-                            android.util.Log.d("PedidoExpire", "expireOldPedidos: local-only delete pedidoId=$pedidoId")
-                        }
-
-                        // ── Pedido sincronizado: pipeline en 2 fases ───────────────
-                        else -> {
+                        // ── Solo expiramos pedidos DURABLEMENTE SINCRONIZADOS ──────
+                        // Un pedido SYNCED ya está a salvo en Firestore; lo borramos
+                        // localmente tras soft/hard-delete remoto (pipeline en 2 fases).
+                        SyncStatus.SYNCED -> {
                             // Fase 1: marcar isDeleted=true en Firestore (primera vez)
                             // Fase 2: hard delete en Firestore si ya pasaron graceDays
                             //         desde que se marcó (usamos creadoEn + thresholdDays
@@ -825,12 +818,26 @@ class PedidoRepositoryImpl @Inject constructor(
                                 android.util.Log.d("PedidoExpire", "expireOldPedidos: soft-delete cloud pedidoId=$pedidoId")
                             }
 
-                            // En ambos casos borra localmente
+                            // Solo tras asegurar el remoto, borramos localmente.
                             pedidoItemDao.deleteByPedidoId(pedidoId)
                             pedidoDao.deleteById(pedidoId)
+                            successCount++
+                        }
+
+                        // ── Cualquier estado con intención local SIN subir ─────────
+                        // PENDING_CREATE / PENDING_UPDATE / SYNCING / FAILED / ERROR /
+                        // CONFLICT: NUNCA borrar. Son ventas o ediciones que todavía no
+                        // llegaron a Firestore; borrarlas localmente sería pérdida
+                        // permanente (no hay copia remota). Las conservamos hasta que el
+                        // sync las suba; una corrida posterior, ya en SYNCED, las expirará
+                        // de forma segura.
+                        else -> {
+                            android.util.Log.w(
+                                "PedidoExpire",
+                                "expireOldPedidos: SKIP pedido no sincronizado pedidoId=$pedidoId status=${entity.syncStatus} (se conserva hasta subir)",
+                            )
                         }
                     }
-                    successCount++
                 } catch (e: Exception) {
                     failureCount++
                     android.util.Log.e("PedidoExpire", "expireOldPedidos: failed pedidoId=$pedidoId", e)

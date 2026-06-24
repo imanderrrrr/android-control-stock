@@ -69,7 +69,13 @@ interface PedidoDao {
     @Query("UPDATE pedidos SET syncStatus = :status, updatedAt = :updatedAt WHERE id = :id")
     suspend fun markPedidoSyncingInternal(id: String, status: SyncStatus, updatedAt: Long)
 
-    @Query("UPDATE pedidos SET syncStatus = :status, updatedAt = :updatedAt WHERE id = :id")
+    /**
+     * GUARD anti lost-update: solo marca SYNCED si la fila SIGUE en SYNCING. Si el usuario
+     * editó el pedido mientras se subía (quedando PENDING_UPDATE), NO pisamos ese flag: la
+     * edición concurrente debe sobrevivir y re-subirse. Sin `AND syncStatus = 'SYNCING'` la
+     * edición se perdía y nunca llegaba a Firestore.
+     */
+    @Query("UPDATE pedidos SET syncStatus = :status, updatedAt = :updatedAt WHERE id = :id AND syncStatus = 'SYNCING'")
     suspend fun markPedidoSyncedInternal(id: String, status: SyncStatus, updatedAt: Long)
 
     @Query("UPDATE pedidos SET syncStatus = :targetStatus, updatedAt = :updatedAt WHERE id = :id AND syncStatus = :currentStatus")
@@ -346,7 +352,9 @@ interface PedidoItemDao {
     suspend fun markItemSyncingInternal(itemId: String, status: SyncStatus, updatedAt: Long)
 
     // 4) Marcar SYNCED (Internal)
-    @Query("UPDATE pedido_items SET syncStatus = :syncedStatus, updatedAt = :updatedAt WHERE id = :itemId")
+    //    GUARD anti lost-update: solo si el item SIGUE en SYNCING (ver markPedidoSyncedInternal).
+    //    Protege una edición de ítem hecha mientras el pedido se estaba subiendo.
+    @Query("UPDATE pedido_items SET syncStatus = :syncedStatus, updatedAt = :updatedAt WHERE id = :itemId AND syncStatus = 'SYNCING'")
     suspend fun markItemSyncedInternal(itemId: String, syncedStatus: SyncStatus, updatedAt: Long)
 
     // 5) Marcar PENDING_DELETE (Internal)

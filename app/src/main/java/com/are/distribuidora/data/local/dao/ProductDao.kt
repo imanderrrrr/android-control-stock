@@ -59,12 +59,22 @@ interface ProductDao {
         status: com.are.distribuidora.data.local.SyncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCING
     )
 
+    /**
+     * Marca SYNCED tras una subida exitosa.
+     *
+     * GUARD anti lost-update: solo transiciona si la fila SIGUE en SYNCING. Si entre
+     * markSyncing y este punto el usuario editó el producto (quedando PENDING_UPDATE),
+     * NO debemos pisar ese flag: la edición concurrente debe sobrevivir y volver a subirse
+     * en el siguiente ciclo. Sin este `AND syncStatus = 'SYNCING'` la edición se perdía
+     * silenciosamente (el worker subió la copia vieja y borraba el pending de la nueva).
+     */
     @Query(
         """
         UPDATE products
         SET syncStatus = :syncedStatus,
             lastSyncedAt = :lastSyncedAt
         WHERE id = :id
+          AND syncStatus = 'SYNCING'
     """
     )
     suspend fun markSyncedInternal(
@@ -204,11 +214,22 @@ interface ProductDao {
      *  - stock=0,  comprometido=8,  cantidad=8  → stock=8,  comprometido=0
      *  - stock=5,  comprometido=0,  cantidad=3  → stock=8,  comprometido=0
      *  - stock=0,  comprometido=3,  cantidad=10 → stock=10, comprometido=0
+     *
+     * SYNC: además marca el producto como PENDING_UPDATE para que el cambio de stock se
+     * suba a Firestore y el downsync NO lo revierta (las filas PENDING_* están protegidas).
+     * Sin esto, el producto seguía SYNCED, nunca se subía y el siguiente downsync devolvía
+     * el stock al valor remoto viejo. Preservamos PENDING_CREATE/PENDING_DELETE para no
+     * cambiar el tipo de operación pendiente. NO tocamos updatedAt (igual que save()): la
+     * autoridad del timestamp es del servidor.
      */
     @Query("""
         UPDATE products
         SET stock        = stock + :cantidad,
-            comprometido = MAX(0, comprometido - :cantidad)
+            comprometido = MAX(0, comprometido - :cantidad),
+            syncStatus   = CASE
+                WHEN syncStatus IN ('PENDING_CREATE', 'PENDING_DELETE') THEN syncStatus
+                ELSE 'PENDING_UPDATE'
+            END
         WHERE id = :id
     """)
     suspend fun restoreStock(id: String, cantidad: Int)
@@ -225,11 +246,22 @@ interface ProductDao {
      *  - stock=10, cantidad=10 → stock=0, comprometido sin cambio
      *  - stock=2,  cantidad=10 → stock=0, comprometido += 8
      *  - stock=0,  cantidad=5  → stock=0, comprometido += 5
+     *
+     * SYNC: además marca el producto como PENDING_UPDATE para que el descuento de stock se
+     * suba a Firestore y el downsync NO lo revierta (las filas PENDING_* están protegidas).
+     * Sin esto, el producto seguía SYNCED, nunca se subía y el siguiente downsync devolvía
+     * el stock al valor remoto viejo ("hago un pedido y al ratito vuelve el stock").
+     * Preservamos PENDING_CREATE/PENDING_DELETE para no cambiar el tipo de operación
+     * pendiente. NO tocamos updatedAt (igual que save()): la autoridad del timestamp es del servidor.
      */
     @Query("""
         UPDATE products
         SET stock        = stock - MIN(stock, :cantidad),
-            comprometido = comprometido + MAX(0, :cantidad - stock)
+            comprometido = comprometido + MAX(0, :cantidad - stock),
+            syncStatus   = CASE
+                WHEN syncStatus IN ('PENDING_CREATE', 'PENDING_DELETE') THEN syncStatus
+                ELSE 'PENDING_UPDATE'
+            END
         WHERE id = :id
     """)
     suspend fun deductStockAndCommit(id: String, cantidad: Int)

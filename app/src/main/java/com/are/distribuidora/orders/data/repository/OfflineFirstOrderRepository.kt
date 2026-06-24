@@ -95,6 +95,14 @@ class OfflineFirstOrderRepository(
                 try {
                     val orderId = dto.orderId.trim()
                     if (orderId.isNotBlank()) {
+                        // GUARD: no purgar si hay edición local sin subir. La edición local
+                        // es la fuente de verdad hasta que el worker la confirme en remoto;
+                        // el upload (LWW) decidirá si re-crea el pedido en Firestore.
+                        val existing = try { local.getOrderById(orderId) } catch (_: Exception) { null }
+                        if (existing != null && existing.pendingUpload) {
+                            Log.i(tag, "fetchOrdersHeader: skip purga remota (pendingUpload) orderId=$orderId")
+                            return@forEach
+                        }
                         // Marcar local como eliminado (por si ya existe en Room)
                         local.markOrderDeleted(orderId = orderId, now = now)
                         // Limpiar items locales del pedido eliminado
@@ -243,6 +251,12 @@ class OfflineFirstOrderRepository(
                 try {
                     val orderId = dto.orderId.trim()
                     if (orderId.isNotBlank()) {
+                        // GUARD: no purgar si hay edición local sin subir (ver fetchOrdersHeader).
+                        val existing = try { local.getOrderById(orderId) } catch (_: Exception) { null }
+                        if (existing != null && existing.pendingUpload) {
+                            Log.i(tag, "fetchAllOrdersHeader: skip purga remota (pendingUpload) orderId=$orderId")
+                            return@forEach
+                        }
                         local.markOrderDeleted(orderId = orderId, now = now)
                         local.deleteItemsByOrderId(orderId = orderId)
                     }
