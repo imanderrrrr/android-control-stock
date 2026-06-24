@@ -1,94 +1,125 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tarjeta de ruta en la pantalla principal de Pedidos -->
+<!-- Tarjeta de ruta (Mis Pedidos) — rediseño "Bosque Pro".
+     Conserva ids del adapter: iconRoute, textRouteName, textRouteSubtitle,
+     textRouteTotal, badgeCount. -->
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:minHeight="160dp"
-    android:layout_marginBottom="12dp"
+    android:layout_marginBottom="10dp"
     android:clickable="true"
     android:focusable="true"
+    app:cardBackgroundColor="@color/bg_card"
     app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/palette_300"
+    app:rippleColor="@color/brand_soft"
+    app:strokeColor="@color/border_subtle"
     app:strokeWidth="1dp">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:minHeight="160dp"
-        android:padding="24dp">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="14dp">
 
-        <ImageView
-            android:id="@+id/iconRoute"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:src="@drawable/ic_orders_outline"
-            android:alpha="0.8"
-            app:tint="?attr/colorPrimary"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+        <!-- Avatar de ruta -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            app:cardBackgroundColor="@color/brand_soft"
+            app:cardCornerRadius="23dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
 
-        <TextView
-            android:id="@+id/textRouteName"
+            <ImageView
+                android:id="@+id/iconRoute"
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:layout_gravity="center"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_orders_outline"
+                app:tint="@color/brand_accent" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <!-- Nombre + subtítulo -->
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end"
-            app:layout_constraintStart_toEndOf="@id/iconRoute"
-            app:layout_constraintEnd_toStartOf="@id/badgeCount"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toTopOf="@id/textRouteSubtitle" />
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-        <TextView
-            android:id="@+id/textRouteSubtitle"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-            android:alpha="0.6"
-            app:layout_constraintStart_toEndOf="@id/iconRoute"
-            app:layout_constraintEnd_toStartOf="@id/badgeCount"
-            app:layout_constraintTop_toBottomOf="@id/textRouteName"
-            app:layout_constraintBottom_toTopOf="@id/textRouteTotal" />
+            <TextView
+                android:id="@+id/textRouteName"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:text="Ruta"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp" />
 
-        <!-- Total de todos los pedidos de la ruta -->
-        <TextView
-            android:id="@+id/textRouteTotal"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
-            android:textStyle="bold"
-            android:textColor="?attr/colorPrimary"
-            app:layout_constraintStart_toEndOf="@id/iconRoute"
-            app:layout_constraintEnd_toStartOf="@id/badgeCount"
-            app:layout_constraintTop_toBottomOf="@id/textRouteSubtitle"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            <TextView
+                android:id="@+id/textRouteSubtitle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif"
+                android:maxLines="1"
+                android:textColor="@color/text_secondary"
+                android:textSize="13sp"
+                tools:text="8 pedidos" />
+        </LinearLayout>
 
-        <!-- Badge con cantidad de pedidos -->
-        <TextView
-            android:id="@+id/badgeCount"
+        <!-- Total + cantidad -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:minWidth="36dp"
-            android:gravity="center"
-            android:paddingHorizontal="8dp"
-            android:paddingVertical="4dp"
-            android:textAppearance="@style/TextAppearance.Material3.LabelMedium"
-            android:textStyle="bold"
-            android:background="@drawable/bg_badge_qty"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            android:layout_marginStart="8dp"
+            android:gravity="end"
+            android:orientation="vertical">
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            <TextView
+                android:id="@+id/textRouteTotal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif"
+                android:textColor="@color/brand_accent"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                tools:text="Q18,200" />
+
+            <TextView
+                android:id="@+id/badgeCount"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:background="@drawable/bg_pill"
+                android:backgroundTint="@color/brand_soft"
+                android:fontFamily="sans-serif"
+                android:gravity="center"
+                android:minWidth="26dp"
+                android:paddingHorizontal="9dp"
+                android:paddingVertical="3dp"
+                android:textColor="@color/brand_soft_text"
+                android:textSize="11sp"
+                android:textStyle="bold"
+                tools:text="8" />
+        </LinearLayout>
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginStart="6dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_chevron_right"
+            app:tint="@color/text_tertiary" />
+
+    </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>
-
