@@ -21,6 +21,7 @@ class PedidosClienteAdapter(
     var onSharePdfClick: ((PedidoClienteUiModel) -> Unit)? = null
 
     inner class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val textInicial    = view.findViewById<TextView>(R.id.textClienteInicial)
         private val textNombre     = view.findViewById<TextView>(R.id.textClienteNombre)
         private val textSyncStatus = view.findViewById<TextView>(R.id.textSyncStatus)
         private val textFecha      = view.findViewById<TextView>(R.id.textFecha)
@@ -45,6 +46,7 @@ class PedidosClienteAdapter(
 
         fun bind(item: PedidoClienteUiModel) {
             currentItem     = item
+            textInicial.text    = initialsOf(item.clienteNombre)
             textNombre.text     = item.clienteNombre
             textSyncStatus.text = item.syncStatus
             textFecha.text      = item.creadoEnFormatted
@@ -81,6 +83,16 @@ class PedidosClienteAdapter(
     override fun onBindViewHolder(holder: ViewHolder, position: Int) = holder.bind(getItem(position))
 
     companion object {
+        /** Iniciales del cliente para el avatar (1-2 letras en mayúscula). */
+        fun initialsOf(name: String): String {
+            val parts = name.trim().split(Regex("\\s+")).filter { it.isNotBlank() }
+            return when {
+                parts.isEmpty() -> "?"
+                parts.size == 1 -> parts[0].take(2).uppercase()
+                else            -> (parts[0].take(1) + parts[1].take(1)).uppercase()
+            }
+        }
+
         private val DIFF = object : DiffUtil.ItemCallback<PedidoClienteUiModel>() {
             override fun areItemsTheSame(a: PedidoClienteUiModel, b: PedidoClienteUiModel) =
                 a.pedidoId == b.pedidoId

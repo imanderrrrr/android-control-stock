@@ -1,107 +1,172 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tarjeta de pedido (cliente) dentro de una ruta -->
+<!-- Tarjeta de pedido (cliente) — rediseño "Bosque Pro".
+     Conserva ids del adapter: textClienteNombre, textSyncStatus, textFecha, textTotal,
+     textItemCount, menuButtonPedido, printButtonPedido. Nuevo: textClienteInicial. -->
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginBottom="12dp"
+    android:layout_marginBottom="10dp"
     android:clickable="true"
     android:focusable="true"
+    app:cardBackgroundColor="@color/bg_card"
     app:cardCornerRadius="16dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/palette_300"
+    app:rippleColor="@color/brand_soft"
+    app:strokeColor="@color/border_subtle"
     app:strokeWidth="1dp">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="16dp">
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:padding="14dp">
 
-        <!-- Botón de 3 puntos (menú contextual) -->
-        <ImageButton
-            android:id="@+id/menuButtonPedido"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Más opciones"
-            android:src="@drawable/ic_more_vert"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+        <!-- Avatar con iniciales -->
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="46dp"
+            android:layout_height="46dp"
+            app:cardBackgroundColor="@color/brand_soft"
+            app:cardCornerRadius="23dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
 
-        <!-- Botón de impresora (imprimir ticket) -->
-        <ImageButton
-            android:id="@+id/printButtonPedido"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Imprimir ticket"
-            android:src="@drawable/ic_print"
-            android:layout_marginEnd="4dp"
-            app:layout_constraintEnd_toStartOf="@id/menuButtonPedido"
-            app:layout_constraintTop_toTopOf="@id/menuButtonPedido"
-            app:layout_constraintBottom_toBottomOf="@id/menuButtonPedido" />
+            <TextView
+                android:id="@+id/textClienteInicial"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:fontFamily="sans-serif-medium"
+                android:gravity="center"
+                android:textColor="@color/brand_soft_text"
+                android:textSize="16sp"
+                android:textStyle="bold"
+                tools:text="TR" />
+        </com.google.android.material.card.MaterialCardView>
 
-        <!-- Nombre del cliente -->
-        <TextView
-            android:id="@+id/textClienteNombre"
+        <!-- Nombre + meta + estado -->
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Material3.TitleMedium"
-            android:textStyle="bold"
-            android:maxLines="1"
-            android:ellipsize="end"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/printButtonPedido"
-            app:layout_constraintTop_toTopOf="parent" />
+            android:layout_marginStart="14dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-        <!-- Estado de sync -->
-        <TextView
-            android:id="@+id/textSyncStatus"
+            <TextView
+                android:id="@+id/textClienteNombre"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif-medium"
+                android:maxLines="1"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                tools:text="Tienda Rosita" />
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/textItemCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="12sp"
+                    tools:text="8 ítems" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="5dp"
+                    android:fontFamily="sans-serif"
+                    android:text="·"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/textFecha"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:ellipsize="end"
+                    android:fontFamily="sans-serif"
+                    android:maxLines="1"
+                    android:textColor="@color/text_tertiary"
+                    android:textSize="12sp"
+                    tools:text="20 Feb 2026" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/textSyncStatus"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                android:background="@drawable/bg_pill"
+                android:backgroundTint="@color/bg_muted"
+                android:fontFamily="sans-serif"
+                android:paddingHorizontal="9dp"
+                android:paddingVertical="3dp"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                tools:text="✓ Sincronizado" />
+        </LinearLayout>
+
+        <!-- Acciones + total -->
+        <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.Material3.LabelSmall"
-            android:alpha="0.7"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/menuButtonPedido" />
+            android:layout_marginStart="6dp"
+            android:gravity="end"
+            android:orientation="vertical">
 
-        <!-- Fecha -->
-        <TextView
-            android:id="@+id/textFecha"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-            android:alpha="0.6"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toStartOf="@id/textTotal"
-            app:layout_constraintTop_toBottomOf="@id/textClienteNombre" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:gravity="end"
+                android:orientation="horizontal">
 
-        <!-- Total -->
-        <TextView
-            android:id="@+id/textTotal"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.Material3.TitleSmall"
-            android:textColor="?attr/colorPrimary"
-            android:textStyle="bold"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/textSyncStatus" />
+                <ImageButton
+                    android:id="@+id/printButtonPedido"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Imprimir ticket"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_print"
+                    app:tint="@color/text_tertiary" />
 
-        <!-- Cantidad de items -->
-        <TextView
-            android:id="@+id/textItemCount"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
-            android:alpha="0.6"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/textFecha" />
+                <ImageButton
+                    android:id="@+id/menuButtonPedido"
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:layout_marginStart="2dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Más opciones"
+                    android:padding="6dp"
+                    android:src="@drawable/ic_more_vert"
+                    app:tint="@color/text_tertiary" />
+            </LinearLayout>
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+            <TextView
+                android:id="@+id/textTotal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:layout_marginEnd="4dp"
+                android:fontFamily="sans-serif"
+                android:textColor="@color/brand_accent"
+                android:textSize="17sp"
+                android:textStyle="bold"
+                tools:text="Q1,301.66" />
+        </LinearLayout>
+
+    </LinearLayout>
 
 </com.google.android.material.card.MaterialCardView>
-
