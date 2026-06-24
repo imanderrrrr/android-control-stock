@@ -3,6 +3,9 @@ package com.are.distribuidora.pedido.presentation.list
 import android.os.Bundle
 import android.view.View
 import android.widget.TextView
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -11,7 +14,6 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
-import com.google.android.material.appbar.MaterialToolbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -32,12 +34,19 @@ class PedidoDetalleFragment : Fragment(R.layout.fragment_pedido_detalle) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val toolbar    = view.findViewById<MaterialToolbar>(R.id.toolbarDetalle)
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
+        val title      = view.findViewById<TextView>(R.id.textDetalleTitle)
         val recycler   = view.findViewById<RecyclerView>(R.id.recyclerDetalle)
         val textTotal  = view.findViewById<TextView>(R.id.textTotalDetalle)
 
-        toolbar.title = clienteNombre
-        toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
+        title.text = clienteNombre
+        view.findViewById<View>(R.id.btnBackDetalle).setOnClickListener {
+            parentFragmentManager.popBackStack()
+        }
 
         val adapter = PedidoDetalleAdapter()
         recycler.layoutManager = LinearLayoutManager(requireContext())
