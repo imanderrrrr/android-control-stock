@@ -85,6 +85,13 @@ class CreatePedidoFlowViewModel @Inject constructor(
     private val _maxOrderAmountInCents = MutableStateFlow<Long?>(null)
     val maxOrderAmountInCents: StateFlow<Long?> = _maxOrderAmountInCents.asStateFlow()
 
+    /** Nombre/dirección del cliente seleccionado, para los encabezados del flujo. */
+    private val _clienteNombre = MutableStateFlow<String?>(null)
+    val clienteNombre: StateFlow<String?> = _clienteNombre.asStateFlow()
+
+    private val _clienteDireccion = MutableStateFlow<String?>(null)
+    val clienteDireccion: StateFlow<String?> = _clienteDireccion.asStateFlow()
+
     /**
      * true cuando el total del carrito excede el límite del cliente.
      * La UI usa este flag para mostrar una advertencia visual en tiempo real.
@@ -113,15 +120,19 @@ class CreatePedidoFlowViewModel @Inject constructor(
             is ClienteSelection.Existente -> {
                 viewModelScope.launch {
                     val result = clientRepository.getClientById(selection.clienteId)
-                    _maxOrderAmountInCents.value = if (result is Result.Success) {
-                        result.value?.maxOrderAmountInCents
+                    if (result is Result.Success) {
+                        _maxOrderAmountInCents.value = result.value?.maxOrderAmountInCents
+                        _clienteNombre.value = result.value?.name
+                        _clienteDireccion.value = result.value?.address
                     } else {
-                        null
+                        _maxOrderAmountInCents.value = null
                     }
                 }
             }
             is ClienteSelection.Temporal -> {
                 _maxOrderAmountInCents.value = null
+                _clienteNombre.value = selection.snapshot.nombre
+                _clienteDireccion.value = selection.snapshot.direccion
             }
         }
     }
@@ -131,6 +142,8 @@ class CreatePedidoFlowViewModel @Inject constructor(
         _deliveryDate.value = ""
         _clienteSelection.value = null
         _maxOrderAmountInCents.value = null
+        _clienteNombre.value = null
+        _clienteDireccion.value = null
         _cartItems.value = emptyMap()
     }
 

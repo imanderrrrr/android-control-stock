@@ -207,6 +207,36 @@
     <string name="pedidos_item_count">%1$d ítem(s)</string>
     <string name="pedidos_detalle_title">Pedido</string>
     <string name="pedido_detalle_subtitle">Detalle del pedido</string>
+
+    <!-- Flujo de creación de pedido (Bosque Pro): catálogo · detalle · carrito · confirmado -->
+    <string name="order_pedido_label">PEDIDO</string>
+    <string name="order_catalog_search_hint">Buscar producto…</string>
+    <string name="order_cart_view_cta">Ver carrito</string>
+    <string name="order_products_count">%1$d productos</string>
+    <string name="order_stock_format">Stock %1$d</string>
+    <string name="order_no_stock">Sin stock</string>
+    <string name="order_add">Agregar</string>
+    <string name="order_add_product">Agregar producto</string>
+    <string name="order_detail_quantity">Cantidad</string>
+    <string name="order_detail_notes_label">Notas del pedido</string>
+    <string name="order_detail_notes_hint">Ej. empacado triple, entregar antes de…</string>
+    <string name="order_detail_add_cta">Agregar al pedido</string>
+    <string name="order_detail_units">%1$d unidades</string>
+    <string name="order_cart_title">Carrito</string>
+    <string name="order_cart_subtotal">Subtotal</string>
+    <string name="order_cart_discounts">Descuentos</string>
+    <string name="order_cart_total_label">Total a cobrar</string>
+    <string name="order_cart_close_cta">Cerrar pedido</string>
+    <string name="order_confirmed_title">Pedido confirmado</string>
+    <string name="order_confirmed_subtitle">Se guardó offline · sincroniza al volver</string>
+    <string name="order_confirmed_client_label">CLIENTE</string>
+    <string name="order_confirmed_products_label">PRODUCTOS</string>
+    <string name="order_confirmed_total_label">TOTAL</string>
+    <string name="order_confirmed_summary">%1$d ítems · %2$d unidades</string>
+    <string name="order_confirmed_continue">Continuar la ruta</string>
+    <string name="order_confirmed_print">Imprimir</string>
+    <string name="order_confirmed_detail">Detalle del pedido</string>
+    <string name="order_confirmed_share">Compartir</string>
     <string name="pedido_menu_delete">Eliminar</string>
     <string name="pedido_delete_dialog_title">Eliminar pedido</string>
     <string name="pedido_delete_dialog_message">¿Estás seguro de que deseas eliminar el pedido de %1$s? Esta acción no se puede deshacer.</string>

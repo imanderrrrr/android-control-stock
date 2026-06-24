@@ -2,8 +2,12 @@ package com.are.distribuidora.pedido.presentation.edit
 
 import android.os.Bundle
 import android.view.View
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -12,18 +16,15 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.paging.LoadState
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.pedido.presentation.catalog.CategoryFilter
 import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogAdapter
 import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogViewModel
-import com.are.distribuidora.pedido.presentation.catalog.ui.GridSpacingItemDecoration
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
-import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 import kotlinx.coroutines.flow.collectLatest
@@ -51,17 +52,22 @@ class EditPedidoCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val toolbar        = view.findViewById<MaterialToolbar>(R.id.toolbar)
-        val editSearch     = view.findViewById<TextInputEditText>(R.id.editSearch)
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
+        val editSearch     = view.findViewById<EditText>(R.id.editSearch)
         val recyclerView   = view.findViewById<RecyclerView>(R.id.recyclerViewCatalog)
         val chipGroup      = view.findViewById<ChipGroup>(R.id.chipGroupCategories)
         val textEmptyState = view.findViewById<TextView>(R.id.textEmptyState)
-        // Ocultar FAB carrito — no aplica en el flujo de edición
-        view.findViewById<View>(R.id.fabCart)?.visibility = View.GONE
+        // El carrito no aplica en edición
+        view.findViewById<View>(R.id.cartBar)?.visibility = View.GONE
+        view.findViewById<TextView>(R.id.textCatalogCliente)?.text = getString(R.string.order_add_product)
 
         logger.d(tag, "EditPedidoCatalog opened (add product to existing pedido flow)")
 
-        toolbar.setNavigationOnClickListener {
+        view.findViewById<View>(R.id.btnBackCatalog).setOnClickListener {
             logger.d(tag, "Back pressed (no product selected)")
             parentFragmentManager.popBackStack()
         }
@@ -97,16 +103,8 @@ class EditPedidoCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
             parentFragmentManager.popBackStack()
         }
 
-        val spanCount = 2
-        recyclerView.layoutManager = GridLayoutManager(requireContext(), spanCount)
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
-
-        val spacingPx = (resources.displayMetrics.density * 12).toInt()
-        if (recyclerView.itemDecorationCount == 0) {
-            recyclerView.addItemDecoration(
-                GridSpacingItemDecoration(spanCount = spanCount, spacingPx = spacingPx, includeEdge = false)
-            )
-        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {

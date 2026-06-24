@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
@@ -141,6 +142,7 @@ class OrderCatalogAdapter(
         private val placeholder      = itemView.findViewById<ImageView>(R.id.imagePlaceholder)
         private val name             = itemView.findViewById<TextView>(R.id.textName)
         private val price            = itemView.findViewById<TextView>(R.id.textPrice)
+        private val textStock        = itemView.findViewById<TextView>(R.id.textStock)
         private val buttonAdd        = itemView.findViewById<MaterialButton>(R.id.buttonAdd)
         private val stepperContainer = itemView.findViewById<View>(R.id.stepperContainer)
         private val buttonDecrement  = itemView.findViewById<MaterialButton>(R.id.buttonDecrement)
@@ -169,6 +171,19 @@ class OrderCatalogAdapter(
                 it.currency = Currency.getInstance("GTQ")
             }
             price.text = nf.format(product.price.amount)
+
+            // Stock disponible = existencias − comprometido
+            val ctx = itemView.context
+            val available = (product.stock.value - product.comprometido).coerceAtLeast(0)
+            if (available > 0) {
+                textStock.text = ctx.getString(R.string.order_stock_format, available)
+                textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.success_bg)
+                textStock.setTextColor(ContextCompat.getColor(ctx, R.color.success_text))
+            } else {
+                textStock.text = ctx.getString(R.string.order_no_stock)
+                textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.danger_bg)
+                textStock.setTextColor(ContextCompat.getColor(ctx, R.color.danger_text))
+            }
 
             bindImage(product)
             updateQuantity(qty, animate)
