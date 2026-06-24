@@ -68,6 +68,7 @@ class ClientSyncRepositoryImpl @Inject constructor(
             var updated = 0
             var skippedOld = 0
             var deleted = 0
+            var protected = 0
 
             clients.forEach { remoteClient ->
                 // Regla FK Fail Fast Absoluto:
@@ -77,9 +78,24 @@ class ClientSyncRepositoryImpl @Inject constructor(
                     throw java.lang.IllegalStateException("CRITICAL FK Violation: Client ${remoteClient.id} has no routeId")
                 }
 
-                // Regla Manejo Explícito de Soft Delete:
+                // GUARD anti pérdida de datos (mismo criterio que productos):
+                // Una fila local solo puede ser BORRADA o SOBRESCRITA por el remoto si es nueva
+                // (no existe local) o está durablemente SYNCED. Cualquier estado sucio
+                // (PENDING_CREATE/PENDING_UPDATE/PENDING_DELETE/SYNCING/CONFLICT) lleva un cambio
+                // local sin subir y DEBE sobrevivir el downsync, sin importar timestamps;
+                // uploadPendingClients() lo subirá y converge por LWW. Esto implementa por fin la
+                // regla que la doc de la clase ya prometía: "Nunca sobrescribir si syncStatus != SYNCED".
+                val localEntity = local.getById(remoteClient.id)
+                if (localEntity != null && localEntity.syncStatus != SyncStatus.SYNCED) {
+                    Log.d(TAG, "saveLocalClients: PROTECT local ${remoteClient.id} (syncStatus=${localEntity.syncStatus}); skip remote overwrite/delete")
+                    protected++
+                    return@forEach
+                }
+
+                // Soft delete remoto: solo aplica sobre filas limpias o inexistentes (las sucias
+                // ya se protegieron arriba), evitando borrar un cliente con cambios sin subir.
                 if (remoteClient.isDeleted) {
-                    local.deleteInsideTransaction(remoteClient.id) 
+                    local.deleteInsideTransaction(remoteClient.id)
                     deleted++
                     return@forEach
                 }
@@ -87,8 +103,6 @@ class ClientSyncRepositoryImpl @Inject constructor(
                 val entity = mapper.toEntity(remoteClient).copy(
                     lastSyncedAt = System.currentTimeMillis()
                 )
-
-                val localEntity = local.getById(entity.id)
 
                 if (localEntity == null) {
                     // Insertar nuevo
@@ -116,7 +130,7 @@ class ClientSyncRepositoryImpl @Inject constructor(
                     }
                 }
             }
-             Log.d(TAG, "saveLocalClients: Batch commited. Inserted=$inserted Updated=$updated Deleted=$deleted SkippedOld=$skippedOld")
+             Log.d(TAG, "saveLocalClients: Batch commited. Inserted=$inserted Updated=$updated Deleted=$deleted SkippedOld=$skippedOld Protected=$protected")
         }
     }
 
