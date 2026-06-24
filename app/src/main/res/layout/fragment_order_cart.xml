@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Carrito de pedido — rediseño "Bosque Pro".
+<!-- Carrito — réplica del diseño Pencil "08".
      Conserva ids: recyclerViewCart, textCartEmpty, textCartTotal, buttonContinue,
-     buttonOtherOptions, progressBarCart, textOrderLimit.
-     Nuevos: btnBackCart, textCartCliente, textCartCount, textCartSubtotal, textCartDiscounts,
-     rowCartDiscounts. Inset superior por código. -->
+     buttonOtherOptions, progressBarCart, textOrderLimit, btnBackCart, textCartCliente,
+     textCartCount, textCartSubtotal, textCartDiscounts, rowCartDiscounts.
+     Nuevos: textCartIva, rowCartIva, buttonDraft, textCartCobrar. Inset por código. -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
@@ -11,45 +11,57 @@
     android:layout_height="match_parent"
     android:background="@color/bg_page">
 
-    <!-- Encabezado -->
+    <!-- ── Encabezado ── -->
     <LinearLayout
         android:id="@+id/cartHeader"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="14dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="12dp"
-        android:paddingEnd="20dp"
+        android:paddingHorizontal="24dp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="parent">
 
-        <ImageView
+        <com.google.android.material.card.MaterialCardView
             android:id="@+id/btnBackCart"
             android:layout_width="40dp"
             android:layout_height="40dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Volver"
-            android:padding="8dp"
-            android:src="@drawable/ic_arrow_back"
-            app:tint="@color/text_primary" />
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@color/bg_card"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:rippleColor="@color/brand_soft"
+            app:strokeColor="@color/border_subtle"
+            app:strokeWidth="1dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:contentDescription="Volver"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="@color/text_primary" />
+        </com.google.android.material.card.MaterialCardView>
 
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginStart="4dp"
+            android:layout_marginStart="16dp"
             android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:fontFamily="sans-serif-medium"
-                android:letterSpacing="0.08"
-                android:text="@string/order_pedido_label"
+                android:fontFamily="sans-serif"
+                android:letterSpacing="0.13"
+                android:text="CARRITO"
                 android:textColor="@color/text_tertiary"
-                android:textSize="11sp" />
+                android:textSize="9sp"
+                android:textStyle="bold" />
 
             <TextView
                 android:id="@+id/textCartCliente"
@@ -57,41 +69,116 @@
                 android:layout_height="wrap_content"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif"
-                android:letterSpacing="-0.02"
                 android:maxLines="1"
                 android:textColor="@color/text_primary"
-                android:textSize="18sp"
+                android:textSize="15sp"
                 android:textStyle="bold"
                 tools:text="Tienda Rosita" />
         </LinearLayout>
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/buttonOtherOptions"
+            style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:minWidth="0dp"
+            android:padding="0dp"
+            app:backgroundTint="@color/bg_card"
+            app:cornerRadius="12dp"
+            app:icon="@drawable/ic_more_vert"
+            app:iconGravity="textStart"
+            app:iconPadding="0dp"
+            app:iconSize="20dp"
+            app:iconTint="@color/text_secondary"
+            app:strokeColor="@color/border_subtle"
+            app:strokeWidth="1dp" />
     </LinearLayout>
 
-    <!-- Contador de productos -->
+    <!-- ── Banner borrador ── -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cartDraftBanner"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginTop="16dp"
+        app:cardBackgroundColor="@color/warning_bg"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:strokeWidth="0dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/cartHeader">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp"
+            android:paddingVertical="10dp">
+
+            <ImageView
+                android:layout_width="20dp"
+                android:layout_height="20dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_info"
+                app:tint="@color/warning_text" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:text="@string/order_cart_draft_title"
+                    android:textColor="@color/warning_text"
+                    android:textSize="13sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:text="@string/order_cart_draft_subtitle"
+                    android:textColor="@color/warning_text"
+                    android:textSize="11sp" />
+            </LinearLayout>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- ── N PRODUCTOS ── -->
     <TextView
         android:id="@+id/textCartCount"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="10dp"
-        android:fontFamily="sans-serif-medium"
-        android:letterSpacing="0.04"
-        android:paddingHorizontal="20dp"
-        android:textColor="@color/text_tertiary"
-        android:textSize="11sp"
+        android:layout_marginTop="16dp"
+        android:fontFamily="sans-serif"
+        android:letterSpacing="0.14"
+        android:paddingHorizontal="24dp"
+        android:textColor="@color/text_secondary"
+        android:textSize="10sp"
+        android:textStyle="bold"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/cartHeader"
+        app:layout_constraintTop_toBottomOf="@id/cartDraftBanner"
         tools:text="3 PRODUCTOS" />
 
-    <!-- Lista -->
+    <!-- ── Lista ── -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewCart"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_marginTop="6dp"
+        android:layout_marginTop="8dp"
         android:clipToPadding="false"
-        android:paddingTop="2dp"
-        android:paddingBottom="12dp"
-        app:layout_constraintBottom_toTopOf="@id/cartSummaryCard"
+        android:paddingBottom="8dp"
+        app:layout_constraintBottom_toTopOf="@id/cartBottom"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/textCartCount"
@@ -123,171 +210,227 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toTopOf="@id/recyclerViewCart" />
 
-    <!-- Resumen + acciones -->
-    <com.google.android.material.card.MaterialCardView
-        android:id="@+id/cartSummaryCard"
-        android:layout_width="match_parent"
+    <!-- ── Totales + acciones ── -->
+    <LinearLayout
+        android:id="@+id/cartBottom"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        app:cardBackgroundColor="@color/bg_card"
-        app:cardCornerRadius="0dp"
-        app:cardElevation="8dp"
-        app:strokeWidth="0dp"
+        android:orientation="vertical"
+        android:paddingHorizontal="24dp"
+        android:paddingBottom="24dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent">
 
-        <LinearLayout
+        <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:paddingHorizontal="20dp"
-            android:paddingTop="16dp"
-            android:paddingBottom="18dp">
+            app:cardBackgroundColor="@color/bg_card"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/border_subtle"
+            app:strokeWidth="1dp">
 
-            <!-- Subtotal -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:orientation="vertical"
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="14dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="sans-serif"
+                        android:text="@string/order_cart_subtotal"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/textCartSubtotal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        tools:text="Q1,176.30" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/rowCartDiscounts"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:orientation="horizontal"
+                    android:visibility="gone"
+                    tools:visibility="visible">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="sans-serif"
+                        android:text="@string/order_cart_discounts"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/textCartDiscounts"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:textColor="@color/warning_text"
+                        android:textSize="13sp"
+                        tools:text="-Q14.10" />
+                </LinearLayout>
+
+                <LinearLayout
+                    android:id="@+id/rowCartIva"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="7dp"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="sans-serif"
+                        android:text="@string/order_cart_iva"
+                        android:textColor="@color/text_secondary"
+                        android:textSize="13sp" />
+
+                    <TextView
+                        android:id="@+id/textCartIva"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:textColor="@color/text_primary"
+                        android:textSize="13sp"
+                        tools:text="Q139.46" />
+                </LinearLayout>
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="11dp"
+                    android:background="@color/border_subtle" />
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:gravity="center_vertical"
+                    android:orientation="horizontal">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:fontFamily="sans-serif-medium"
+                        android:text="@string/order_cart_total_label"
+                        android:textColor="@color/text_primary"
+                        android:textSize="14sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:id="@+id/textCartTotal"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:letterSpacing="-0.01"
+                        android:textColor="@color/brand_primary"
+                        android:textSize="22sp"
+                        android:textStyle="bold"
+                        tools:text="Q1,301.66" />
+                </LinearLayout>
 
                 <TextView
-                    android:layout_width="0dp"
+                    android:id="@+id/textOrderLimit"
+                    android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
+                    android:layout_marginTop="8dp"
+                    android:drawablePadding="6dp"
                     android:fontFamily="sans-serif"
-                    android:text="@string/order_cart_subtotal"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp" />
-
-                <TextView
-                    android:id="@+id/textCartSubtotal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif"
-                    android:textColor="@color/text_primary"
-                    android:textSize="14sp"
-                    tools:text="Q1,176.30" />
+                    android:textSize="12sp"
+                    android:visibility="gone"
+                    tools:text="Límite: Q2,000.00" />
             </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
 
-            <!-- Descuentos (solo si > 0) -->
-            <LinearLayout
-                android:id="@+id/rowCartDiscounts"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
-                android:orientation="horizontal"
-                android:visibility="gone"
-                tools:visibility="visible">
+        <!-- Botones -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="60dp"
+            android:layout_marginTop="14dp"
+            android:orientation="horizontal">
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:fontFamily="sans-serif"
-                    android:text="@string/order_cart_discounts"
-                    android:textColor="@color/text_secondary"
-                    android:textSize="14sp" />
-
-                <TextView
-                    android:id="@+id/textCartDiscounts"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif"
-                    android:textColor="@color/warning_text"
-                    android:textSize="14sp"
-                    tools:text="-Q14.10" />
-            </LinearLayout>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="1dp"
-                android:layout_marginVertical="12dp"
-                android:background="@color/border_subtle" />
-
-            <!-- Total a cobrar -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:fontFamily="sans-serif-medium"
-                    android:text="@string/order_cart_total_label"
-                    android:textColor="@color/text_primary"
-                    android:textSize="16sp" />
-
-                <TextView
-                    android:id="@+id/textCartTotal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif"
-                    android:textColor="@color/brand_accent"
-                    android:textSize="22sp"
-                    android:textStyle="bold"
-                    tools:text="Q1,301.66" />
-            </LinearLayout>
-
-            <!-- Límite de compra -->
-            <TextView
-                android:id="@+id/textOrderLimit"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:drawablePadding="6dp"
-                android:fontFamily="sans-serif"
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonDraft"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="110dp"
+                android:layout_height="60dp"
+                android:fontFamily="sans-serif-medium"
+                android:insetTop="0dp"
+                android:insetBottom="0dp"
+                android:text="@string/order_cart_draft_btn"
+                android:textAllCaps="false"
+                android:textColor="@color/brand_primary"
                 android:textSize="13sp"
-                android:visibility="gone"
-                tools:text="Límite de compra: Q2,000.00" />
+                app:cornerRadius="16dp"
+                app:strokeColor="@color/brand_primary"
+                app:strokeWidth="1dp" />
 
-            <!-- Botones -->
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/buttonContinue"
+                android:layout_width="0dp"
+                android:layout_height="60dp"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/brand_primary"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:rippleColor="@color/brand_accent"
+                app:strokeWidth="0dp">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/buttonOtherOptions"
-                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
-                    android:layout_width="52dp"
-                    android:layout_height="52dp"
-                    android:layout_marginEnd="10dp"
-                    android:contentDescription="@string/cart_other_options"
-                    android:insetTop="0dp"
-                    android:insetBottom="0dp"
-                    android:minWidth="0dp"
-                    android:padding="0dp"
-                    app:cornerRadius="16dp"
-                    app:icon="@drawable/ic_more_vert"
-                    app:iconGravity="textStart"
-                    app:iconPadding="0dp"
-                    app:iconTint="@color/brand_accent"
-                    app:strokeColor="@color/border_strong"
-                    app:strokeWidth="1dp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:gravity="center"
+                    android:orientation="vertical">
 
-                <com.google.android.material.button.MaterialButton
-                    android:id="@+id/buttonContinue"
-                    android:layout_width="0dp"
-                    android:layout_height="52dp"
-                    android:layout_weight="1"
-                    android:enabled="false"
-                    android:fontFamily="sans-serif-medium"
-                    android:text="@string/order_cart_close_cta"
-                    android:textAllCaps="false"
-                    android:textSize="15sp"
-                    app:backgroundTint="@color/brand_primary"
-                    app:cornerRadius="16dp"
-                    app:icon="@drawable/ic_chevron_right"
-                    app:iconGravity="textEnd"
-                    app:iconTint="@color/text_on_inverse" />
-            </LinearLayout>
+                    <TextView
+                        android:id="@+id/textCartCobrar"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:letterSpacing="0.12"
+                        android:textColor="@color/text_on_inverse_muted"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        tools:text="COBRAR · Q1,301.66" />
 
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="sans-serif"
+                        android:text="@string/order_cart_close_cta"
+                        android:textColor="@color/text_on_inverse"
+                        android:textSize="15sp"
+                        android:textStyle="bold"
+                        app:drawableEndCompat="@drawable/ic_chevron_right"
+                        app:drawableTint="@color/text_on_inverse" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
-    </com.google.android.material.card.MaterialCardView>
+
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

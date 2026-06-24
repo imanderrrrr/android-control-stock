@@ -75,29 +75,29 @@ class OrderCartAdapter(
             textSubtotal.text = nf.format(item.subtotal)
             badgeQty.text     = "× ${item.quantity}"
 
-            // Precio base + badge de descuento (solo si hay descuento activo)
+            // Línea 2: N unidades × precio unitario
+            textUnitPrice.text = "${item.quantity} unidades × ${nf.format(item.priceAmount)}"
+            textUnitPrice.visibility = View.VISIBLE
+
+            // Línea 3: badge de descuento si lo hay; si no, código o notas
             if (item.hasDiscount) {
-                textUnitPrice.text = "${nf.format(item.subtotalBase)} base"
-                textUnitPrice.visibility = View.VISIBLE
-                // FIX BUG #4: para descuento por MONTO mostrar "-Q XX.XX", no "-0%"
                 badgeDiscount.text = if (item.discountType == com.are.distribuidora.domain.pedido.DiscountType.AMOUNT) {
-                    "-${nf.format(item.discountAmount)}"
+                    "DTO −${nf.format(item.discountAmount)}"
                 } else {
-                    "-${item.discountPercent.toInt()}%"
+                    "DTO −${item.discountPercent.toInt()}%"
                 }
                 badgeDiscount.visibility = View.VISIBLE
-            } else {
-                textUnitPrice.visibility = View.GONE
-                badgeDiscount.visibility  = View.GONE
-            }
-
-            // Notas
-            val notes = item.notes?.takeIf { it.isNotBlank() }
-            if (notes != null) {
-                textNotes.text = notes
-                textNotes.visibility = View.VISIBLE
-            } else {
                 textNotes.visibility = View.GONE
+            } else {
+                badgeDiscount.visibility = View.GONE
+                val line3 = item.notes?.takeIf { it.isNotBlank() }
+                    ?: item.barcode?.takeIf { it.isNotBlank() }?.let { "Cód. $it" }
+                if (line3 != null) {
+                    textNotes.text = line3
+                    textNotes.visibility = View.VISIBLE
+                } else {
+                    textNotes.visibility = View.GONE
+                }
             }
 
             bindImage(item.imageUrl)

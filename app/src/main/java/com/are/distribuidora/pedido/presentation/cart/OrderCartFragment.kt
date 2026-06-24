@@ -60,11 +60,14 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
         val textSubtotal      = view.findViewById<TextView>(R.id.textCartSubtotal)
         val textDiscounts     = view.findViewById<TextView>(R.id.textCartDiscounts)
         val rowDiscounts      = view.findViewById<View>(R.id.rowCartDiscounts)
-        val buttonContinue    = view.findViewById<MaterialButton>(R.id.buttonContinue)
+        val buttonContinue    = view.findViewById<View>(R.id.buttonContinue)
         val buttonOtherOptions = view.findViewById<MaterialButton>(R.id.buttonOtherOptions)
         val progressBar       = view.findViewById<ProgressBar>(R.id.progressBarCart)
         val textOrderLimit    = view.findViewById<TextView>(R.id.textOrderLimit)
+        val textIva           = view.findViewById<TextView>(R.id.textCartIva)
+        val textCobrar        = view.findViewById<TextView>(R.id.textCartCobrar)
         view.findViewById<View>(R.id.btnBackCart).setOnClickListener { parentFragmentManager.popBackStack() }
+        view.findViewById<View>(R.id.buttonDraft).setOnClickListener { parentFragmentManager.popBackStack() }
         val adapter = OrderCartAdapter(
             onEditQuantity = { item -> showEditQuantityDialog(item) },
             onEditDiscount = { item -> showEditDiscountDialog(item) },
@@ -81,6 +84,7 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
                     textEmpty.visibility     = if (items.isEmpty()) View.VISIBLE else View.GONE
                     recyclerView.visibility  = if (items.isEmpty()) View.GONE    else View.VISIBLE
                     buttonContinue.isEnabled = items.isNotEmpty()
+                    buttonContinue.alpha = if (items.isNotEmpty()) 1f else 0.5f
 
                     val nf = buildCurrencyFormat()
                     textCount.text = getString(R.string.order_products_count, items.size)
@@ -100,7 +104,10 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 flowViewModel.cartTotal.collect { total ->
-                    textTotal.text = buildCurrencyFormat().format(total)
+                    val nf = buildCurrencyFormat()
+                    textTotal.text  = nf.format(total)
+                    textIva.text    = nf.format(total - total / 1.12)
+                    textCobrar.text = "COBRAR · ${nf.format(total)}"
                 }
             }
         }

@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ítem del carrito — rediseño "Bosque Pro". El FrameLayout raíz es para ItemTouchHelper.
+<!-- Ítem del carrito — réplica del diseño Pencil "08". FrameLayout raíz = ItemTouchHelper.
      Conserva ids del adapter: cartItemCard, imageCartProduct, imageCartPlaceholder,
      textCartItemName, textCartItemSubtotal, textCartItemUnitPrice, textCartItemNotes,
      chipCartQty, chipCartDiscount. -->
@@ -8,15 +8,15 @@
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_marginHorizontal="20dp"
-    android:layout_marginVertical="5dp">
+    android:layout_marginHorizontal="24dp"
+    android:layout_marginBottom="12dp">
 
     <com.google.android.material.card.MaterialCardView
         android:id="@+id/cartItemCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         app:cardBackgroundColor="@color/bg_card"
-        app:cardCornerRadius="16dp"
+        app:cardCornerRadius="14dp"
         app:cardElevation="0dp"
         app:strokeColor="@color/border_subtle"
         app:strokeWidth="1dp">
@@ -24,14 +24,14 @@
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="12dp">
+            android:padding="16dp">
 
             <com.google.android.material.card.MaterialCardView
                 android:id="@+id/imageContainer"
-                android:layout_width="56dp"
-                android:layout_height="56dp"
+                android:layout_width="44dp"
+                android:layout_height="44dp"
                 app:cardBackgroundColor="@color/bg_muted"
-                app:cardCornerRadius="12dp"
+                app:cardCornerRadius="10dp"
                 app:cardElevation="0dp"
                 app:strokeWidth="0dp"
                 app:layout_constraintBottom_toBottomOf="parent"
@@ -48,8 +48,8 @@
 
                 <ImageView
                     android:id="@+id/imageCartPlaceholder"
-                    android:layout_width="26dp"
-                    android:layout_height="26dp"
+                    android:layout_width="22dp"
+                    android:layout_height="22dp"
                     android:layout_gravity="center"
                     android:alpha="0.5"
                     android:contentDescription="@null"
@@ -62,114 +62,98 @@
                 android:id="@+id/textCartItemName"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
+                android:layout_marginStart="14dp"
                 android:layout_marginEnd="8dp"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif-medium"
-                android:maxLines="2"
+                android:maxLines="1"
                 android:textColor="@color/text_primary"
                 android:textSize="14sp"
-                app:layout_constraintEnd_toStartOf="@id/rightColumn"
+                app:layout_constraintEnd_toStartOf="@id/textCartItemSubtotal"
                 app:layout_constraintStart_toEndOf="@id/imageContainer"
                 app:layout_constraintTop_toTopOf="@id/imageContainer"
                 tools:text="Agua Pura 600ml ×24" />
 
-            <!-- Precio base (strikethrough conceptual, solo con descuento) -->
+            <!-- Línea 2: N unidades × Qprice -->
             <TextView
                 android:id="@+id/textCartItemUnitPrice"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
+                android:layout_marginStart="14dp"
+                android:layout_marginTop="3dp"
                 android:layout_marginEnd="8dp"
-                android:layout_marginTop="2dp"
+                android:ellipsize="end"
                 android:fontFamily="sans-serif"
                 android:maxLines="1"
-                android:textColor="@color/text_tertiary"
+                android:textColor="@color/text_secondary"
                 android:textSize="11sp"
-                android:visibility="gone"
+                app:layout_constraintEnd_toStartOf="@id/textCartItemSubtotal"
                 app:layout_constraintStart_toEndOf="@id/imageContainer"
                 app:layout_constraintTop_toBottomOf="@id/textCartItemName"
-                tools:text="Q90.00 base"
-                tools:visibility="visible" />
+                tools:text="2 unidades × Q36.00" />
 
-            <!-- Notas -->
+            <!-- Línea 3: código / notas -->
             <TextView
                 android:id="@+id/textCartItemNotes"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:layout_marginStart="12dp"
+                android:layout_marginStart="14dp"
+                android:layout_marginTop="2dp"
                 android:layout_marginEnd="8dp"
-                android:layout_marginTop="3dp"
                 android:ellipsize="end"
                 android:fontFamily="sans-serif"
-                android:maxLines="2"
-                android:textColor="@color/text_secondary"
+                android:maxLines="1"
+                android:textColor="@color/text_tertiary"
                 android:textSize="11sp"
-                android:textStyle="italic"
-                android:visibility="gone"
                 app:layout_constraintStart_toEndOf="@id/imageContainer"
-                app:layout_constraintEnd_toStartOf="@id/rightColumn"
                 app:layout_constraintTop_toBottomOf="@id/textCartItemUnitPrice"
-                tools:text="Empacado triple"
-                tools:visibility="visible" />
+                tools:text="Cód. 8451-22" />
 
-            <!-- Columna derecha: total + cantidad + descuento -->
-            <LinearLayout
-                android:id="@+id/rightColumn"
+            <!-- Línea 3 (alt): badge de descuento -->
+            <TextView
+                android:id="@+id/chipCartDiscount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:gravity="end"
-                android:minWidth="56dp"
-                android:orientation="vertical"
+                android:layout_marginStart="14dp"
+                android:layout_marginTop="3dp"
+                android:background="@drawable/bg_pill"
+                android:backgroundTint="@color/warning_bg"
+                android:fontFamily="sans-serif"
+                android:gravity="center"
+                android:letterSpacing="0.05"
+                android:paddingHorizontal="8dp"
+                android:paddingVertical="2dp"
+                android:textColor="@color/warning_text"
+                android:textSize="9sp"
+                android:textStyle="bold"
+                android:visibility="gone"
+                app:layout_constraintStart_toEndOf="@id/imageContainer"
+                app:layout_constraintTop_toBottomOf="@id/textCartItemUnitPrice"
+                tools:text="DTO −5%"
+                tools:visibility="visible" />
+
+            <!-- Precio final -->
+            <TextView
+                android:id="@+id/textCartItemSubtotal"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold"
                 app:layout_constraintBottom_toBottomOf="parent"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent">
+                app:layout_constraintTop_toTopOf="parent"
+                tools:text="Q72.00" />
 
-                <TextView
-                    android:id="@+id/textCartItemSubtotal"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="sans-serif"
-                    android:maxLines="1"
-                    android:textColor="@color/brand_accent"
-                    android:textSize="15sp"
-                    android:textStyle="bold"
-                    tools:text="Q72.00" />
-
-                <TextView
-                    android:id="@+id/chipCartQty"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:background="@drawable/bg_pill"
-                    android:backgroundTint="@color/brand_soft"
-                    android:fontFamily="sans-serif"
-                    android:gravity="center"
-                    android:paddingHorizontal="10dp"
-                    android:paddingVertical="3dp"
-                    android:textColor="@color/brand_soft_text"
-                    android:textSize="12sp"
-                    android:textStyle="bold"
-                    tools:text="× 24" />
-
-                <TextView
-                    android:id="@+id/chipCartDiscount"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:background="@drawable/bg_pill"
-                    android:backgroundTint="@color/warning_bg"
-                    android:fontFamily="sans-serif"
-                    android:gravity="center"
-                    android:paddingHorizontal="9dp"
-                    android:paddingVertical="2dp"
-                    android:textColor="@color/warning_text"
-                    android:textSize="10sp"
-                    android:textStyle="bold"
-                    android:visibility="gone"
-                    tools:text="-10%"
-                    tools:visibility="visible" />
-            </LinearLayout>
+            <!-- Cantidad (oculto: lo usa el adapter, la cantidad va en la línea 2) -->
+            <TextView
+                android:id="@+id/chipCartQty"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:visibility="gone"
+                app:layout_constraintEnd_toEndOf="parent"
+                app:layout_constraintTop_toTopOf="parent" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 
