@@ -231,6 +231,7 @@ class OtrosOrderHeaderAdapter(
         }
 
     inner class HeaderViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val textInicial       = view.findViewById<TextView>(R.id.textOtrosInicial)
         private val textClientName    = view.findViewById<TextView>(R.id.textOtrosClientName)
         private val textCreatedAt     = view.findViewById<TextView>(R.id.textOtrosCreatedAt)
         private val textAddress       = view.findViewById<TextView>(R.id.textOtrosAddress)
@@ -243,6 +244,7 @@ class OtrosOrderHeaderAdapter(
         private val btnPrint          = view.findViewById<ImageButton>(R.id.btnOtrosPrint)
 
         fun bind(item: OtrosOrderHeaderUiModel) {
+            textInicial.text     = PedidosClienteAdapter.initialsOf(item.clientName)
             textClientName.text  = item.clientName
             textCreatedAt.text   = item.createdAtFormatted
             textAddress.text     = item.clientAddress ?: ""
