@@ -52,7 +52,7 @@ import com.are.distribuidora.screenaccess.data.local.entity.ScreenAccessEntity
         // Control de acceso por pantalla (panel web)
         ScreenAccessEntity::class,
     ],
-    version = 36,
+    version = 37,
     exportSchema = true,
 )
 @androidx.room.TypeConverters(

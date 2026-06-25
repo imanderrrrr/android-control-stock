@@ -85,6 +85,7 @@ class OrderCartViewModel @Inject constructor(
         cliente: ClienteSelection?,
         deliveryDate: String = "",
         descuentoGlobal: Double = 0.0,
+        applyIva: Boolean = false,
     ) {
         // compareAndSet(false, true) es atómico: retorna `true` solo si el valor era `false`
         // y lo cambia a `true` en una sola instrucción de CPU — sin race condition posible.
@@ -132,6 +133,7 @@ class OrderCartViewModel @Inject constructor(
                     cliente         = cliente,
                     descuentoGlobal = descuentoGlobal,
                     items           = itemInputs,
+                    applyIva        = applyIva,
                 )) {
                     is Result.Success -> {
                         pedidoSyncScheduler.scheduleOneTimeSync("PEDIDO_CONFIRMED")

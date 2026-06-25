@@ -19,4 +19,6 @@ data class CreatePedidoParams(
     val descuentoGlobal: Double,
     /** Total final redondeado al Q 0.25 más cercano. Calculado en el UseCase de dominio. */
     val totalRedondeado: Double,
+    /** Monto de IVA (12%) aplicado; 0.0 = sin IVA. Calculado en el UseCase. */
+    val ivaAmount: Double = 0.0,
 )

@@ -76,6 +76,7 @@ class FirestorePedidoDataSource @Inject constructor(
             "subtotal"        to payload.subtotal,
             "descuentoGlobal" to payload.descuentoGlobal,
             "total"           to payload.total,
+            "ivaAmount"       to payload.ivaAmount,
             "itemsCount"      to items.size,
             "version"         to payload.version,
             "actualizadoPor"  to payload.actualizadoPor,

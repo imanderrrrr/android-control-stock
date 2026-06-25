@@ -1295,4 +1295,11 @@ object DistribuidoraMigrations {
             )
         }
     }
+
+    /** Pedidos: agrega columna ivaAmount (monto de IVA 12% opcional, 0 = sin IVA). */
+    val MIGRATION_36_37: Migration = object : Migration(36, 37) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pedidos ADD COLUMN ivaAmount REAL NOT NULL DEFAULT 0")
+        }
+    }
 }

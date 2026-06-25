@@ -1,5 +1,6 @@
 package com.are.distribuidora.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.Index
@@ -26,6 +27,8 @@ data class PedidoEntity(
     val subtotal: Double,
     val descuentoGlobal: Double,
     val total: Double,
+    /** Monto de IVA (12%) aplicado al pedido. 0.0 = sin IVA (por defecto). */
+    @ColumnInfo(defaultValue = "0") val ivaAmount: Double = 0.0,
     val version: Int,
     val actualizadoPor: String,
     val creadoEn: Long,

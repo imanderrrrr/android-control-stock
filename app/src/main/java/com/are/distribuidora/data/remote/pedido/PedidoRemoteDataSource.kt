@@ -83,6 +83,7 @@ interface PedidoRemoteDataSource {
         val subtotal: Double,
         val descuentoGlobal: Double,
         val total: Double,
+        val ivaAmount: Double = 0.0,
         val version: Int,
         val actualizadoPor: String,
         val creadoEn: Long,

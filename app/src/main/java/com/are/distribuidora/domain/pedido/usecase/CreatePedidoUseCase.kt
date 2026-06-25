@@ -22,7 +22,8 @@ class CreatePedidoUseCase @Inject constructor(
         deliveryDate: String = "",
         cliente: ClienteSelection,
         descuentoGlobal: Double,
-        items: List<CreatePedidoItemInput>
+        items: List<CreatePedidoItemInput>,
+        applyIva: Boolean = false,
     ): Result<String> {
         if (items.isEmpty()) {
             return Result.Error(Failure.ValidationError("El pedido debe tener al menos un ítem"))
@@ -33,12 +34,17 @@ class CreatePedidoUseCase @Inject constructor(
         }
 
         val tempSubtotal = items.sumOf { (it.precioUnitario * it.cantidad) - it.descuentoItem }
-        val tempTotal = tempSubtotal - descuentoGlobal
-        val tempTotalRedondeado = RoundToQuarterQuetzalUseCase(tempTotal)
+        val netAfterDiscount = tempSubtotal - descuentoGlobal
 
-        if (tempTotal < 0) {
+        if (netAfterDiscount < 0) {
             return Result.Error(Failure.ValidationError("El total del pedido no puede ser negativo"))
         }
+
+        // IVA (12%) opcional: cuando se aplica, se suma al neto y se redondea el total.
+        val tempTotalRedondeado = RoundToQuarterQuetzalUseCase(
+            if (applyIva) netAfterDiscount * (1.0 + IVA_RATE) else netAfterDiscount
+        )
+        val ivaAmount = if (applyIva) (tempTotalRedondeado - netAfterDiscount).coerceAtLeast(0.0) else 0.0
 
         val (clienteId, clienteSnapshot) = when (cliente) {
             is ClienteSelection.Existente -> {
@@ -95,8 +101,14 @@ class CreatePedidoUseCase @Inject constructor(
             items = items,
             descuentoGlobal = descuentoGlobal,
             totalRedondeado = tempTotalRedondeado,
+            ivaAmount = ivaAmount,
         )
 
         return repository.createPedido(params)
+    }
+
+    companion object {
+        /** Tasa de IVA aplicada cuando el vendedor activa el IVA en el carrito. */
+        const val IVA_RATE = 0.12
     }
 }

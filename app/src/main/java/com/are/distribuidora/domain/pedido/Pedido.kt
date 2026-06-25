@@ -16,6 +16,8 @@ data class Pedido(
     val subtotal: Double,
     val descuentoGlobal: Double,
     val total: Double,
+    /** Monto de IVA (12%) aplicado. 0.0 = sin IVA. */
+    val ivaAmount: Double = 0.0,
     // estado eliminado
     val version: Int,
     val actualizadoPor: String,

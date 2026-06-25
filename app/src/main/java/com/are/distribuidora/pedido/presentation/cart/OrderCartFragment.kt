@@ -66,6 +66,9 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
         val textOrderLimit    = view.findViewById<TextView>(R.id.textOrderLimit)
         val textIva           = view.findViewById<TextView>(R.id.textCartIva)
         val textCobrar        = view.findViewById<TextView>(R.id.textCartCobrar)
+        val switchIva         = view.findViewById<com.google.android.material.switchmaterial.SwitchMaterial>(R.id.switchIva)
+        switchIva.isChecked = flowViewModel.ivaEnabled.value
+        switchIva.setOnCheckedChangeListener { _, checked -> flowViewModel.setIvaEnabled(checked) }
         view.findViewById<View>(R.id.btnBackCart).setOnClickListener { parentFragmentManager.popBackStack() }
         view.findViewById<View>(R.id.buttonDraft).setOnClickListener { parentFragmentManager.popBackStack() }
         val adapter = OrderCartAdapter(
@@ -106,8 +109,22 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
                 flowViewModel.cartTotal.collect { total ->
                     val nf = buildCurrencyFormat()
                     textTotal.text  = nf.format(total)
-                    textIva.text    = nf.format(total - total / 1.12)
                     textCobrar.text = "COBRAR · ${nf.format(total)}"
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                flowViewModel.cartIva.collect { iva ->
+                    textIva.text = buildCurrencyFormat().format(iva)
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                flowViewModel.ivaEnabled.collect { on ->
+                    if (switchIva.isChecked != on) switchIva.isChecked = on
+                    textIva.visibility = if (on) View.VISIBLE else View.INVISIBLE
                 }
             }
         }
@@ -241,6 +258,7 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
                 cliente         = cliente,
                 deliveryDate    = deliveryDate,
                 descuentoGlobal = 0.0,
+                applyIva        = flowViewModel.ivaEnabled.value,
             )
         }
     }

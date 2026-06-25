@@ -90,6 +90,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal = subtotal,
                 descuentoGlobal = params.descuentoGlobal,
                 total = total,
+                ivaAmount = params.ivaAmount,
                 version = 1,
                 actualizadoPor = params.vendedorId,
                 creadoEn = now,
@@ -186,6 +187,7 @@ class PedidoRepositoryImpl @Inject constructor(
                     subtotal = entity.subtotal,
                     descuentoGlobal = entity.descuentoGlobal,
                     total = entity.total,
+                    ivaAmount = entity.ivaAmount,
                     version = entity.version,
                     actualizadoPor = entity.actualizadoPor,
                     creadoEn = entity.creadoEn,
@@ -232,6 +234,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal = entity.subtotal,
                 descuentoGlobal = entity.descuentoGlobal,
                 total = entity.total,
+                ivaAmount = entity.ivaAmount,
                 version = entity.version,
                 actualizadoPor = entity.actualizadoPor,
                 creadoEn = entity.creadoEn,
@@ -265,6 +268,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal = pedido.subtotal,
                 descuentoGlobal = pedido.descuentoGlobal,
                 total = pedido.total,
+                ivaAmount = pedido.ivaAmount,
                 version = pedido.version,
                 actualizadoPor = pedido.actualizadoPor,
                 creadoEn = pedido.creadoEn,
@@ -345,6 +349,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal = entity.subtotal,
                 descuentoGlobal = entity.descuentoGlobal,
                 total = entity.total,
+                ivaAmount = entity.ivaAmount,
                 version = entity.version,
                 actualizadoPor = entity.actualizadoPor,
                 creadoEn = entity.creadoEn,
@@ -394,6 +399,7 @@ class PedidoRepositoryImpl @Inject constructor(
                     subtotal = entity.subtotal,
                     descuentoGlobal = entity.descuentoGlobal,
                     total = entity.total,
+                    ivaAmount = entity.ivaAmount,
                     version = entity.version,
                     actualizadoPor = entity.actualizadoPor,
                     creadoEn = entity.creadoEn,
@@ -443,6 +449,7 @@ class PedidoRepositoryImpl @Inject constructor(
                     subtotal         = entity.subtotal,
                     descuentoGlobal  = entity.descuentoGlobal,
                     total            = entity.total,
+                    ivaAmount        = entity.ivaAmount,
                     version          = entity.version,
                     actualizadoPor   = entity.actualizadoPor,
                     creadoEn         = entity.creadoEn,
@@ -511,16 +518,19 @@ class PedidoRepositoryImpl @Inject constructor(
             val now = System.currentTimeMillis()
 
             // Verificar que el pedido existe antes de modificarlo
-            pedidoDao.getById(params.pedidoId)
+            val existing = pedidoDao.getById(params.pedidoId)
                 ?: return Result.Error(Failure.NotFound)
 
             // Recalcular totales (itemsToUpsert ya son solo los activos)
             val subtotal = params.itemsToUpsert
                 .sumOf { (it.precioUnitario * it.cantidad) - it.descuentoItem }
-            // Redondear al múltiplo de Q 0.25 más cercano, igual que al crear el pedido
+            val netAfterDiscount = (subtotal - params.descuentoGlobal).coerceAtLeast(0.0)
+            // Conservar el estado de IVA del pedido original: si tenía IVA, se recalcula al 12%.
+            val applyIva = existing.ivaAmount > 0.0
             val total = RoundToQuarterQuetzalUseCase(
-                (subtotal - params.descuentoGlobal).coerceAtLeast(0.0)
+                if (applyIva) netAfterDiscount * 1.12 else netAfterDiscount
             )
+            val ivaAmount = if (applyIva) (total - netAfterDiscount).coerceAtLeast(0.0) else 0.0
 
             // Construir entidades de ítems para upsert
             val itemEntities = params.itemsToUpsert.map { input ->
@@ -584,6 +594,7 @@ class PedidoRepositoryImpl @Inject constructor(
                     id        = params.pedidoId,
                     subtotal  = subtotal,
                     total     = total,
+                    ivaAmount = ivaAmount,
                     updatedAt = now,
                 )
 
@@ -632,6 +643,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal         = pedido.subtotal,
                 descuentoGlobal  = pedido.descuentoGlobal,
                 total            = pedido.total,
+                ivaAmount        = pedido.ivaAmount,
                 version          = pedido.version + 1,
                 actualizadoPor   = pedido.vendedorId,
                 creadoEn         = pedido.creadoEn,
@@ -699,6 +711,7 @@ class PedidoRepositoryImpl @Inject constructor(
             subtotal        = entity.subtotal,
             descuentoGlobal = entity.descuentoGlobal,
             total           = entity.total,
+            ivaAmount       = entity.ivaAmount,
             version         = entity.version,
             actualizadoPor  = entity.actualizadoPor,
             creadoEn        = entity.creadoEn,

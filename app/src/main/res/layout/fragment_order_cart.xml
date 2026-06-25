@@ -294,26 +294,41 @@
                     android:id="@+id/rowCartIva"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="7dp"
+                    android:layout_marginTop="6dp"
+                    android:gravity="center_vertical"
                     android:orientation="horizontal">
 
                     <TextView
-                        android:layout_width="0dp"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
                         android:fontFamily="sans-serif"
                         android:text="@string/order_cart_iva"
                         android:textColor="@color/text_secondary"
                         android:textSize="13sp" />
 
-                    <TextView
-                        android:id="@+id/textCartIva"
+                    <com.google.android.material.switchmaterial.SwitchMaterial
+                        android:id="@+id/switchIva"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
+                        android:layout_marginStart="8dp"
+                        android:minWidth="0dp"
+                        android:minHeight="0dp"
+                        android:padding="0dp"
+                        app:thumbTint="@color/white"
+                        app:trackTint="@color/iva_switch_track" />
+
+                    <TextView
+                        android:id="@+id/textCartIva"
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
                         android:fontFamily="sans-serif"
+                        android:gravity="end"
                         android:textColor="@color/text_primary"
                         android:textSize="13sp"
-                        tools:text="Q139.46" />
+                        android:visibility="invisible"
+                        tools:text="Q139.46"
+                        tools:visibility="visible" />
                 </LinearLayout>
 
                 <View

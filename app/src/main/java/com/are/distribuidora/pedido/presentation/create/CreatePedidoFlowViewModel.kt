@@ -22,6 +22,9 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
+/** Tasa de IVA (12%) aplicada cuando el vendedor activa el IVA en el carrito. */
+private const val IVA_RATE = 0.12
+
 /**
  * DTO de presentación del carrito — sin lógica de negocio.
  *
@@ -77,10 +80,27 @@ class CreatePedidoFlowViewModel @Inject constructor(
     private val _cartItems = MutableStateFlow<Map<String, CartItem>>(emptyMap())
     val cartItems: StateFlow<Map<String, CartItem>> = _cartItems.asStateFlow()
 
-    /** Total del carrito redondeado al múltiplo de Q 0.25 más cercano (GT). */
-    val cartTotal: StateFlow<Double> = _cartItems
-        .map { map -> RoundToQuarterQuetzalUseCase(map.values.sumOf { it.subtotal }) }
+    // ── IVA (12%) opcional ─────────────────────────────────────────────────────
+    private val _ivaEnabled = MutableStateFlow(false)
+    /** Si el vendedor activó el IVA del 12% en el carrito. Por defecto desactivado. */
+    val ivaEnabled: StateFlow<Boolean> = _ivaEnabled.asStateFlow()
+
+    fun setIvaEnabled(enabled: Boolean) { _ivaEnabled.value = enabled }
+
+    /** Subtotal neto del carrito (suma de subtotales de ítems, sin IVA). */
+    val cartSubtotal: StateFlow<Double> = _cartItems
+        .map { map -> map.values.sumOf { it.subtotal } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
+
+    /** Total del carrito redondeado al Q 0.25; suma el IVA 12% cuando está activo. */
+    val cartTotal: StateFlow<Double> = combine(cartSubtotal, _ivaEnabled) { sub, on ->
+        RoundToQuarterQuetzalUseCase(if (on) sub * (1.0 + IVA_RATE) else sub)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
+
+    /** Monto de IVA a mostrar (total − subtotal cuando está activo; 0 si no). */
+    val cartIva: StateFlow<Double> = combine(cartSubtotal, cartTotal, _ivaEnabled) { sub, total, on ->
+        if (on) (total - sub).coerceAtLeast(0.0) else 0.0
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
 
     /** Límite de compra del cliente seleccionado (centavos). null = sin límite. */
     private val _maxOrderAmountInCents = MutableStateFlow<Long?>(null)
@@ -145,6 +165,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
         _maxOrderAmountInCents.value = null
         _clienteNombre.value = null
         _clienteDireccion.value = null
+        _ivaEnabled.value = false
         _cartItems.value = emptyMap()
     }
 
