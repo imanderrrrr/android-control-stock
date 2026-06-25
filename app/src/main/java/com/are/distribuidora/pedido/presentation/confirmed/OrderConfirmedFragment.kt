@@ -16,6 +16,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.pedido.presentation.common.FlowAnimations
 import com.are.distribuidora.pedido.presentation.list.PedidoDetalleFragment
 import com.are.distribuidora.pedido.presentation.list.PedidosViewModel
 import com.are.distribuidora.pedido.presentation.print.BluetoothPrinterDialog
@@ -26,6 +27,9 @@ import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.snackbar.Snackbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
+import java.text.NumberFormat
+import java.util.Currency
+import java.util.Locale
 
 private const val RC_BLUETOOTH_CONFIRM = 3001
 
@@ -42,6 +46,15 @@ class OrderConfirmedFragment : Fragment(R.layout.fragment_order_confirmed) {
     private val pedidoId by lazy { requireArguments().getString(ARG_PEDIDO_ID, "") }
     private val clienteNombre by lazy { requireArguments().getString(ARG_CLIENTE_NOMBRE, "") }
 
+    /** La celebración de entrada y el conteo del total se ejecutan una sola vez. */
+    private var totalAnimated = false
+
+    private val currencyFmt: NumberFormat by lazy {
+        NumberFormat.getCurrencyInstance(Locale("es", "GT")).also {
+            it.currency = Currency.getInstance("GTQ")
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -57,6 +70,33 @@ class OrderConfirmedFragment : Fragment(R.layout.fragment_order_confirmed) {
         val textTotal    = view.findViewById<TextView>(R.id.textConfirmedTotal)
 
         textName.text = clienteNombre
+
+        // En restauración (rotación) no repetimos el conteo: el total se fija directo.
+        totalAnimated = savedInstanceState != null
+
+        // ── Celebración de entrada (una sola vez, tras asentarse la transición) ──
+        // El check "estalla" con rebote, luego el contenido cae en cascada y los
+        // botones suben desde abajo. Las vistas arrancan invisibles para que no
+        // parpadeen durante el slide-in del fragment.
+        if (savedInstanceState == null) {
+            val cardCheck   = view.findViewById<View>(R.id.cardConfirmedCheck)
+            val title       = view.findViewById<View>(R.id.textConfirmedTitle)
+            val subtitle    = view.findViewById<View>(R.id.textConfirmedSubtitle)
+            val cardRef     = view.findViewById<View>(R.id.cardConfirmedRef)
+            val cardSummary = view.findViewById<View>(R.id.cardConfirmedSummary)
+            val buttons     = view.findViewById<View>(R.id.confirmedButtons)
+
+            listOf(cardCheck, title, subtitle, cardRef, cardSummary, buttons).forEach { it.alpha = 0f }
+
+            FlowAnimations.popIn(cardCheck, delay = 300L)
+            FlowAnimations.staggerUp(
+                listOf(title, subtitle, cardRef, cardSummary),
+                startDelay = 470L,
+                stagger = 85L,
+            )
+            FlowAnimations.revealUp(buttons, delay = 520L, distanceDp = 40f)
+        }
+
         viewModel.load(pedidoId)
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -70,7 +110,18 @@ class OrderConfirmedFragment : Fragment(R.layout.fragment_order_confirmed) {
                         if (ui.clientAddress.isNullOrBlank()) View.GONE else View.VISIBLE
                     textProducts.text =
                         getString(R.string.order_confirmed_summary, ui.itemsCount, ui.unitsCount)
-                    textTotal.text    = ui.totalFormatted
+                    if (!totalAnimated) {
+                        totalAnimated = true
+                        FlowAnimations.countUp(
+                            textTotal,
+                            from = 0.0,
+                            to = ui.totalAmount,
+                            duration = 760L,
+                            delay = 620L,
+                        ) { currencyFmt.format(it) }
+                    } else {
+                        textTotal.text = ui.totalFormatted
+                    }
                 }
             }
         }

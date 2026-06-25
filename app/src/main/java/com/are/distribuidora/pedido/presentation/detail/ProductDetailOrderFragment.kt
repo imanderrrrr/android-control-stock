@@ -23,6 +23,7 @@ import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.domain.valueobject.Money
 import com.are.distribuidora.domain.valueobject.ProductId
 import com.are.distribuidora.domain.valueobject.Quantity
+import com.are.distribuidora.pedido.presentation.common.FlowAnimations
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
@@ -124,14 +125,24 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
         // Toda la barra inferior es el botón "Agregar al pedido"
         addBar.setOnClickListener { detailViewModel.onAddToCartClicked() }
 
+        // Entrada: la barra "Agregar" sube desde abajo; el contenido del scroll
+        // cae en cascada vía android:layoutAnimation. Solo en la primera creación.
+        if (savedInstanceState == null) {
+            FlowAnimations.revealUp(addBar, delay = 240L, distanceDp = 56f)
+        }
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
 
                 // Cantidad → stepper, subtotal, barra inferior
                 launch {
+                    var prevQty: Int? = null
                     detailViewModel.selectedQty.collect { qty ->
                         val q = qty ?: 0
                         stepperQty.text = q.toString()
+                        // Rebote del número al cambiar (no en la primera emisión).
+                        if (prevQty != null && q != prevQty) FlowAnimations.pulse(stepperQty, peak = 1.18f)
+                        prevQty = q
                         textAddBarUnits.text  = getString(R.string.order_detail_units, q)
                         val subtotal = unitPrice * q
                         textSubtotalLine.text = "Subtotal · $q × ${nf.format(product.price.amount)}"

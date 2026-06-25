@@ -92,8 +92,10 @@
         app:layout_constraintTop_toBottomOf="@id/btnBackDetail">
 
         <LinearLayout
+            android:id="@+id/detailContent"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
+            android:layoutAnimation="@anim/layout_anim_fall_down"
             android:orientation="vertical"
             android:paddingHorizontal="24dp"
             android:paddingTop="20dp">

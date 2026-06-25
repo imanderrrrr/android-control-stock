@@ -2,6 +2,7 @@ package com.are.distribuidora.pedido.presentation.catalog
 
 import android.os.Bundle
 import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
@@ -21,6 +22,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.pedido.presentation.cart.OrderCartFragment
+import com.are.distribuidora.pedido.presentation.common.FlowAnimations
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
 import com.are.distribuidora.pedido.presentation.detail.ProductDetailOrderFragment
 import com.are.distribuidora.presentation.product.EditProductFragment
@@ -50,6 +52,9 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
     @Inject lateinit var logger: Logger
 
     private val tag = "ORDER_CATALOG"
+
+    /** La cascada de entrada de la grilla se ejecuta una sola vez (al primer load). */
+    private var listCascaded = false
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -199,7 +204,25 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
                         val count = cart.size
                         textCartBarCount.text = "$count PRODUCTOS"
                         textCatalogCartPill.text = "$count · ${currencyFormat.format(flowViewModel.cartTotal.value)}"
-                        cartBar.visibility = if (count > 0) View.VISIBLE else View.GONE
+                        // La barra de carrito entra deslizándose desde abajo cuando
+                        // aparece el primer producto, y se desliza fuera al vaciarse.
+                        val shouldShow = count > 0
+                        if (shouldShow && cartBar.visibility != View.VISIBLE) {
+                            cartBar.visibility = View.VISIBLE
+                            FlowAnimations.revealUp(cartBar, duration = 320L, distanceDp = 44f)
+                        } else if (!shouldShow && cartBar.visibility == View.VISIBLE) {
+                            cartBar.animate().cancel()
+                            cartBar.animate()
+                                .alpha(0f)
+                                .translationY(cartBar.height.toFloat().coerceAtLeast(44f))
+                                .setDuration(240L)
+                                .withEndAction {
+                                    cartBar.visibility = View.GONE
+                                    cartBar.alpha = 1f
+                                    cartBar.translationY = 0f
+                                }
+                                .start()
+                        }
                     }
                 }
 
@@ -238,6 +261,19 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
                             else -> {
                                 textEmptyState.visibility = View.GONE
                                 recyclerView.visibility   = View.VISIBLE
+                                // Cascada de entrada solo al primer load con datos.
+                                if (!listCascaded &&
+                                    refresh is LoadState.NotLoading &&
+                                    adapter.itemCount > 0
+                                ) {
+                                    listCascaded = true
+                                    recyclerView.layoutAnimation =
+                                        AnimationUtils.loadLayoutAnimation(
+                                            requireContext(),
+                                            R.anim.layout_anim_fall_down,
+                                        )
+                                    recyclerView.scheduleLayoutAnimation()
+                                }
                             }
                         }
                     }

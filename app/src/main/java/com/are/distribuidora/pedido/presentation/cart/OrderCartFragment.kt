@@ -1,10 +1,12 @@
 package com.are.distribuidora.pedido.presentation.cart
 
+import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -24,6 +26,7 @@ import com.are.distribuidora.R
 import com.are.distribuidora.domain.pedido.DiscountType
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountByAmountUseCase
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountUseCase
+import com.are.distribuidora.pedido.presentation.common.FlowAnimations
 import com.are.distribuidora.pedido.presentation.confirmed.OrderConfirmedFragment
 import com.are.distribuidora.pedido.presentation.create.CartItem
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
@@ -45,6 +48,13 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
     private val orderCartViewModel: OrderCartViewModel by viewModels()
     @Inject lateinit var applyItemDiscountUseCase: ApplyItemDiscountUseCase
     @Inject lateinit var applyItemDiscountByAmountUseCase: ApplyItemDiscountByAmountUseCase
+
+    /** Total "rodante": animamos del valor anterior al nuevo. Cancelable. */
+    private var totalAnimator: ValueAnimator? = null
+    private var lastTotal: Double? = null
+    /** La cascada de entrada de la lista se ejecuta una sola vez. */
+    private var listCascaded = false
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
         ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
@@ -83,7 +93,17 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 flowViewModel.cartItems.collect { cartMap ->
                     val items = cartMap.values.toList().sortedBy { it.name }
-                    adapter.submitList(items)
+                    val playCascade = !listCascaded && items.isNotEmpty()
+                    adapter.submitList(items) {
+                        // commitCallback: la lista ya está aplicada → la cascada de
+                        // entrada cae limpia sobre los ítems reales (una sola vez).
+                        if (playCascade && isAdded) {
+                            listCascaded = true
+                            recyclerView.layoutAnimation =
+                                AnimationUtils.loadLayoutAnimation(requireContext(), R.anim.layout_anim_fall_down)
+                            recyclerView.scheduleLayoutAnimation()
+                        }
+                    }
                     textEmpty.visibility     = if (items.isEmpty()) View.VISIBLE else View.GONE
                     recyclerView.visibility  = if (items.isEmpty()) View.GONE    else View.VISIBLE
                     buttonContinue.isEnabled = items.isNotEmpty()
@@ -108,8 +128,16 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 flowViewModel.cartTotal.collect { total ->
                     val nf = buildCurrencyFormat()
-                    textTotal.text  = nf.format(total)
-                    textCobrar.text = "COBRAR · ${nf.format(total)}"
+                    // El total "rueda" del valor previo al nuevo (entrada: 0 → total;
+                    // al activar IVA o editar ítems, rueda a la nueva cifra).
+                    val from = lastTotal ?: 0.0
+                    lastTotal = total
+                    totalAnimator?.cancel()
+                    totalAnimator = FlowAnimations.animateValue(from, total, duration = 480L) { v ->
+                        val formatted = nf.format(v)
+                        textTotal.text  = formatted
+                        textCobrar.text = "COBRAR · $formatted"
+                    }
                 }
             }
         }
@@ -124,7 +152,18 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 flowViewModel.ivaEnabled.collect { on ->
                     if (switchIva.isChecked != on) switchIva.isChecked = on
-                    textIva.visibility = if (on) View.VISIBLE else View.INVISIBLE
+                    if (on) {
+                        // Solo animamos al pasar a visible (no en re-emisiones).
+                        if (textIva.visibility != View.VISIBLE || textIva.alpha < 1f) {
+                            textIva.visibility = View.VISIBLE
+                            FlowAnimations.revealUp(textIva, duration = 300L, distanceDp = 9f)
+                        }
+                    } else {
+                        textIva.animate().cancel()
+                        textIva.alpha = 1f
+                        textIva.translationY = 0f
+                        textIva.visibility = View.INVISIBLE
+                    }
                 }
             }
         }
@@ -262,6 +301,13 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
             )
         }
     }
+
+    override fun onDestroyView() {
+        totalAnimator?.cancel()
+        totalAnimator = null
+        super.onDestroyView()
+    }
+
     private fun showEditQuantityDialog(item: CartItem) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_cart_edit_quantity, null)
         dialogView.findViewById<TextView>(R.id.dialogEditQtyProductName).text = item.name

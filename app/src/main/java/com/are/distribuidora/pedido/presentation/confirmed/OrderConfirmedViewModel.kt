@@ -30,6 +30,7 @@ class OrderConfirmedViewModel @Inject constructor(
         val itemsCount: Int,
         val unitsCount: Int,
         val totalFormatted: String,
+        val totalAmount: Double,
     )
 
     private val _uiModel = MutableStateFlow<UiModel?>(null)
@@ -58,6 +59,7 @@ class OrderConfirmedViewModel @Inject constructor(
             itemsCount     = items.size,
             unitsCount     = items.sumOf { it.cantidad },
             totalFormatted = nf.format(pedido.total),
+            totalAmount    = pedido.total,
         )
     }
 }
