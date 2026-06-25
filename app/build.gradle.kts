@@ -39,8 +39,15 @@ android {
         applicationId = "com.are.distribuidora"
         minSdk = 30
         targetSdk = 36
+        val appVersionName = "3.0.0"
         versionCode = 30000
-        versionName = "3.0.0"
+        versionName = appVersionName
+
+        // Etiquetas de versión visibles (splash + footer de login) generadas desde
+        // versionName para que reflejen la versión real y nunca se desfasen.
+        // Reemplazan los <string> hardcodeados que antes decían "v1.0.0".
+        resValue("string", "splash_version", "v$appVersionName")
+        resValue("string", "login_footer", "DailyStock v$appVersionName · OFFLINE LISTA")
 
         // Runner para Hilt en instrumented tests
         testInstrumentationRunner = "com.are.distribuidora.HiltTestRunner"
