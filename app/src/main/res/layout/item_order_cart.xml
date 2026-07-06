@@ -15,9 +15,12 @@
         android:id="@+id/cartItemCard"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:clickable="true"
+        android:focusable="true"
         app:cardBackgroundColor="@color/bg_card"
         app:cardCornerRadius="14dp"
         app:cardElevation="0dp"
+        app:rippleColor="@color/brand_soft"
         app:strokeColor="@color/border_subtle"
         app:strokeWidth="1dp">
 

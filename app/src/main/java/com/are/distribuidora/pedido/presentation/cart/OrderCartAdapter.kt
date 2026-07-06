@@ -51,6 +51,9 @@ class OrderCartAdapter(
             onRemove(item)
             true
         }
+        // Tocar la fila abre el editor de cantidad con teclado numérico, como
+        // alternativa discoverable al gesto de deslizar la fila a la derecha.
+        holder.card.setOnClickListener { onEditQuantity(item) }
     }
 
     // ── ViewHolder ─────────────────────────────────────────────────────────

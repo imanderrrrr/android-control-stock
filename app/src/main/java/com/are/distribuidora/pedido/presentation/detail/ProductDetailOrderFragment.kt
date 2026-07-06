@@ -1,8 +1,11 @@
 package com.are.distribuidora.pedido.presentation.detail
 
+import android.content.Context
 import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.View
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputMethodManager
 import android.widget.EditText
 import android.widget.ImageView
 import android.widget.TextView
@@ -54,6 +57,9 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
     private val detailViewModel: ProductDetailOrderViewModel by viewModels()
     private val flowViewModel: CreatePedidoFlowViewModel by activityViewModels()
 
+    /** True mientras el texto del campo de cantidad se fija por código (no por el usuario). */
+    private var updatingQtyFromState = false
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
@@ -69,7 +75,7 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
         val textPrice        = view.findViewById<TextView>(R.id.textDetailPrice)
         val textStock        = view.findViewById<TextView>(R.id.textDetailStock)
         val stepperMinus     = view.findViewById<MaterialButton>(R.id.stepperMinus)
-        val stepperQty       = view.findViewById<TextView>(R.id.stepperQty)
+        val stepperQty       = view.findViewById<EditText>(R.id.stepperQty)
         val stepperPlus      = view.findViewById<MaterialButton>(R.id.stepperPlus)
         val textSubtotalLine = view.findViewById<TextView>(R.id.textDetailSubtotalLine)
         val textSubtotalVal  = view.findViewById<TextView>(R.id.textDetailSubtotalValue)
@@ -113,13 +119,43 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
 
         editNotes.doAfterTextChanged { detailViewModel.onNotesChanged(it?.toString().orEmpty()) }
 
-        // Stepper (ajusta selectedQty)
+        // Stepper (ajusta selectedQty). clearFocus deja que el campo editable
+        // vuelva a reflejar el valor del ViewModel (ver colector de selectedQty).
         stepperPlus.setOnClickListener {
+            stepperQty.clearFocus()
             detailViewModel.onOtherQtyConfirmed((detailViewModel.selectedQty.value ?: 0) + 1)
         }
         stepperMinus.setOnClickListener {
+            stepperQty.clearFocus()
             val current = detailViewModel.selectedQty.value ?: 0
             if (current > 1) detailViewModel.onOtherQtyConfirmed(current - 1)
+        }
+
+        // Entrada directa por teclado numérico: al tocar el campo de cantidad se
+        // puede escribir cualquier valor (1–999). El guard evita el bucle
+        // colector→setText→listener→ViewModel→colector.
+        stepperQty.doAfterTextChanged { editable ->
+            if (updatingQtyFromState) return@doAfterTextChanged
+            val value = editable?.toString()?.trim()?.toIntOrNull() ?: return@doAfterTextChanged
+            if (value in 1..999 && value != detailViewModel.selectedQty.value) {
+                detailViewModel.onOtherQtyConfirmed(value)
+            }
+        }
+        stepperQty.setOnEditorActionListener { _, actionId, _ ->
+            if (actionId == EditorInfo.IME_ACTION_DONE) {
+                stepperQty.clearFocus()
+                hideKeyboard(stepperQty)
+                true
+            } else {
+                false
+            }
+        }
+        stepperQty.setOnFocusChangeListener { _, hasFocus ->
+            // Al salir del campo, normaliza el texto al valor real del ViewModel
+            // (p. ej. si quedó vacío o con un valor no confirmado).
+            if (!hasFocus) {
+                setStepperQtyText(stepperQty, (detailViewModel.selectedQty.value ?: 0).toString())
+            }
         }
 
         // Toda la barra inferior es el botón "Agregar al pedido"
@@ -139,7 +175,11 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
                     var prevQty: Int? = null
                     detailViewModel.selectedQty.collect { qty ->
                         val q = qty ?: 0
-                        stepperQty.text = q.toString()
+                        // Mientras el usuario escribe (campo enfocado) no se pisa su
+                        // entrada; el foco se limpia con +/-/Done para resincronizar.
+                        if (!stepperQty.hasFocus()) {
+                            setStepperQtyText(stepperQty, q.toString())
+                        }
                         // Rebote del número al cambiar (no en la primera emisión).
                         if (prevQty != null && q != prevQty) FlowAnimations.pulse(stepperQty, peak = 1.18f)
                         prevQty = q
@@ -219,6 +259,20 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
                 override fun onResourceReady(resource: Drawable, model: Any, target: Target<Drawable>, dataSource: DataSource, isFirstResource: Boolean) = false
             })
             .into(image)
+    }
+
+    /** Fija el texto de la cantidad sin disparar el listener de edición y deja el cursor al final. */
+    private fun setStepperQtyText(field: EditText, text: String) {
+        if (field.text.toString() == text) return
+        updatingQtyFromState = true
+        field.setText(text)
+        field.setSelection(field.text.length)
+        updatingQtyFromState = false
+    }
+
+    private fun hideKeyboard(view: View) {
+        val imm = view.context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(view.windowToken, 0)
     }
 
     private fun buildCurrencyFormat(): NumberFormat =

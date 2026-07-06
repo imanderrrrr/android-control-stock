@@ -258,12 +258,20 @@
                     app:strokeColor="@color/border_subtle"
                     app:strokeWidth="1dp">
 
-                    <TextView
+                    <EditText
                         android:id="@+id/stepperQty"
                         android:layout_width="match_parent"
                         android:layout_height="match_parent"
+                        android:background="@null"
                         android:fontFamily="sans-serif"
                         android:gravity="center"
+                        android:imeOptions="actionDone"
+                        android:importantForAutofill="no"
+                        android:inputType="number"
+                        android:maxLength="3"
+                        android:maxLines="1"
+                        android:paddingHorizontal="8dp"
+                        android:selectAllOnFocus="true"
                         android:textColor="@color/text_primary"
                         android:textSize="26sp"
                         android:textStyle="bold"
