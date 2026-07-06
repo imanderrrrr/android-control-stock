@@ -356,6 +356,11 @@
     <string name="reports_top_clients">Mejores clientes (semana)</string>
     <string name="reports_product_subtitle">%1$d uds · %2$s</string>
     <string name="reports_client_subtitle">%1$d pedidos · %2$s</string>
+    <string name="reports_subtitle_range">Últimos %1$d días</string>
+    <string name="reports_period_7">7 días</string>
+    <string name="reports_period_14">14 días</string>
+    <string name="reports_product_units">%1$d unidades</string>
+    <string name="reports_avg_caption">Promedio sobre los últimos 14 días</string>
 
     <!-- Cuentas Pendientes -->
     <string name="pending_dialog_title">Nueva cuenta pendiente</string>
