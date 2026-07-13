@@ -183,7 +183,4 @@ dependencies {
 
     // ML Kit Barcode Scanning
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
-
-    // MPAndroidChart (gráficas en pantalla de reportes)
-    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 }
