@@ -289,6 +289,80 @@ class ClientSyncIntegrationTest {
         }
     }
 
+    // --- GUARD anti pérdida de datos (C1): proteger ediciones locales sin subir ---
+
+    /** El downsync NO debe pisar un cliente con edición local pendiente, ni aunque el remoto sea más nuevo. */
+    @Test
+    fun `guard - downsync no sobreescribe un cliente PENDING_UPDATE`() = runTest {
+        withTimeout(15_000) {
+            val routeId = "route_g1"; setupRoute(routeId)
+            clientRepository.create(createValidClient("cg1", routeId, name = "Original"))
+            syncClientsUseCase()
+            assertEquals(SyncStatus.SYNCED, clientDao.getById("cg1")?.syncStatus)
+
+            // Edición local sin subir -> PENDING_UPDATE
+            updateClientUseCase(clientDao.getById("cg1")!!.toDomain().copy(name = "Edicion Local"))
+            val edited = clientDao.getById("cg1")!!
+            assertEquals(SyncStatus.PENDING_UPDATE, edited.syncStatus)
+
+            // El downsync trae una versión remota MÁS NUEVA: sin el guard, ganaría y pisaría la edición.
+            val newerRemote = edited.toDomain().copy(
+                name = "Version Remota",
+                updatedAt = edited.updatedAt + 5_000,
+                syncState = SyncState.SYNCED,
+            )
+            clientSyncRepository.saveLocalClients(listOf(newerRemote))
+
+            val after = clientDao.getById("cg1")!!
+            assertEquals("la edición local debe sobrevivir el downsync", "Edicion Local", after.name)
+            assertEquals(SyncStatus.PENDING_UPDATE, after.syncStatus)
+        }
+    }
+
+    /** El downsync NO debe borrar un cliente con edición pendiente aunque el remoto venga isDeleted=true. */
+    @Test
+    fun `guard - downsync no borra un cliente PENDING_UPDATE marcado isDeleted en remoto`() = runTest {
+        withTimeout(15_000) {
+            val routeId = "route_g2"; setupRoute(routeId)
+            clientRepository.create(createValidClient("cg2", routeId))
+            syncClientsUseCase()
+            updateClientUseCase(clientDao.getById("cg2")!!.toDomain().copy(name = "Edicion Local"))
+            assertEquals(SyncStatus.PENDING_UPDATE, clientDao.getById("cg2")?.syncStatus)
+
+            val remoteDeleted = clientDao.getById("cg2")!!.toDomain().copy(
+                isDeleted = true,
+                updatedAt = clientDao.getById("cg2")!!.updatedAt + 5_000,
+                syncState = SyncState.SYNCED,
+            )
+            clientSyncRepository.saveLocalClients(listOf(remoteDeleted))
+
+            val after = clientDao.getById("cg2")
+            assertNotNull("un cliente con edición pendiente NO debe ser borrado por isDeleted remoto", after)
+            assertEquals(SyncStatus.PENDING_UPDATE, after?.syncStatus)
+        }
+    }
+
+    /** Sanity: una fila LIMPIA (SYNCED) sí adopta la actualización remota (el guard no rompe el caso normal). */
+    @Test
+    fun `cliente limpio SYNCED si adopta la actualizacion remota`() = runTest {
+        withTimeout(15_000) {
+            val routeId = "route_g3"; setupRoute(routeId)
+            clientRepository.create(createValidClient("cg3", routeId, name = "Original"))
+            syncClientsUseCase()
+            val synced = clientDao.getById("cg3")!!
+            assertEquals(SyncStatus.SYNCED, synced.syncStatus)
+
+            val newerRemote = synced.toDomain().copy(
+                name = "Actualizacion Remota",
+                updatedAt = synced.updatedAt + 5_000,
+                syncState = SyncState.SYNCED,
+            )
+            clientSyncRepository.saveLocalClients(listOf(newerRemote))
+
+            assertEquals("una fila limpia SÍ adopta el update remoto", "Actualizacion Remota", clientDao.getById("cg3")!!.name)
+        }
+    }
+
     // --- Helpers ---
 
     private suspend fun setupRoute(routeId: String) {

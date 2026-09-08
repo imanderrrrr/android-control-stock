@@ -27,8 +27,13 @@ class OtrosDetalleAdapter :
             textNombre.text    = item.productName
             textPrecioQty.text = "${item.unitPriceFormatted} × ${item.quantity}"
             textTotal.text     = item.lineTotalFormatted
-            // Otros Pedidos no tienen descuento por ítem → siempre oculto
-            textDescuento.visibility = View.GONE
+
+            if (item.discountFormatted != null) {
+                textDescuento.text       = item.discountFormatted
+                textDescuento.visibility = View.VISIBLE
+            } else {
+                textDescuento.visibility = View.GONE
+            }
 
             val notes = item.notes?.takeIf { it.isNotBlank() }
             if (notes != null) {

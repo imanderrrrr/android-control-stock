@@ -13,7 +13,8 @@ import kotlinx.coroutines.tasks.await
  *  - Campos mínimos: orderId, routeId, deliveryDate, clientName, clientAddress, sellerName, itemsCount
  *
  * routes/{routeId}/orders/{orderId}/items/{itemId}
- *  - Campos: itemId, productId, productName, unitPrice, quantity
+ *  - Campos: itemId, orderId, productId, productName, unitPrice, quantity,
+ *    discountAmount, totalItem, notes? (mismo contrato que escribe el creador)
  *
  * NOTA: La colección legacy "pedidos" ya NO se consulta en este flujo.
  */
@@ -172,6 +173,17 @@ class FirestoreOrderRemoteDataSource(
             }
             if (quantity <= 0) return@mapNotNull null
 
+            // discountAmount: descuento absoluto escrito por la app del creador. Tolerante:
+            // ausente o inválido → 0.0; negativo → 0.0; exceso → clamp al bruto de la línea.
+            // Nunca se descarta el ítem por un descuento malo.
+            val discountAny = data["discountAmount"]
+            val rawDiscount = when (discountAny) {
+                is Number -> discountAny.toDouble()
+                is String -> discountAny.toDoubleOrNull() ?: 0.0
+                else -> 0.0
+            }
+            val discountAmount = rawDiscount.coerceIn(0.0, unitPrice * quantity)
+
             val notes = (data["notes"] as? String)?.trim()?.takeIf { it.isNotEmpty() }
 
             OrderRemoteDataSource.OrderItemDto(
@@ -180,6 +192,7 @@ class FirestoreOrderRemoteDataSource(
                 productName = productName,
                 unitPrice = unitPrice,
                 quantity = quantity,
+                discountAmount = discountAmount,
                 notes = notes,
             )
         }
@@ -280,13 +293,19 @@ class FirestoreOrderRemoteDataSource(
         }
 
         // 2) Crear/actualizar los ítems vigentes (set por itemId = docId).
+        //    Mismo contrato de campos que escribe la app del vendedor creador
+        //    (FirestorePedidoDataSource): el set reemplaza el doc completo, así que
+        //    omitir discountAmount/totalItem aquí los borraría del remoto.
         items.forEach { item ->
             val data = hashMapOf(
                 "itemId" to item.itemId,
+                "orderId" to orderId,
                 "productId" to item.productId,
                 "productName" to item.productName,
                 "unitPrice" to item.unitPrice,
                 "quantity" to item.quantity,
+                "discountAmount" to item.discountAmount,
+                "totalItem" to (item.unitPrice * item.quantity - item.discountAmount).coerceAtLeast(0.0),
                 "notes" to item.notes,
             )
             batch.set(itemsRef.document(item.itemId), data)

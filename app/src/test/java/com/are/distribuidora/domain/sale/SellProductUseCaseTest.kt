@@ -49,6 +49,8 @@ class SellProductUseCaseTest {
 
         override suspend fun findByBarcode(barcode: String): Product? = null
 
+        override suspend fun countAll(): Int = 0
+
         override suspend fun incrementStock(productId: String, delta: Int) {
             // No-op for this test
         }

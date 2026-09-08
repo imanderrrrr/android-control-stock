@@ -153,5 +153,6 @@ private class FakeProductRepositoryForStock(
     override suspend fun save(product: Product) = throw UnsupportedOperationException()
     override suspend fun delete(id: String) = throw UnsupportedOperationException()
     override fun getSyncStatuses() = throw UnsupportedOperationException()
+    override suspend fun countAll(): Int = 0
 }
 
