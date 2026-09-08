@@ -75,7 +75,8 @@ class ProductSyncIntegrationTest {
             local = productDao,
             database = mockDatabase,
             imageStorage = mockk(relaxed = true), // No se testea upload aquí
-            pendingUploadDao = mockk(relaxed = true)
+            pendingUploadDao = mockk(relaxed = true),
+            movementDao = mockk(relaxed = true),
         )
 
         val scheduler = mockk<com.are.distribuidora.workers.ProductSyncScheduler>(relaxed = true)
@@ -115,7 +116,6 @@ class ProductSyncIntegrationTest {
             imageUrl = "url",
             barcode = "123",
             stock = 10,
-            comprometido = 0,
             isActive = true,
             isDeleted = false,
             createdRemoteAt = 1000L,
@@ -201,7 +201,6 @@ class ProductSyncIntegrationTest {
             imageUrl = "",
             barcode = "",
             stock = 1,
-            comprometido = 0,
             isActive = true,
             isDeleted = false,
             createdRemoteAt = 1000L,

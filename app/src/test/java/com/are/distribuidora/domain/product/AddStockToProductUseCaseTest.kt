@@ -26,35 +26,60 @@ class AddStockToProductUseCaseTest {
         updatedAt = now,
     )
 
-    // ---- Tests del UseCase ----
+    // ---- Tests del UseCase (4.1: "Agregar stock" = vale de ENTRADA) ----
+
+    private fun build(repo: FakeProductRepositoryForStock): Pair<AddStockToProductUseCase, com.are.distribuidora.stockmovement.FakeStockMovementRepository> {
+        val movements = com.are.distribuidora.stockmovement.FakeStockMovementRepository { _, delta -> repo.applyDelta(delta) }
+        val voucher = com.are.distribuidora.stockmovement.domain.usecase.CreateStockVoucherUseCase(
+            movements, repo, com.are.distribuidora.stockmovement.FakeCurrentUser(),
+        )
+        return AddStockToProductUseCase(voucher) to movements
+    }
 
     @Test
-    fun `dado stock=10 y delta=5 el stock resultante es 15`() = runTest {
+    fun `dado stock=10 y delta=5 registra ENTRADA COMPRA de 5 y el stock resultante es 15`() = runTest {
         val product = makeProduct(stock = 10)
         val repo = FakeProductRepositoryForStock(product)
-        val useCase = AddStockToProductUseCase(repo)
+        val (useCase, movements) = build(repo)
 
-        useCase(product.id.value, 5)
+        val movement = useCase(product.id.value, 5)
 
-        assertEquals(15, repo.lastIncrementedStock)
+        assertEquals(15, repo.currentStock)
+        assertEquals(com.are.distribuidora.stockmovement.domain.model.MovementType.ENTRADA, movement.type)
+        assertEquals(com.are.distribuidora.stockmovement.domain.model.MovementReason.COMPRA, movement.reason)
+        assertEquals(5, movement.quantity)
+        assertEquals(1, movements.recorded.size)
     }
 
     @Test
     fun `dado stock=0 y delta=1 el stock resultante es 1`() = runTest {
         val product = makeProduct(stock = 0)
         val repo = FakeProductRepositoryForStock(product)
-        val useCase = AddStockToProductUseCase(repo)
+        val (useCase, _) = build(repo)
 
         useCase(product.id.value, 1)
 
-        assertEquals(1, repo.lastIncrementedStock)
+        assertEquals(1, repo.currentStock)
+    }
+
+    @Test
+    fun `motivo y nota viajan en el vale`() = runTest {
+        val product = makeProduct(stock = 0)
+        val repo = FakeProductRepositoryForStock(product)
+        val (useCase, movements) = build(repo)
+
+        useCase(product.id.value, 4, com.are.distribuidora.stockmovement.domain.model.MovementReason.DEVOLUCION, "  cliente devolvió  ")
+
+        val m = movements.recorded.single()
+        assertEquals(com.are.distribuidora.stockmovement.domain.model.MovementReason.DEVOLUCION, m.reason)
+        assertEquals("cliente devolvió", m.note)
     }
 
     @Test
     fun `delta=0 lanza IllegalArgumentException`() = runTest {
         val product = makeProduct(stock = 10)
         val repo = FakeProductRepositoryForStock(product)
-        val useCase = AddStockToProductUseCase(repo)
+        val (useCase, movements) = build(repo)
 
         try {
             useCase(product.id.value, 0)
@@ -62,13 +87,14 @@ class AddStockToProductUseCaseTest {
         } catch (e: IllegalArgumentException) {
             // esperado
         }
+        assertEquals(0, movements.recorded.size)
     }
 
     @Test
     fun `delta negativo lanza IllegalArgumentException`() = runTest {
         val product = makeProduct(stock = 10)
         val repo = FakeProductRepositoryForStock(product)
-        val useCase = AddStockToProductUseCase(repo)
+        val (useCase, _) = build(repo)
 
         try {
             useCase(product.id.value, -3)
@@ -79,9 +105,9 @@ class AddStockToProductUseCaseTest {
     }
 
     @Test
-    fun `producto no encontrado lanza NoSuchElementException`() = runTest {
+    fun `producto inexistente lanza NoSuchElementException`() = runTest {
         val repo = FakeProductRepositoryForStock(null)
-        val useCase = AddStockToProductUseCase(repo)
+        val (useCase, _) = build(repo)
 
         try {
             useCase("id-inexistente", 5)
@@ -131,28 +157,33 @@ class AddStockToProductUseCaseTest {
 
 /** Fake repository para tests de stock */
 private class FakeProductRepositoryForStock(
-    private val productToReturn: Product?,
+    private var product: Product?,
 ) : ProductRepository {
 
-    var lastIncrementedStock: Int = -1
-        private set
+    val currentStock: Int get() = product?.stock?.value ?: -1
 
-    override suspend fun findByBarcode(barcode: String): Product? = productToReturn
-
-    override suspend fun incrementStock(productId: String, delta: Int) {
-        val current = productToReturn?.stock?.value ?: 0
-        lastIncrementedStock = current + delta
+    fun applyDelta(delta: Int) {
+        product = product?.let { it.copy(stock = com.are.distribuidora.domain.valueobject.Quantity.of(it.stock.value + delta)) }
     }
 
-    override suspend fun getById(id: com.are.distribuidora.domain.valueobject.ProductId): Product? =
-        if (productToReturn?.id == id) productToReturn else null
+    override suspend fun findByBarcode(barcode: String): Product? = product
 
-    // Implementaciones vacías requeridas por la interfaz
-    override fun getProductsStream(query: String?) = throw UnsupportedOperationException()
-    override fun observeById(id: com.are.distribuidora.domain.valueobject.ProductId) = throw UnsupportedOperationException()
-    override suspend fun save(product: Product) = throw UnsupportedOperationException()
-    override suspend fun delete(id: String) = throw UnsupportedOperationException()
-    override fun getSyncStatuses() = throw UnsupportedOperationException()
-    override suspend fun countAll(): Int = 0
+    override suspend fun getById(id: ProductId): Product? = product?.takeIf { it.id == id }
+
+    override fun getProductsStream(query: String?): kotlinx.coroutines.flow.Flow<androidx.paging.PagingData<Product>> =
+        kotlinx.coroutines.flow.emptyFlow()
+
+    override fun observeById(id: ProductId): kotlinx.coroutines.flow.Flow<Product?> = kotlinx.coroutines.flow.emptyFlow()
+
+    override suspend fun save(product: Product) { this.product = product }
+
+    override suspend fun delete(id: String) {}
+
+    override suspend fun countAll(): Int = if (product != null) 1 else 0
+
+    override fun getSyncStatuses(): kotlinx.coroutines.flow.Flow<Map<String, com.are.distribuidora.domain.core.SyncState>> =
+        kotlinx.coroutines.flow.emptyFlow()
+
+    @Deprecated("4.1")
+    override suspend fun incrementStock(productId: String, delta: Int) = error("no usar: el stock solo se mueve por vales")
 }
-

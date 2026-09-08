@@ -15,8 +15,10 @@ class QuantityTest {
     }
 
     @Test
-    fun `of throws for negative`() {
-        assertThrows(IllegalArgumentException::class.java) { Quantity.of(-1) }
+    fun `of allows negative since 4_1 (stock negativo es informacion)`() {
+        val q = Quantity.of(-1)
+        assertEquals(-1, q.value)
+        assertTrue(q.isNegative())
     }
 
     @Test
@@ -56,9 +58,11 @@ class QuantityTest {
     }
 
     @Test
-    fun `minus throws if result is negative`() {
+    fun `minus can go negative since 4_1`() {
         val q1 = Quantity.of(3)
         val q2 = Quantity.of(5)
-        assertThrows(IllegalArgumentException::class.java) { q1 - q2 }
+        val r = q1 - q2
+        assertEquals(-2, r.value)
+        assertTrue(r.isNegative())
     }
 }

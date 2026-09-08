@@ -93,7 +93,7 @@ class ProductTest {
     }
 
     @Test
-    fun `sell throws if insufficient stock`() {
+    fun `sell with insufficient stock leaves it negative (4_1 - no bloquea la venta)`() {
         val product = Product(
             id = ProductId.of("ABC123"),
             name = "Test Product",
@@ -103,8 +103,8 @@ class ProductTest {
             updatedAt = defaultTimestamp
         )
 
-        assertThrows(IllegalArgumentException::class.java) {
-            product.sell(Quantity.of(3))
-        }
+        val sold = product.sell(Quantity.of(3))
+        assertEquals(-1, sold.stock.value)
+        assertEquals(false, product.canSell(Quantity.of(3)))
     }
 }

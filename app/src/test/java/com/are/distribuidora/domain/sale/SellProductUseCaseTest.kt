@@ -7,6 +7,11 @@ import com.are.distribuidora.domain.product.ProductRepository
 import com.are.distribuidora.domain.valueobject.Money
 import com.are.distribuidora.domain.valueobject.ProductId
 import com.are.distribuidora.domain.valueobject.Quantity
+import com.are.distribuidora.stockmovement.FakeCurrentUser
+import com.are.distribuidora.stockmovement.FakeStockMovementRepository
+import com.are.distribuidora.stockmovement.domain.model.MovementReason
+import com.are.distribuidora.stockmovement.domain.model.MovementType
+import com.are.distribuidora.stockmovement.domain.usecase.CreateStockVoucherUseCase
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.runBlocking
@@ -15,91 +20,86 @@ import org.junit.Assert.assertThrows
 import org.junit.Test
 import java.math.BigDecimal
 
+/**
+ * 4.1: la venta directa desde Inventario ya no escribe el contador; registra un VALE DE SALIDA
+ * (motivo OTRO). El stock local lo mueve el libro (aquí simulado por el fake) y puede quedar en
+ * negativo: es información, no un error.
+ */
 class SellProductUseCaseTest {
 
-    private class FakeProductRepository(
-        private var product: Product,
-    ) : ProductRepository {
-
-        var saveCalls = 0
-            private set
-
+    private class FakeProductRepository(private var product: Product) : ProductRepository {
         override fun getProductsStream(query: String?): Flow<PagingData<Product>> = emptyFlow()
-
-        override suspend fun getById(id: ProductId): Product? {
-            return if (id == product.id) product else null
-        }
-
+        override suspend fun getById(id: ProductId): Product? = if (id == product.id) product else null
         override fun observeById(id: ProductId): Flow<Product?> = emptyFlow()
-
-        override suspend fun save(product: Product) {
-            saveCalls++
-            this.product = product
-        }
-
-        fun current(): Product = product
-
-        override suspend fun delete(id: String) {
-            // No-op for this test
-        }
-
-        override fun getSyncStatuses(): Flow<Map<String, SyncState>> {
-            return emptyFlow()
-        }
-
+        override suspend fun save(product: Product) { this.product = product }
+        override suspend fun delete(id: String) {}
+        override fun getSyncStatuses(): Flow<Map<String, SyncState>> = emptyFlow()
         override suspend fun findByBarcode(barcode: String): Product? = null
-
         override suspend fun countAll(): Int = 0
-
-        override suspend fun incrementStock(productId: String, delta: Int) {
-            // No-op for this test
-        }
+        @Deprecated("4.1") override suspend fun incrementStock(productId: String, delta: Int) = error("no usar")
+        fun applyDelta(delta: Int) { product = product.copy(stock = Quantity.of(product.stock.value + delta)) }
+        fun current(): Product = product
     }
 
-    private val p1Id = "PROD-001"
-    private val p2Id = "PROD-002"
-    private val defaultPrice = Money.of(BigDecimal("10.00"))
+    private fun product(id: String, stock: Int) = Product(
+        id = ProductId.of(id), name = "P-$id", stock = Quantity.of(stock),
+        price = Money.of(BigDecimal("10.00")), createdAt = 1L, updatedAt = 1L,
+    )
 
-    @Test
-    fun `vende y persiste stock correcto`() = runBlocking {
-        val p1 = ProductId.of(p1Id)
-        val initialProduct = Product(
-            id = p1,
-            name = "P1",
-            stock = Quantity.of(10),
-            price = defaultPrice,
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
-        )
-        val repo = FakeProductRepository(initialProduct)
-        val useCase = SellProductUseCase(repo)
-
-        val updated = useCase.execute(productId = p1Id, quantity = 3)
-
-        assertEquals(Quantity.of(7), updated.stock)
-        assertEquals(1, repo.saveCalls)
-        assertEquals(Quantity.of(7), repo.current().stock)
+    private fun build(repo: FakeProductRepository): Pair<SellProductUseCase, FakeStockMovementRepository> {
+        val movements = FakeStockMovementRepository { _, delta -> repo.applyDelta(delta) }
+        val voucher = CreateStockVoucherUseCase(movements, repo, FakeCurrentUser())
+        return SellProductUseCase(repo, voucher) to movements
     }
 
     @Test
-    fun `falla si stock insuficiente y no persiste`() = runBlocking {
-        val p2 = ProductId.of(p2Id)
-        val initialProduct = Product(
-            id = p2,
-            name = "P2",
-            stock = Quantity.of(2),
-            price = defaultPrice,
-            createdAt = System.currentTimeMillis(),
-            updatedAt = System.currentTimeMillis()
-        )
-        val repo = FakeProductRepository(initialProduct)
-        val useCase = SellProductUseCase(repo)
+    fun `vende registrando un vale de SALIDA y devuelve el stock resultante`() = runBlocking {
+        val repo = FakeProductRepository(product("PROD-001", 10))
+        val (useCase, movements) = build(repo)
+
+        val updated = useCase.execute(productId = "PROD-001", quantity = 3)
+
+        assertEquals(7, updated.stock.value)
+        assertEquals(1, movements.recorded.size)
+        val m = movements.recorded.single()
+        assertEquals(MovementType.SALIDA, m.type)
+        assertEquals(3, m.quantity)
+        assertEquals(MovementReason.OTRO, m.reason)
+        assertEquals(null, m.orderId)
+        assertEquals("uid-test", m.createdBy)
+    }
+
+    @Test
+    fun `stock insuficiente NO bloquea la venta y el stock queda en negativo`() = runBlocking {
+        val repo = FakeProductRepository(product("PROD-002", 2))
+        val (useCase, movements) = build(repo)
+
+        val updated = useCase.execute(productId = "PROD-002", quantity = 5)
+
+        assertEquals(-3, updated.stock.value)
+        assertEquals(1, movements.recorded.size)
+    }
+
+    @Test
+    fun `cantidad cero lanza y no registra movimiento`() = runBlocking {
+        val repo = FakeProductRepository(product("PROD-003", 2))
+        val (useCase, movements) = build(repo)
 
         assertThrows(IllegalArgumentException::class.java) {
-            runBlocking { useCase.execute(productId = p2Id, quantity = 5) }
+            runBlocking { useCase.execute(productId = "PROD-003", quantity = 0) }
         }
+        assertEquals(0, movements.recorded.size)
+        assertEquals(2, repo.current().stock.value)
+    }
 
-        assertEquals(0, repo.saveCalls)
-        assertEquals(Quantity.of(2), repo.current().stock)
+    @Test
+    fun `producto inexistente lanza y no registra movimiento`() = runBlocking {
+        val repo = FakeProductRepository(product("PROD-004", 2))
+        val (useCase, movements) = build(repo)
+
+        assertThrows(IllegalArgumentException::class.java) {
+            runBlocking { useCase.execute(productId = "NOPE", quantity = 1) }
+        }
+        assertEquals(0, movements.recorded.size)
     }
 }
