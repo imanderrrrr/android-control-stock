@@ -22,7 +22,17 @@ interface ProductRemoteDataSource {
      */
     fun fetchProductsFlow(timestamp: Long, lastId: String? = null, batchSize: Long = 500): kotlinx.coroutines.flow.Flow<List<RemoteProduct>>
 
+    /**
+     * Sube los campos DESCRIPTIVOS del producto. Desde 4.1 NUNCA incluye `stock`: el contador
+     * remoto solo se mueve con incrementos atómicos desde el libro de movimientos.
+     */
     suspend fun uploadProduct(product: RemoteProduct)
+
+    /**
+     * Snapshot remoto de un producto tras subirlo, para adoptar el `updatedAt` del servidor (y el
+     * stock vigente) al marcar SYNCED. Null si no existe o si la implementación no lo soporta.
+     */
+    suspend fun fetchProductById(id: String): RemoteProduct? = null
 
     suspend fun softDeleteProduct(id: String, timestamp: Long)
 }

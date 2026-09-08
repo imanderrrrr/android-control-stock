@@ -7,5 +7,8 @@ package com.are.distribuidora.core.auth
 interface CurrentUserIdProvider {
     /** Retorna el UID del usuario autenticado, o null si no hay sesión. */
     fun get(): String?
+
+    /** Nombre visible (displayName o correo) para snapshots como `createdByName`. Null si no hay sesión. */
+    fun getDisplayName(): String? = null
 }
 

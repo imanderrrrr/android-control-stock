@@ -13,7 +13,11 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
+import com.are.distribuidora.stockmovement.presentation.NewVoucherFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -32,6 +36,8 @@ import kotlinx.coroutines.flow.collectLatest
 class InventoryFragment : Fragment() {
 
     private val viewModel: InventoryViewModel by viewModels()
+    /** Rol/permisos del usuario (compartido con HomeActivity). Gate de "Nuevo vale" / "Agregar stock". */
+    private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -65,6 +71,12 @@ class InventoryFragment : Fragment() {
         newProductButton.setOnClickListener { anchor ->
             val popup = PopupMenu(requireContext(), anchor)
             popup.menuInflater.inflate(R.menu.menu_product_plus, popup.menu)
+            // 4.1: "Agregar stock" y "Nuevo vale" mueven inventario → Permission.CREATE_VOUCHER
+            // (por defecto solo admin, RolePolicy). "Agregar producto" → EDIT_PRODUCT.
+            val access = screenAccessViewModel.access.value
+            popup.menu.findItem(R.id.action_add_product).isVisible = access.can(Permission.EDIT_PRODUCT)
+            popup.menu.findItem(R.id.action_add_stock).isVisible = access.can(Permission.CREATE_VOUCHER)
+            popup.menu.findItem(R.id.action_new_voucher).isVisible = access.can(Permission.CREATE_VOUCHER)
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     R.id.action_add_product -> {
@@ -72,13 +84,24 @@ class InventoryFragment : Fragment() {
                         true
                     }
                     R.id.action_add_stock -> {
-                        navigateToAddStock()
+                        if (requireVoucherPermission()) navigateToAddStock()
+                        true
+                    }
+                    R.id.action_new_voucher -> {
+                        if (requireVoucherPermission()) navigateToNewVoucher()
                         true
                     }
                     else -> false
                 }
             }
             popup.show()
+        }
+
+        // Mensaje de confirmación al volver de "Nuevo vale".
+        parentFragmentManager.setFragmentResultListener(NewVoucherFragment.RESULT_KEY, viewLifecycleOwner) { _, bundle ->
+            bundle.getString(NewVoucherFragment.RESULT_MESSAGE)?.let { msg ->
+                Snackbar.make(view, msg, Snackbar.LENGTH_LONG).show()
+            }
         }
 
         val adapter = InventoryAdapter()
@@ -195,5 +218,22 @@ class InventoryFragment : Fragment() {
             .replace(R.id.fragmentContainer, AddStockScannerFragment.newInstance())
             .addToBackStack(null)
             .commit()
+    }
+
+    private fun navigateToNewVoucher() {
+        parentFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+            .replace(R.id.fragmentContainer, NewVoucherFragment.newInstance())
+            .addToBackStack(null)
+            .commit()
+    }
+
+    /** Segunda barrera del gate (el menú ya oculta la opción): evita el acceso por carrera de estado. */
+    private fun requireVoucherPermission(): Boolean {
+        val allowed = screenAccessViewModel.access.value.can(Permission.CREATE_VOUCHER)
+        if (!allowed) {
+            Snackbar.make(requireView(), getString(R.string.voucher_no_permission), Snackbar.LENGTH_LONG).show()
+        }
+        return allowed
     }
 }

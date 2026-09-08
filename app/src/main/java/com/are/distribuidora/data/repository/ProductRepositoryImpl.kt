@@ -85,7 +85,11 @@ class ProductRepositoryImpl @Inject constructor(
                 createdAt = existing.createdAt,
                 updatedAt = existing.updatedAt,
                 lastSyncedAt = existing.lastSyncedAt,
-                isDeleted = existing.isDeleted // no permitir cambiar isDeleted desde edición común
+                isDeleted = existing.isDeleted, // no permitir cambiar isDeleted desde edición común
+                // 4.1: el stock NO se edita como valor absoluto. Solo lo mueve el libro de
+                // movimientos (ProductDao.applyMovement). Un cambio de stock desde "Editar
+                // producto" debe convertirse en un vale AJUSTE por la diferencia (lo hace la UI).
+                stock = existing.stock,
             )
 
             productDao.update(entity)
@@ -121,28 +125,13 @@ class ProductRepositoryImpl @Inject constructor(
         return productDao.findByBarcode(barcode)?.toDomainOrNull()
     }
 
+    @Deprecated("Usar CreateStockVoucherUseCase")
     override suspend fun incrementStock(productId: String, delta: Int) {
-        require(delta > 0) { "delta debe ser > 0" }
-        _incrementStockTransactional(productId, delta)
-        coordinator.notifyLocalChange(source = "REPO_INCREMENT_STOCK")
+        throw UnsupportedOperationException(
+            "Desde 4.1 el stock solo se mueve por movimientos (vales). Usar CreateStockVoucherUseCase."
+        )
     }
 
-    @androidx.room.Transaction
-    private suspend fun _incrementStockTransactional(productId: String, delta: Int) {
-        val existing = productDao.getById(productId) ?: return
-        val newStock = existing.stock + delta
-        val nextStatus = when (existing.syncStatus) {
-            com.are.distribuidora.data.local.SyncStatus.PENDING_CREATE -> com.are.distribuidora.data.local.SyncStatus.PENDING_CREATE
-            com.are.distribuidora.data.local.SyncStatus.PENDING_DELETE -> return // no tocar
-            else -> com.are.distribuidora.data.local.SyncStatus.PENDING_UPDATE
-        }
-        productDao.update(
-            existing.copy(
-                stock = newStock,
-                syncStatus = nextStatus,
-                updatedAt = System.currentTimeMillis()
-            )
-        )
-        Log.d(TAG, "REPO_INCREMENT_STOCK productId=$productId delta=$delta newStock=$newStock")
-    }
+    override suspend fun searchByName(query: String, limit: Int): List<Product> =
+        productDao.searchByName(query.trim(), limit).mapNotNull { it.toDomainOrNull() }
 }

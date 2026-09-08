@@ -60,7 +60,6 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
         private val name = itemView.findViewById<TextView>(R.id.productName)
         private val price = itemView.findViewById<TextView>(R.id.productPrice)
         private val stock = itemView.findViewById<TextView>(R.id.productStock)
-        private val comprometido = itemView.findViewById<TextView>(R.id.productComprometido)
         private val menuButton = itemView.findViewById<ImageButton>(R.id.menuButton)
 
         // New Indicators
@@ -103,22 +102,16 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
             val stockBg: Int
             val stockTx: Int
             when {
-                s <= 0 -> { stockLabel = "Sin stock"; stockBg = R.color.danger_bg; stockTx = R.color.danger_text }
+                // 4.1: el stock puede ser negativo (entregado antes del vale de entrada). Se muestra
+                // en rojo como información, no se oculta ni se normaliza.
+                s < 0 -> { stockLabel = "$s en stock"; stockBg = R.color.danger_bg; stockTx = R.color.danger_text }
+                s == 0 -> { stockLabel = "Sin stock"; stockBg = R.color.danger_bg; stockTx = R.color.danger_text }
                 s <= 5 -> { stockLabel = "$s · bajo"; stockBg = R.color.warning_bg; stockTx = R.color.warning_text }
                 else -> { stockLabel = "$s en stock"; stockBg = R.color.success_bg; stockTx = R.color.success_text }
             }
             stock.text = stockLabel
             stock.backgroundTintList = ContextCompat.getColorStateList(ctx, stockBg)
             stock.setTextColor(ContextCompat.getColor(ctx, stockTx))
-
-            if (product.comprometido > 0) {
-                comprometido.visibility = View.VISIBLE
-                comprometido.text = itemView.context.getString(
-                    R.string.inventory_comprometido, product.comprometido
-                )
-            } else {
-                comprometido.visibility = View.GONE
-            }
 
             // Bind New Statuses
             syncIndicator.text = item.syncIndicatorText

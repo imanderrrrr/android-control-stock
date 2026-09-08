@@ -22,4 +22,6 @@ data class ScreenAccessEntity(
     val cuentasPendientes: Boolean?,
     val updatedAtMillis: Long?,
     val updatedBy: String?,
+    /** Rol de negocio (`admin` | `vendedor`) leído de `userScreenAccess/{uid}.role`. Null ⇒ vendedor. */
+    val role: String? = null,
 )

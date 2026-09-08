@@ -1319,4 +1319,93 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE order_items_staging ADD COLUMN discountAmount REAL NOT NULL DEFAULT 0")
         }
     }
+
+    /**
+     * v38 -> v39 — DailyStock 4.1 "Movimientos, vales y reinicio".
+     *
+     * 1. Nueva tabla `stock_movements`: libro de movimientos de inventario (espejo de la colección
+     *    Firestore `stock_movements`). Inmutable, con syncStatus local.
+     * 2. `products` pierde la columna `comprometido`: mezclaba reservas con existencias y nadie la
+     *    entendía. Se recrea la tabla (SQLite < 3.35 no soporta DROP COLUMN; mismo patrón que
+     *    MIGRATION_31_32). El stock se conserva tal cual; el reinicio a cero lo hace el script
+     *    del panel, no esta migración.
+     * 3. `orders` (pipeline B, pedidos ajenos) gana `editVersion INTEGER NOT NULL DEFAULT 0`: contador
+     *    local de ediciones para derivar el id determinístico de los movimientos PEDIDO_EDICION.
+     * 4. `screen_access` gana `role TEXT` (admin|vendedor) leído de `userScreenAccess/{uid}.role`;
+     *    null ⇒ vendedor. Habilita el gate CREATE_VOUCHER de "Nuevo vale".
+     */
+    val MIGRATION_38_39: Migration = object : Migration(38, 39) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1) Libro de movimientos
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `stock_movements` (
+                    `id` TEXT NOT NULL,
+                    `productId` TEXT NOT NULL,
+                    `productName` TEXT NOT NULL,
+                    `type` TEXT NOT NULL,
+                    `quantity` INTEGER NOT NULL,
+                    `reason` TEXT NOT NULL,
+                    `orderId` TEXT,
+                    `note` TEXT,
+                    `createdBy` TEXT NOT NULL,
+                    `createdByName` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `syncStatus` TEXT NOT NULL,
+                    `lastSyncedAt` INTEGER,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_movements_productId` ON `stock_movements` (`productId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_movements_orderId` ON `stock_movements` (`orderId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_movements_syncStatus` ON `stock_movements` (`syncStatus`)")
+
+            // 2) products sin `comprometido`
+            db.execSQL("PRAGMA foreign_keys=OFF")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `products_new` (
+                    `id` TEXT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `description` TEXT,
+                    `category` TEXT,
+                    `price` REAL NOT NULL,
+                    `imageUrl` TEXT,
+                    `imageLocalUri` TEXT,
+                    `barcode` TEXT,
+                    `stock` INTEGER NOT NULL,
+                    `isActive` INTEGER NOT NULL,
+                    `isDeleted` INTEGER NOT NULL,
+                    `syncStatus` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL,
+                    `lastSyncedAt` INTEGER,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT INTO products_new
+                    (id, name, description, category, price, imageUrl, imageLocalUri,
+                     barcode, stock, isActive, isDeleted, syncStatus, createdAt, updatedAt, lastSyncedAt)
+                SELECT
+                    id, name, description, category, price, imageUrl, imageLocalUri,
+                    barcode, stock, isActive, isDeleted, syncStatus, createdAt, updatedAt, lastSyncedAt
+                FROM products
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE products")
+            db.execSQL("ALTER TABLE products_new RENAME TO products")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_products_name` ON `products` (`name`)")
+            db.execSQL("PRAGMA foreign_keys=ON")
+
+            // 3) orders.editVersion
+            db.execSQL("ALTER TABLE orders ADD COLUMN editVersion INTEGER NOT NULL DEFAULT 0")
+
+            // 4) screen_access.role
+            db.execSQL("ALTER TABLE screen_access ADD COLUMN role TEXT")
+        }
+    }
 }

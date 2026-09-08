@@ -53,6 +53,7 @@ class FirestoreScreenAccessDataSource @Inject constructor(
                         cuentasPendientes = flag("cuentasPendientes"),
                         updatedAtMillis = snapshot?.getTimestamp("updatedAt")?.toDate()?.time,
                         updatedBy = snapshot?.getString("updatedBy"),
+                        role = snapshot?.getString("role"),
                     )
                 )
             }

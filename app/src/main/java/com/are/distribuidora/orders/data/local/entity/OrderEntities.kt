@@ -56,6 +56,12 @@ data class OrderEntity(
      * (no se tocan en la subida), de modo que el pedido sigue siendo "ajeno".
      */
     val pendingUpload: Boolean = false,
+    /**
+     * 4.1: contador local de ediciones de este pedido ajeno. Base del id determinístico de los
+     * movimientos PEDIDO_EDICION (`oth_{orderId}_{itemId}_e{editVersion}`): un reintento del
+     * worker de subida reutiliza el mismo id y el servidor no vuelve a incrementar el stock.
+     */
+    val editVersion: Int = 0,
 )
 
 @Entity(

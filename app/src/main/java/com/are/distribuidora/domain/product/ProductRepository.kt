@@ -32,8 +32,12 @@ interface ProductRepository {
     suspend fun findByBarcode(barcode: String): Product?
 
     /**
-     * Suma [delta] unidades al stock del producto de forma transaccional.
-     * Marca el producto como PENDING_UPDATE para sincronización.
+     * LEGACY 4.0: sumaba [delta] al contador directamente. Desde 4.1 el stock SOLO se mueve
+     * a través del libro de movimientos (vales); ver CreateStockVoucherUseCase.
      */
+    @Deprecated("Usar CreateStockVoucherUseCase (vale de entrada). El stock solo se mueve por movimientos.")
     suspend fun incrementStock(productId: String, delta: Int)
+
+    /** Búsqueda por nombre/categoría/código para elegir producto (p. ej. en "Nuevo vale"). */
+    suspend fun searchByName(query: String, limit: Int = 20): List<Product> = emptyList()
 }

@@ -79,6 +79,17 @@ interface OrderRemoteDataSource {
     suspend fun markOrderDeleted(routeId: String, orderId: String, deletedByUid: String?)
 
     /**
+     * 4.1: soft delete + movimientos compensatorios (ENTRADA/PEDIDO_BORRADO por ítem) en la misma
+     * transacción, con incremento atómico del stock. Idempotente por id de movimiento.
+     */
+    suspend fun markOrderDeleted(
+        routeId: String,
+        orderId: String,
+        deletedByUid: String?,
+        movements: List<com.are.distribuidora.stockmovement.domain.model.StockMovement>,
+    ) = markOrderDeleted(routeId, orderId, deletedByUid)
+
+    /**
      * Sube una EDICIÓN de ítems de un pedido (posiblemente AJENO) a Firestore.
      *
      * Hace un diff de la subcolección items: borra los docs que ya no están en [items]
@@ -98,4 +109,17 @@ interface OrderRemoteDataSource {
         totalAmount: Double,
         editedByUid: String?,
     )
+
+    /**
+     * 4.1: igual que [uploadOrderEdit] llevando en la MISMA transacción los movimientos de stock
+     * por diferencia (PEDIDO_EDICION) con incremento atómico del contador. Idempotente por id.
+     */
+    suspend fun uploadOrderEdit(
+        routeId: String,
+        orderId: String,
+        items: List<OrderItemDto>,
+        totalAmount: Double,
+        editedByUid: String?,
+        movements: List<com.are.distribuidora.stockmovement.domain.model.StockMovement>,
+    ) = uploadOrderEdit(routeId, orderId, items, totalAmount, editedByUid)
 }

@@ -2,6 +2,8 @@ package com.are.distribuidora.orders.data.remote
 
 import android.util.Log
 import com.google.firebase.Timestamp
+import com.are.distribuidora.stockmovement.data.remote.firestore.StockMovementFirestoreOps
+import com.are.distribuidora.stockmovement.domain.model.StockMovement
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 
@@ -217,7 +219,15 @@ class FirestoreOrderRemoteDataSource(
      * Patrón idéntico al de productos/clientes (solo isDeleted + updatedAt, sin deletedAt/deletedBy
      * porque el modelo base no los usa).
      */
-    override suspend fun markOrderDeleted(routeId: String, orderId: String, deletedByUid: String?) {
+    override suspend fun markOrderDeleted(routeId: String, orderId: String, deletedByUid: String?) =
+        markOrderDeleted(routeId, orderId, deletedByUid, emptyList())
+
+    override suspend fun markOrderDeleted(
+        routeId: String,
+        orderId: String,
+        deletedByUid: String?,
+        movements: List<StockMovement>,
+    ) {
         if (routeId.isBlank() || orderId.isBlank()) {
             Log.w(tag, "markOrderDeleted: routeId o orderId vacío; skip")
             return
@@ -230,15 +240,20 @@ class FirestoreOrderRemoteDataSource(
             // pero se loguea para auditoría
         }
 
-        firestore
+        val orderRef = firestore
             .collection("routes")
             .document(routeId)
             .collection("orders")
             .document(orderId)
-            .update(updates)
-            .await()
 
-        Log.i(tag, "markOrderDeleted: ok orderId=$orderId routeId=$routeId deletedBy=$deletedByUid")
+        // 4.1: soft delete + movimientos PEDIDO_BORRADO (devuelven el stock) en UNA transacción.
+        val written = firestore.runTransaction { tx ->
+            val existing = StockMovementFirestoreOps.readExisting(tx, firestore, movements)
+            tx.update(orderRef, updates)
+            StockMovementFirestoreOps.writeMissing(tx, firestore, movements, existing)
+        }.await()
+
+        Log.i(tag, "markOrderDeleted: ok orderId=$orderId routeId=$routeId deletedBy=$deletedByUid movements=${written.size}/${movements.size}")
     }
 
     /**
@@ -259,6 +274,15 @@ class FirestoreOrderRemoteDataSource(
         items: List<OrderRemoteDataSource.OrderItemDto>,
         totalAmount: Double,
         editedByUid: String?,
+    ) = uploadOrderEdit(routeId, orderId, items, totalAmount, editedByUid, emptyList())
+
+    override suspend fun uploadOrderEdit(
+        routeId: String,
+        orderId: String,
+        items: List<OrderRemoteDataSource.OrderItemDto>,
+        totalAmount: Double,
+        editedByUid: String?,
+        movements: List<StockMovement>,
     ) {
         if (routeId.isBlank() || orderId.isBlank()) {
             Log.w(tag, "uploadOrderEdit: routeId u orderId vacío; skip")
@@ -281,50 +305,56 @@ class FirestoreOrderRemoteDataSource(
         val existing = itemsRef.get().await()
         val newIds = items.map { it.itemId }.toHashSet()
 
-        val batch = firestore.batch()
-
-        // 1) Borrar ítems quitados en la edición.
+        val staleRefs = existing.documents.filter { it.id !in newIds }.map { it.reference }
         var deleted = 0
-        existing.documents.forEach { doc ->
-            if (doc.id !in newIds) {
-                batch.delete(doc.reference)
+        var movementsWritten = 0
+
+        // 4.1: transacción (antes WriteBatch) para poder LEER los movimientos ya existentes y
+        // garantizar que un reintento no vuelva a incrementar el stock.
+        firestore.runTransaction { batch ->
+            val existingMovements = StockMovementFirestoreOps.readExisting(batch, firestore, movements)
+
+            // 1) Borrar ítems quitados en la edición.
+            staleRefs.forEach { ref ->
+                batch.delete(ref)
                 deleted++
             }
-        }
 
-        // 2) Crear/actualizar los ítems vigentes (set por itemId = docId).
-        //    Mismo contrato de campos que escribe la app del vendedor creador
-        //    (FirestorePedidoDataSource): el set reemplaza el doc completo, así que
-        //    omitir discountAmount/totalItem aquí los borraría del remoto.
-        items.forEach { item ->
-            val data = hashMapOf(
-                "itemId" to item.itemId,
-                "orderId" to orderId,
-                "productId" to item.productId,
-                "productName" to item.productName,
-                "unitPrice" to item.unitPrice,
-                "quantity" to item.quantity,
-                "discountAmount" to item.discountAmount,
-                "totalItem" to (item.unitPrice * item.quantity - item.discountAmount).coerceAtLeast(0.0),
-                "notes" to item.notes,
-            )
-            batch.set(itemsRef.document(item.itemId), data)
-        }
+            // 2) Crear/actualizar los ítems vigentes (set por itemId = docId).
+            //    Mismo contrato de campos que escribe la app del vendedor creador
+            //    (FirestorePedidoDataSource): el set reemplaza el doc completo, así que
+            //    omitir discountAmount/totalItem aquí los borraría del remoto.
+            items.forEach { item ->
+                val data = hashMapOf(
+                    "itemId" to item.itemId,
+                    "orderId" to orderId,
+                    "productId" to item.productId,
+                    "productName" to item.productName,
+                    "unitPrice" to item.unitPrice,
+                    "quantity" to item.quantity,
+                    "discountAmount" to item.discountAmount,
+                    "totalItem" to (item.unitPrice * item.quantity - item.discountAmount).coerceAtLeast(0.0),
+                    "notes" to item.notes,
+                )
+                batch.set(itemsRef.document(item.itemId), data)
+            }
 
-        // 3) Header: SOLO campos mutables. NO vendedorId/sellerName (preserva al dueño).
-        val headerUpdates: Map<String, Any> = buildMap {
-            put("itemsCount", items.size)
-            put("totalAmount", totalAmount)
-            put("updatedAt", Timestamp.now())
-            put("lastModifiedBy", editedByUid ?: "")
-        }
-        batch.update(orderRef, headerUpdates)
+            // 3) Header: SOLO campos mutables. NO vendedorId/sellerName (preserva al dueño).
+            val headerUpdates: Map<String, Any> = buildMap {
+                put("itemsCount", items.size)
+                put("totalAmount", totalAmount)
+                put("updatedAt", Timestamp.now())
+                put("lastModifiedBy", editedByUid ?: "")
+            }
+            batch.update(orderRef, headerUpdates)
 
-        batch.commit().await()
+            // 4) Movimientos PEDIDO_EDICION + incremento atómico del stock.
+            movementsWritten = StockMovementFirestoreOps.writeMissing(batch, firestore, movements, existingMovements).size
+        }.await()
 
         Log.i(
             tag,
-            "uploadOrderEdit: ok orderId=$orderId routeId=$routeId set=${items.size} deleted=$deleted total=$totalAmount editedBy=$editedByUid",
+            "uploadOrderEdit: ok orderId=$orderId routeId=$routeId set=${items.size} deleted=$deleted movements=$movementsWritten/${movements.size} total=$totalAmount editedBy=$editedByUid",
         )
     }
 }

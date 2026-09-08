@@ -9,6 +9,8 @@ sealed interface ProductDetailUiState {
     data class Success(
         val product: Product,
         val syncState: SyncState?,
+        /** Historial local del libro de movimientos (más reciente primero). */
+        val movements: List<com.are.distribuidora.stockmovement.domain.model.StockMovement> = emptyList(),
     ) : ProductDetailUiState
 
     data class Error(

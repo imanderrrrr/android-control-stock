@@ -41,7 +41,7 @@ object AuthModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+    fun provideFirebaseAuth(): FirebaseAuth = com.are.distribuidora.core.firebase.FirebaseEmulators.auth()
 
     @Provides
     @Singleton

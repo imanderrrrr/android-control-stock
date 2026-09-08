@@ -73,6 +73,35 @@ interface OrderLocalDataSource {
         now: Long,
     )
 
+    /**
+     * 4.1: igual que [commitEditedItems] pero registrando en la MISMA transacción los movimientos
+     * de stock por diferencia (PEDIDO_EDICION), aplicando su efecto al stock local e incrementando
+     * `editVersion`. La implementación por defecto ignora los movimientos (fakes de tests).
+     */
+    suspend fun commitEditedItems(
+        orderId: String,
+        finalItems: List<OrderItemEntity>,
+        totalAmount: Double,
+        now: Long,
+        movements: List<com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity>,
+    ) = commitEditedItems(orderId, finalItems, totalAmount, now)
+
+    /**
+     * 4.1: soft delete local + movimientos compensatorios (PEDIDO_BORRADO) ya confirmados en el
+     * servidor, con su efecto en el stock local. Atómico.
+     */
+    suspend fun commitOrderDeletion(
+        orderId: String,
+        now: Long,
+        syncedMovements: List<com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity>,
+    ) = markOrderDeleted(orderId, now)
+
+    /** Movimientos del pedido aún no subidos (viajan con la edición). */
+    suspend fun getUnsyncedMovements(orderId: String): List<com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity> = emptyList()
+    suspend fun markMovementsSyncing(ids: List<String>) {}
+    suspend fun markMovementsSynced(ids: List<String>, at: Long) {}
+    suspend fun revertMovementsSyncing(ids: List<String>) {}
+
     /** Pedidos con ediciones locales pendientes de subir a Firestore. */
     suspend fun getPendingUploadOrders(): List<OrderEntity>
 

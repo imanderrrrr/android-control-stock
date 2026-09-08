@@ -24,6 +24,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     signingConfigs {
@@ -55,7 +56,17 @@ android {
         testInstrumentationRunnerArguments.remove("runnerBuilder")
     }
 
+    // Emuladores de Firebase para pruebas locales SIN tocar producción:
+    //   ./gradlew :app:installDebug -PuseFirebaseEmulator=true [-PfirebaseEmulatorHost=10.0.2.2]
+    // Solo aplica al buildType debug; release siempre apunta al proyecto real.
+    val useFirebaseEmulator = (project.findProperty("useFirebaseEmulator")?.toString() == "true")
+    val firebaseEmulatorHost = project.findProperty("firebaseEmulatorHost")?.toString() ?: "10.0.2.2"
+
     buildTypes {
+        debug {
+            buildConfigField("boolean", "USE_FIREBASE_EMULATOR", useFirebaseEmulator.toString())
+            buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"$firebaseEmulatorHost\"")
+        }
         release {
             // Activar R8/Proguard en release para reducir tamaño y ofuscar código
             isMinifyEnabled = true
@@ -70,6 +81,9 @@ android {
 
             // Firmar release con keystore de producción
             signingConfig = signingConfigs.getByName("release")
+
+            buildConfigField("boolean", "USE_FIREBASE_EMULATOR", "false")
+            buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"\"")
         }
     }
     compileOptions {

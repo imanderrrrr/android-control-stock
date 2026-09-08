@@ -51,8 +51,10 @@ import com.are.distribuidora.screenaccess.data.local.entity.ScreenAccessEntity
         PendingAccountEntity::class,
         // Control de acceso por pantalla (panel web)
         ScreenAccessEntity::class,
+        // Libro de movimientos de inventario (4.1)
+        com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity::class,
     ],
-    version = 38,
+    version = 39,
     exportSchema = true,
 )
 @androidx.room.TypeConverters(
@@ -82,6 +84,9 @@ abstract class DistribuidoraDatabase : RoomDatabase() {
 
     // Control de acceso por pantalla
     abstract fun screenAccessDao(): ScreenAccessDao
+
+    // Libro de movimientos de inventario
+    abstract fun stockMovementDao(): com.are.distribuidora.stockmovement.data.local.dao.StockMovementDao
 
     /**
      * Wrapper para ejecutar operaciones en una transacción.

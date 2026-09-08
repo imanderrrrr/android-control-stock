@@ -28,20 +28,12 @@ fun ProductEntity.toDomainOrNull(): Product? {
         return null
     }
 
-    val safeStock = if (stock < 0) {
-        Log.w(TAG, "Stock negativo normalizado a 0. id=$normalizedId stock=$stock")
-        0
-    } else {
-        stock
-    }
-
     return try {
         Product(
             id = ProductId.of(normalizedId),
             name = normalizedName,
             price = Money.of(price.toBigDecimal()),
-            stock = Quantity.of(safeStock),
-            comprometido = this.comprometido,
+            stock = Quantity.of(stock),
             description = this.description,
             category = this.category,
             imageUrl = this.imageUrl,
@@ -74,7 +66,6 @@ fun Product.toEntity(syncStatus: com.are.distribuidora.data.local.SyncStatus): P
         imageLocalUri = this.imageLocalUri,
         barcode = this.barcode,
         stock = this.stock.value,
-        comprometido = this.comprometido,
         isActive = this.isActive,
         isDeleted = this.isDeleted,
         syncStatus = syncStatus,

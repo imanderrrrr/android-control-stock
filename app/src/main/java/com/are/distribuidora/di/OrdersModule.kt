@@ -42,11 +42,15 @@ object OrdersModule {
         orderDao: OrderDao,
         orderItemDao: OrderItemDao,
         stagingDao: OrderItemStagingDao,
+        movementDao: com.are.distribuidora.stockmovement.data.local.dao.StockMovementDao,
+        productDao: com.are.distribuidora.data.local.dao.ProductDao,
     ): OrderLocalDataSource = RoomOrderLocalDataSource(
         db = db,
         orderDao = orderDao,
         orderItemDao = orderItemDao,
         stagingDao = stagingDao,
+        movementDao = movementDao,
+        productDao = productDao,
     )
 
     @Provides

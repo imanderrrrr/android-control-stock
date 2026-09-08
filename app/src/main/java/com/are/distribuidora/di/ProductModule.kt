@@ -26,6 +26,7 @@ object ProductModule {
         FindProductByBarcodeUseCase(repository)
 
     @Provides
-    fun provideAddStockToProductUseCase(repository: ProductRepository): AddStockToProductUseCase =
-        AddStockToProductUseCase(repository)
+    fun provideAddStockToProductUseCase(
+        createStockVoucher: com.are.distribuidora.stockmovement.domain.usecase.CreateStockVoucherUseCase,
+    ): AddStockToProductUseCase = AddStockToProductUseCase(createStockVoucher)
 }

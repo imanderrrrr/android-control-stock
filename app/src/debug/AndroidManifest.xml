@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest>
-    <!-- Manifest debug vacío a propósito: sin launcher/activity extra. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Overlay debug: solo habilita HTTP en claro hacia los emuladores de Firebase (10.0.2.2).
+         Sin launcher/activity extra. -->
+    <application android:networkSecurityConfig="@xml/network_security_config_debug" />
 </manifest>

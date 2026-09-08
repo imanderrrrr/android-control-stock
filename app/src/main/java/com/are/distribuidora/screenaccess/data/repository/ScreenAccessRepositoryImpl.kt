@@ -64,5 +64,5 @@ private fun ScreenAccessEntity.toScreenAccess(): ScreenAccess {
         reportes?.let { put(AppScreen.REPORTES, it) }
         cuentasPendientes?.let { put(AppScreen.CUENTAS_PENDIENTES, it) }
     }
-    return ScreenAccess(flags)
+    return ScreenAccess(flags, role = com.are.distribuidora.roles.domain.Role.fromKey(role))
 }

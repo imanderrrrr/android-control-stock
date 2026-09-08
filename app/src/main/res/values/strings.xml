@@ -56,7 +56,6 @@
     <string name="product_image">Imagen del producto</string>
     <string name="inventory_price">Precio: %1$s</string>
     <string name="inventory_stock">Stock: %1$d</string>
-    <string name="inventory_comprometido">· Comp: %1$d</string>
 
     <!-- Inventory Header (búsqueda + nuevo) -->
     <string name="inventory_search_hint">Buscar producto</string>
@@ -327,11 +326,11 @@
     <string name="scanner_go_back">Volver</string>
 
     <!-- Diálogo Agregar stock -->
-    <string name="add_stock_dialog_title">Agregar stock</string>
+    <string name="add_stock_dialog_title">Vale de entrada</string>
     <string name="add_stock_quantity_hint">Unidades a agregar</string>
-    <string name="add_stock_confirm">Agregar</string>
+    <string name="add_stock_confirm">Registrar</string>
     <string name="add_stock_cancel">Cancelar</string>
-    <string name="add_stock_success">Stock actualizado: +%1$d</string>
+    <string name="add_stock_success">Vale de entrada registrado: +%1$d</string>
     <string name="add_stock_error">Error al actualizar el stock</string>
     <string name="add_stock_invalid_quantity">La cantidad debe ser mayor a 0</string>
 
@@ -490,4 +489,38 @@
     <string name="screen_access_denied_title">Sección restringida</string>
     <string name="screen_access_denied_message">No tienes acceso a esta sección. Pídeselo a un administrador.</string>
     <string name="screen_access_back">Volver</string>
+
+    <!-- Libro de movimientos de inventario / vales (4.1) -->
+    <string name="menu_new_voucher">Nuevo vale</string>
+    <string name="voucher_title">Nuevo vale</string>
+    <string name="voucher_subtitle">Entrada o salida de producto que no viene de un pedido</string>
+    <string name="voucher_type_in">Entrada</string>
+    <string name="voucher_type_out">Salida</string>
+    <string name="voucher_product_hint">Buscar producto por nombre o código</string>
+    <string name="voucher_scan">Escanear</string>
+    <string name="voucher_no_product">Elige un producto</string>
+    <string name="voucher_quantity_hint">Cantidad</string>
+    <string name="voucher_reason_hint">Motivo</string>
+    <string name="voucher_note_hint">Nota (opcional)</string>
+    <string name="voucher_confirm">Registrar vale</string>
+    <string name="voucher_success_in">Vale de entrada registrado: +%1$d %2$s</string>
+    <string name="voucher_success_out">Vale de salida registrado: −%1$d %2$s</string>
+    <string name="voucher_error_quantity">La cantidad debe ser mayor a 0</string>
+    <string name="voucher_error_product">Selecciona un producto</string>
+    <string name="voucher_error_generic">No se pudo registrar el vale</string>
+    <string name="voucher_no_permission">Solo un administrador puede registrar vales</string>
+    <string name="voucher_current_stock">Stock actual: %1$d</string>
+    <string name="voucher_resulting_stock">Stock resultante: %1$d</string>
+    <string name="reason_COMPRA">Compra</string>
+    <string name="reason_DEVOLUCION">Devolución</string>
+    <string name="reason_AJUSTE">Ajuste</string>
+    <string name="reason_MERMA">Merma</string>
+    <string name="reason_OTRO">Otro</string>
+    <string name="reason_PEDIDO">Pedido</string>
+    <string name="reason_PEDIDO_EDICION">Edición de pedido</string>
+    <string name="reason_PEDIDO_BORRADO">Pedido borrado</string>
+    <string name="section_movements">Movimientos</string>
+    <string name="movements_empty">Sin movimientos registrados en este teléfono</string>
+    <string name="movement_pending">Pendiente de subir</string>
+    <string name="product_stock_negative_hint">Negativo: se entregó antes del vale de entrada</string>
 </resources>

@@ -27,6 +27,7 @@ class AddProductViewModel @Inject constructor(
     private val saveProductUseCase: SaveProductUseCase,
     private val pendingUploadDao: PendingUploadDao,
     private val imageUploadSyncScheduler: ImageUploadSyncScheduler,
+    private val createStockVoucher: com.are.distribuidora.stockmovement.domain.usecase.CreateStockVoucherUseCase,
 ) : ViewModel() {
 
     // ID fijo para este flujo de creación (se mantiene mientras viva el VM)
@@ -121,7 +122,9 @@ class AddProductViewModel @Inject constructor(
                     imageUrl = null,        // Se asignará por el Worker tras subir a Storage
                     imageLocalUri = localPath, // Absolute path para renderizar localmente
                     barcode = if (barcode.isNullOrBlank()) null else barcode.trim(),
-                    stock = stock,
+                    // 4.1: el producto nace con stock 0; el stock inicial entra como VALE (AJUSTE)
+                    // para que cada unidad tenga un movimiento que la explique.
+                    stock = com.are.distribuidora.domain.valueobject.Quantity.zero(),
                     isActive = isActive,
                     isDeleted = false,
                     createdAt = now,
@@ -130,6 +133,16 @@ class AddProductViewModel @Inject constructor(
 
                 Log.i(TAG, "Saving new product id=${newProduct.id.value} name=${newProduct.name}")
                 saveProductUseCase(newProduct)
+
+                if (stock.value > 0) {
+                    createStockVoucher(
+                        productId = newProductId,
+                        type = com.are.distribuidora.stockmovement.domain.model.MovementType.ENTRADA,
+                        quantity = stock.value,
+                        reason = com.are.distribuidora.stockmovement.domain.model.MovementReason.AJUSTE,
+                        note = "Stock inicial al crear el producto",
+                    )
+                }
 
                 // Enqueue pending upload for the image
                 val storagePath = "products/$newProductId/main.jpg"
