@@ -59,6 +59,12 @@ class GetOtrosPedidoDetalleUseCaseTest {
 
         override fun observeOrdersByRouteAndDate(routeId: String, deliveryDate: String): Flow<List<Order>> =
             flowOf(emptyList())
+
+        override suspend fun editOrderItems(orderId: String, items: List<com.are.distribuidora.orders.domain.model.EditOrderItemInput>) =
+            com.are.distribuidora.core.result.Result.Success(Unit)
+
+        override suspend fun uploadPendingOrders() =
+            com.are.distribuidora.core.result.Result.Success(Unit)
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

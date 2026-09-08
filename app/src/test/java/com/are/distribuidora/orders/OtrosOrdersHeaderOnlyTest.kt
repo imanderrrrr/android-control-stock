@@ -54,6 +54,9 @@ class OtrosOrdersHeaderOnlyTest {
         remoteHeaders: List<OrderRemoteDataSource.OrderHeaderDto>,
     ): OfflineFirstOrderRepository {
         val fakeLocal = object : OrderLocalDataSource {
+            override suspend fun commitEditedItems(orderId: String, finalItems: List<OrderItemEntity>, totalAmount: Double, now: Long) {}
+            override suspend fun getPendingUploadOrders(): List<OrderEntity> = emptyList()
+            override suspend fun setPendingUpload(orderId: String, pending: Boolean, now: Long) {}
             override suspend fun upsertOrderHeader(entity: OrderEntity) {
                 persisted[entity.orderId] = entity
             }
@@ -92,6 +95,7 @@ class OtrosOrdersHeaderOnlyTest {
         }
 
         val fakeRemote = object : OrderRemoteDataSource {
+            override suspend fun uploadOrderEdit(routeId: String, orderId: String, items: List<OrderRemoteDataSource.OrderItemDto>, totalAmount: Double, editedByUid: String?) {}
             override suspend fun fetchOrderHeaders(routeId: String, deliveryDate: String) = remoteHeaders
             override suspend fun fetchAllOrderHeaders(routeId: String) = remoteHeaders
             override suspend fun fetchOrderItems(routeId: String, orderId: String) = emptyList<OrderRemoteDataSource.OrderItemDto>()

@@ -17,5 +17,10 @@ data class EditOrderItemInput(
     val productName: String,
     val unitPrice: Double,
     val quantity: Int,
+    /**
+     * Descuento absoluto del ítem (Q), preservado del pedido original al editar.
+     * Los ítems agregados en la edición no tienen descuento (0.0).
+     */
+    val discountAmount: Double = 0.0,
     val notes: String? = null,
 )

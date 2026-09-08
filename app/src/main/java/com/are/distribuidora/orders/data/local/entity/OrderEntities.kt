@@ -76,6 +76,12 @@ data class OrderItemEntity(
     val productName: String,
     val unitPrice: Double,
     val quantity: Int,
+    /**
+     * Descuento absoluto del ítem (Q), descargado desde Firestore (items.discountAmount).
+     * Mismo campo que el vendedor creador escribe desde `pedido_items.descuentoItem`.
+     * 0.0 para pedidos legacy o ítems sin descuento.
+     */
+    val discountAmount: Double = 0.0,
     val createdAt: Long,
     /**
      * Detalle / instrucción especial para este ítem, descargado desde Firestore.
@@ -104,5 +110,6 @@ data class OrderItemStagingEntity(
     val productName: String,
     val unitPrice: Double,
     val quantity: Int,
+    val discountAmount: Double = 0.0,
     val notes: String? = null,
 )

@@ -116,6 +116,7 @@ class EditOtrosPedidoViewModel @Inject constructor(
                         nombre         = item.productName,
                         precioUnitario = item.unitPrice,
                         cantidad       = item.quantity,
+                        descuento      = item.discountAmount,
                         notes          = item.notes,
                     )
                 }
@@ -203,12 +204,13 @@ class EditOtrosPedidoViewModel @Inject constructor(
 
             val inputs = _items.value.values.map { m ->
                 EditOrderItemInput(
-                    itemId      = m.itemId,
-                    productId   = m.productId,
-                    productName = m.nombre,
-                    unitPrice   = m.precioUnitario,
-                    quantity    = m.cantidad,
-                    notes       = m.notes,
+                    itemId         = m.itemId,
+                    productId      = m.productId,
+                    productName    = m.nombre,
+                    unitPrice      = m.precioUnitario,
+                    quantity       = m.cantidad,
+                    discountAmount = m.descuentoAplicado,
+                    notes          = m.notes,
                 )
             }
 
@@ -241,7 +243,7 @@ class EditOtrosPedidoViewModel @Inject constructor(
 
     private fun rebuild() {
         val items = _items.value.values.sortedBy { it.nombre.lowercase() }
-        val total = RoundToQuarterQuetzalUseCase(items.sumOf { it.precioUnitario * it.cantidad })
+        val total = RoundToQuarterQuetzalUseCase(items.sumOf { it.subtotal })
         _uiState.value = UiState.Editing(
             clientName     = clientName,
             items          = items,
@@ -258,7 +260,16 @@ data class EditOtrosItemUiModel(
     val nombre: String,
     val precioUnitario: Double,
     val cantidad: Int,
+    /**
+     * Descuento absoluto (Q) preservado del pedido original. Se guarda crudo para que
+     * bajar y volver a subir la cantidad re-aplique el descuento completo; al guardar
+     * se sube [descuentoAplicado]. Ítems agregados en la edición quedan en 0.0 (no hay
+     * UI para editar descuentos en este flujo).
+     */
+    val descuento: Double = 0.0,
     val notes: String? = null,
 ) {
-    val subtotal: Double get() = precioUnitario * cantidad
+    /** Descuento efectivo: clampeado al bruto de la línea (por si bajó la cantidad). */
+    val descuentoAplicado: Double get() = descuento.coerceIn(0.0, precioUnitario * cantidad)
+    val subtotal: Double get() = (precioUnitario * cantidad) - descuentoAplicado
 }

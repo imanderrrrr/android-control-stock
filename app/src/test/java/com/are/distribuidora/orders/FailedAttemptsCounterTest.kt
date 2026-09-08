@@ -45,6 +45,9 @@ class FailedAttemptsCounterTest {
         remoteThrows = null
 
         val fakeLocal = object : OrderLocalDataSource {
+            override suspend fun commitEditedItems(orderId: String, finalItems: List<OrderItemEntity>, totalAmount: Double, now: Long) {}
+            override suspend fun getPendingUploadOrders(): List<OrderEntity> = emptyList()
+            override suspend fun setPendingUpload(orderId: String, pending: Boolean, now: Long) {}
             override suspend fun upsertOrderHeader(entity: OrderEntity) { localStore[entity.orderId] = entity }
             override suspend fun deleteOwnHeaders(routeId: String, deliveryDate: String, vendedorId: String, now: Long) {}
             override suspend fun deleteAllOwnHeadersByRoute(routeId: String, vendedorId: String, now: Long) {}
@@ -118,6 +121,7 @@ class FailedAttemptsCounterTest {
         }
 
         val fakeRemote = object : OrderRemoteDataSource {
+            override suspend fun uploadOrderEdit(routeId: String, orderId: String, items: List<OrderRemoteDataSource.OrderItemDto>, totalAmount: Double, editedByUid: String?) {}
             override suspend fun fetchOrderHeaders(routeId: String, deliveryDate: String) = emptyList<OrderRemoteDataSource.OrderHeaderDto>()
             override suspend fun fetchAllOrderHeaders(routeId: String) = emptyList<OrderRemoteDataSource.OrderHeaderDto>()
             override suspend fun fetchOrderItems(routeId: String, orderId: String): List<OrderRemoteDataSource.OrderItemDto> {

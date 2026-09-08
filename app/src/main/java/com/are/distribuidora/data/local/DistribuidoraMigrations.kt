@@ -1302,4 +1302,21 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE pedidos ADD COLUMN ivaAmount REAL NOT NULL DEFAULT 0")
         }
     }
+
+    /**
+     * v37 -> v38
+     * - Agrega columna `discountAmount` (REAL NOT NULL DEFAULT 0) a `order_items` y
+     *   `order_items_staging`.
+     *
+     * Motivo: el vendedor creador escribe `items.discountAmount` en Firestore (desde
+     * `pedido_items.descuentoItem`), pero la descarga de "Otros Pedidos" lo descartaba:
+     * el descuento no llegaba a otros dispositivos y la re-subida de una edición lo
+     * borraba del documento remoto. Mismo patrón que MIGRATION_33_34 (notes).
+     */
+    val MIGRATION_37_38: Migration = object : Migration(37, 38) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE order_items ADD COLUMN discountAmount REAL NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE order_items_staging ADD COLUMN discountAmount REAL NOT NULL DEFAULT 0")
+        }
+    }
 }

@@ -49,6 +49,9 @@ class DownloadOrderItemsStagingTest {
         remoteItemsToReturn = emptyList()
 
         val fakeLocal = object : OrderLocalDataSource {
+            override suspend fun commitEditedItems(orderId: String, finalItems: List<OrderItemEntity>, totalAmount: Double, now: Long) {}
+            override suspend fun getPendingUploadOrders(): List<OrderEntity> = emptyList()
+            override suspend fun setPendingUpload(orderId: String, pending: Boolean, now: Long) {}
             override suspend fun upsertOrderHeader(entity: OrderEntity) {
                 localStore[entity.orderId] = entity
             }
@@ -146,6 +149,7 @@ class DownloadOrderItemsStagingTest {
         }
 
         val fakeRemote = object : OrderRemoteDataSource {
+            override suspend fun uploadOrderEdit(routeId: String, orderId: String, items: List<OrderRemoteDataSource.OrderItemDto>, totalAmount: Double, editedByUid: String?) {}
             override suspend fun fetchOrderHeaders(
                 routeId: String, deliveryDate: String
             ): List<OrderRemoteDataSource.OrderHeaderDto> = emptyList()
@@ -169,6 +173,9 @@ class DownloadOrderItemsStagingTest {
     /** Construye un repositorio idéntico al de setUp pero con un uid fijo (para el guard rail). */
     private fun buildRepositoryWithUid(uid: String): OfflineFirstOrderRepository {
         val fakeLocal = object : OrderLocalDataSource {
+            override suspend fun commitEditedItems(orderId: String, finalItems: List<OrderItemEntity>, totalAmount: Double, now: Long) {}
+            override suspend fun getPendingUploadOrders(): List<OrderEntity> = emptyList()
+            override suspend fun setPendingUpload(orderId: String, pending: Boolean, now: Long) {}
             override suspend fun upsertOrderHeader(entity: OrderEntity) { localStore[entity.orderId] = entity }
             override suspend fun deleteOwnHeaders(routeId: String, deliveryDate: String, vendedorId: String, now: Long) {}
             override suspend fun deleteAllOwnHeadersByRoute(routeId: String, vendedorId: String, now: Long) {}
@@ -214,6 +221,7 @@ class DownloadOrderItemsStagingTest {
                 finalItemsStore[orderId] ?: emptyList()
         }
         val fakeRemote = object : OrderRemoteDataSource {
+            override suspend fun uploadOrderEdit(routeId: String, orderId: String, items: List<OrderRemoteDataSource.OrderItemDto>, totalAmount: Double, editedByUid: String?) {}
             override suspend fun fetchOrderHeaders(routeId: String, deliveryDate: String): List<OrderRemoteDataSource.OrderHeaderDto> = emptyList()
             override suspend fun fetchAllOrderHeaders(routeId: String): List<OrderRemoteDataSource.OrderHeaderDto> = emptyList()
             override suspend fun fetchOrderItems(routeId: String, orderId: String): List<OrderRemoteDataSource.OrderItemDto> = remoteItemsToReturn

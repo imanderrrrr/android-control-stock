@@ -37,6 +37,13 @@ interface OrderRemoteDataSource {
         val unitPrice: Double,
         val quantity: Int,
         /**
+         * Descuento absoluto del ítem (Q). Mismo campo que escribe la app del vendedor
+         * creador (PedidoItemPayload.descuentoItem →
+         * routes/{routeId}/orders/{orderId}/items/{itemId}.discountAmount en Firestore).
+         * 0.0 si el documento no incluye el campo (pedidos legacy o sin descuento).
+         */
+        val discountAmount: Double = 0.0,
+        /**
          * Detalle / instrucción especial del cliente para este ítem.
          * Mismo campo que escribe la app del vendedor creador (PedidoItemPayload.notes →
          * routes/{routeId}/orders/{orderId}/items/{itemId}.notes en Firestore).
@@ -75,7 +82,9 @@ interface OrderRemoteDataSource {
      * Sube una EDICIÓN de ítems de un pedido (posiblemente AJENO) a Firestore.
      *
      * Hace un diff de la subcolección items: borra los docs que ya no están en [items]
-     * y hace set (crea/sobrescribe) de los demás. Actualiza SOLO los campos mutables del
+     * y hace set (crea/sobrescribe) de los demás con el contrato COMPLETO de campos que
+     * escribe el creador (incluye discountAmount y totalItem: el set reemplaza el doc
+     * entero, omitirlos los borraría del remoto). Actualiza SOLO los campos mutables del
      * header (itemsCount, totalAmount, updatedAt, lastModifiedBy) con .update(): NO escribe
      * vendedorId ni sellerName, de modo que el pedido conserva a su dueño original y sigue
      * clasificándose como "ajeno" para el resto de vendedores.

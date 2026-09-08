@@ -435,8 +435,9 @@ class OfflineFirstOrderRepository(
             .groupBy { it.productId }
             .map { (productId, group) ->
                 val first = group.first()
-                // Combinar duplicados sumando quantity.
+                // Combinar duplicados sumando quantity (y su descuento por línea).
                 val totalQty = group.sumOf { it.quantity }
+                val totalDiscount = group.sumOf { it.discountAmount }
                 // Conservar el primer notes no-vacío del grupo (todos los duplicados de un
                 // mismo productId deberían traer el mismo detalle desde Firestore).
                 val notes = group.firstNotNullOfOrNull { it.notes?.takeIf { n -> n.isNotBlank() } }
@@ -446,6 +447,7 @@ class OfflineFirstOrderRepository(
                     productName = first.productName,
                     unitPrice = first.unitPrice,
                     quantity = totalQty,
+                    discountAmount = totalDiscount,
                     notes = notes,
                 )
             }
@@ -469,6 +471,7 @@ class OfflineFirstOrderRepository(
                         productName = dto.productName,
                         unitPrice = dto.unitPrice,
                         quantity = dto.quantity,
+                        discountAmount = dto.discountAmount,
                         notes = dto.notes,
                     )
                 }
@@ -525,7 +528,7 @@ class OfflineFirstOrderRepository(
             }
 
             val totalAmount = RoundToQuarterQuetzalUseCase(
-                staging.sumOf { it.unitPrice * it.quantity }
+                staging.sumOf { (it.unitPrice * it.quantity - it.discountAmount).coerceAtLeast(0.0) }
             )
 
             val finalItems = staging.map { st ->
@@ -536,6 +539,7 @@ class OfflineFirstOrderRepository(
                     productName = st.productName,
                     unitPrice = st.unitPrice,
                     quantity = st.quantity,
+                    discountAmount = st.discountAmount,
                     createdAt = now,
                     notes = st.notes,
                 )
@@ -684,7 +688,9 @@ class OfflineFirstOrderRepository(
 
         if (order.isDeleted) return Result.Error(Failure.ValidationError("ORDER_DELETED"))
 
-        val totalAmount = RoundToQuarterQuetzalUseCase(items.sumOf { it.unitPrice * it.quantity })
+        val totalAmount = RoundToQuarterQuetzalUseCase(
+            items.sumOf { (it.unitPrice * it.quantity - it.discountAmount).coerceAtLeast(0.0) }
+        )
 
         val finalItems = items.map { input ->
             OrderItemEntity(
@@ -694,6 +700,7 @@ class OfflineFirstOrderRepository(
                 productName = input.productName,
                 unitPrice = input.unitPrice,
                 quantity = input.quantity,
+                discountAmount = input.discountAmount,
                 createdAt = now,
                 notes = input.notes,
             )
@@ -749,11 +756,14 @@ class OfflineFirstOrderRepository(
                         productName = e.productName,
                         unitPrice = e.unitPrice,
                         quantity = e.quantity,
+                        discountAmount = e.discountAmount,
                         notes = e.notes,
                     )
                 }
                 val total = order.totalAmount
-                    ?: RoundToQuarterQuetzalUseCase(items.sumOf { it.unitPrice * it.quantity })
+                    ?: RoundToQuarterQuetzalUseCase(
+                        items.sumOf { (it.unitPrice * it.quantity - it.discountAmount).coerceAtLeast(0.0) }
+                    )
 
                 remote.uploadOrderEdit(
                     routeId = order.routeId,

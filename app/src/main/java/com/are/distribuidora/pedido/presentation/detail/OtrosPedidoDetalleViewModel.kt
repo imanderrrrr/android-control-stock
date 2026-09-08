@@ -64,6 +64,8 @@ class OtrosPedidoDetalleViewModel @Inject constructor(
                                 unitPriceFormatted = currencyFormat.format(item.unitPrice),
                                 quantity           = item.quantity,
                                 lineTotalFormatted = currencyFormat.format(item.lineTotal),
+                                discountFormatted  = if (item.discountAmount > 0)
+                                    "-${currencyFormat.format(item.discountAmount)}" else null,
                                 notes              = item.notes?.takeIf { it.isNotBlank() },
                             )
                         }
@@ -92,6 +94,8 @@ data class OtrosDetalleItemUiModel(
     val unitPriceFormatted: String,   // "Q 25.00"
     val quantity: Int,
     val lineTotalFormatted: String,   // "Q 50.00"
+    /** "-Q 5.00" si el ítem tiene descuento; null si no (la línea se oculta). */
+    val discountFormatted: String? = null,
     /** Detalle / instrucción especial del ítem; null o blank si no hay. */
     val notes: String? = null,
 )
