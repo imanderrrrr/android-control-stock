@@ -9,5 +9,9 @@
         android:id="@+id/action_add_stock"
         android:title="@string/menu_add_stock" />
 
+    <item
+        android:id="@+id/action_new_voucher"
+        android:title="@string/menu_new_voucher" />
+
 </menu>
 

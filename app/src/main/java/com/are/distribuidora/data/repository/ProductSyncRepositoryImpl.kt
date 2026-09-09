@@ -40,7 +40,23 @@ class ProductSyncRepositoryImpl @Inject constructor(
     private val database: DistribuidoraDatabase,
     private val imageStorage: ProductImageStorage,
     private val pendingUploadDao: com.are.distribuidora.data.local.dao.PendingUploadDao,
+    private val movementDao: com.are.distribuidora.stockmovement.data.local.dao.StockMovementDao,
 ) : ProductSyncRepository {
+
+    /**
+     * 4.1 — Stock local reconstruido en cada bajada:
+     *   stock local = stock remoto + Σ movimientos locales aún NO subidos (con signo)
+     *
+     * El servidor solo conoce los movimientos que ya llegaron (cada uno aplicó su incremento
+     * atómico). Los que siguen pendientes en este teléfono todavía no están en ese contador, así
+     * que se suman aquí para que una venta sin subir no "desaparezca" cuando baja el catálogo.
+     * Cuando esos movimientos se suben, el delta pendiente vuelve a 0 y el remoto ya los incluye:
+     * converge sin escritura absoluta del contador. Si el remoto omite `stock`, se conserva el local.
+     */
+    private suspend fun reconcileStock(productId: String, remoteStock: Int?, existingLocalStock: Int?): Int {
+        if (remoteStock == null) return existingLocalStock ?: 0
+        return remoteStock + movementDao.sumPendingDelta(productId)
+    }
 
     override suspend fun fetchRemoteProducts(): List<Product> = withContext(Dispatchers.IO) {
         // Delta Sync: Get max local timestamp
@@ -64,10 +80,9 @@ class ProductSyncRepositoryImpl @Inject constructor(
             try {
                 // Map Remote -> Domain
                 val remoteImageUrl = r.imageUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
-                // CRITERION B/C: a missing remote field must never zero-out local data.
-                // Preserve the current local stock/comprometido when the remote doc omits them
-                // (e.g. a partial/merge write by another process, or comprometido which is
-                // local-only and never written to Firestore).
+                // CRITERION C: a missing remote field must never zero-out local data.
+                // Preserve the current local stock when the remote doc omits it
+                // (e.g. a partial/merge write by another process).
                 val existing = local.getById(r.id)
                 Product(
                     id = ProductId.of(r.id),
@@ -78,8 +93,7 @@ class ProductSyncRepositoryImpl @Inject constructor(
                     imageUrl = remoteImageUrl,
                     imageLocalUri = null,
                     barcode = r.barcode,
-                    stock = Quantity.of(r.stock ?: existing?.stock ?: 0),
-                    comprometido = r.comprometido ?: existing?.comprometido ?: 0,
+                    stock = Quantity.of(reconcileStock(r.id, r.stock, existing?.stock)),
                     isActive = r.isActive ?: true,
                     isDeleted = r.isDeleted ?: false,
                     createdAt = r.createdRemoteAt ?: 0L,
@@ -244,8 +258,9 @@ class ProductSyncRepositoryImpl @Inject constructor(
                         price = domain.price.amount.toDouble(),
                         imageUrl = effectiveImageUrl,
                         barcode = domain.barcode,
-                        stock = domain.stock.value,
-                        comprometido = domain.comprometido,
+                        // 4.1: el stock NO se sube como valor absoluto (null = omitido). El
+                        // contador remoto solo lo mueven los movimientos con increment().
+                        stock = null,
                         isActive = entity.isActive,
                         isDeleted = entity.isDeleted,
                         createdRemoteAt = domain.createdAt,
@@ -255,7 +270,7 @@ class ProductSyncRepositoryImpl @Inject constructor(
                     // Payload Summary Log
                     Log.d(
                         TAG,
-                        "[Pipeline] Payload for ${entity.id}: isActive=${remoteProduct.isActive}, isDeleted=${remoteProduct.isDeleted}, stock=${remoteProduct.stock}"
+                        "[Pipeline] Payload for ${entity.id}: isActive=${remoteProduct.isActive}, isDeleted=${remoteProduct.isDeleted} (stock omitido: solo movimientos)"
                     )
 
                     if (entity.syncStatus == SyncStatus.PENDING_DELETE) {
@@ -281,13 +296,26 @@ class ProductSyncRepositoryImpl @Inject constructor(
 
                     Log.d(TAG, "[Pipeline] Remote upload success for ${entity.id}")
 
-                    // Mark as Synced
+                    // Mark as Synced adoptando el updatedAt (y el stock) del SERVIDOR.
+                    // Sin esto el cursor de bajada (MAX(updatedAt) de los SYNCED) podía quedar
+                    // por delante del reloj del servidor y el teléfono dejaba de recibir cambios
+                    // de stock sin ningún error (auditoría 2026-09-03, hallazgo 1).
                     val now = System.currentTimeMillis()
-                    Log.d(TAG, "[Pipeline] ${entity.id} -> Marking SYNCED with lastSyncedAt=$now")
+                    val snapshot = try {
+                        remote.fetchProductById(entity.id)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "[Pipeline] ${entity.id} snapshot remoto no disponible (${e.message}); se conserva updatedAt local")
+                        null
+                    }
+                    val serverUpdatedAt = snapshot?.updatedRemoteAt?.takeIf { it > 0L }
+                    val reconciledStock = snapshot?.let { reconcileStock(entity.id, it.stock, entity.stock) }
+                    Log.d(TAG, "[Pipeline] ${entity.id} -> Marking SYNCED lastSyncedAt=$now serverUpdatedAt=$serverUpdatedAt stock=$reconciledStock")
 
                     local.markSynced(
                         id = entity.id,
-                        lastSyncedAt = now
+                        lastSyncedAt = now,
+                        serverUpdatedAt = serverUpdatedAt,
+                        stock = reconciledStock,
                     )
                     synced = true
                     Log.d(TAG, "uploadPendingProducts: Successfully synced ${entity.id}")
@@ -446,12 +474,8 @@ class ProductSyncRepositoryImpl @Inject constructor(
             barcode = r.barcode,
             // CRITERION C: never zero stock just because the remote doc omits the field
             // (e.g. a partial/merge write by another process). Preserve the local value.
-            stock = r.stock ?: existing?.stock ?: 0,
-            // CRITERION B: comprometido is local-only (never written to Firestore), so the
-            // remote almost always omits it. Preserve the local value; only adopt the remote
-            // value when it is explicitly present. (This field was previously absent from the
-            // entity construction, so every downsync silently reset it to 0.)
-            comprometido = r.comprometido ?: existing?.comprometido ?: 0,
+            // 4.1: stock local = remoto + movimientos pendientes (ver reconcileStock).
+            stock = reconcileStock(r.id, r.stock, existing?.stock),
             isActive = r.isActive ?: true,
             isDeleted = r.isDeleted ?: false,
             syncStatus = SyncStatus.SYNCED,

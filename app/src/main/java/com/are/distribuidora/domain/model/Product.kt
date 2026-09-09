@@ -21,9 +21,12 @@ data class Product(
     /** URI local de la imagen (solo para renderizar en este dispositivo). */
     val imageLocalUri: String? = null,
     val barcode: String? = null,
+    /**
+     * Existencias. Desde 4.1 es la suma con signo del libro de movimientos (`stock_movements`)
+     * y PUEDE ser negativo. El teléfono nunca lo sube como valor absoluto: lo mueve con
+     * incrementos atómicos por movimiento y lo baja del servidor.
+     */
     val stock: Quantity,
-    /** Unidades pedidas que exceden el stock disponible. Default 0. */
-    val comprometido: Int = 0,
     val isActive: Boolean = true,
     val isDeleted: Boolean = false,
     /**

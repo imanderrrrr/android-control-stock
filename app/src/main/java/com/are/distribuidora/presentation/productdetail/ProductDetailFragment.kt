@@ -82,6 +82,9 @@ class ProductDetailFragment : Fragment() {
         val itemCategory = view.findViewById<View>(R.id.itemCategory)
         val itemBarcode = view.findViewById<View>(R.id.itemBarcode)
         val itemUnit = view.findViewById<View>(R.id.itemUnit)
+        val movementsContainer = view.findViewById<android.widget.LinearLayout>(R.id.movementsContainer)
+        val movementsEmpty = view.findViewById<TextView>(R.id.movementsEmpty)
+        val stockHint = view.findViewById<TextView>(R.id.tvStockHint)
 
         val tvDescLabel = itemDescription.findViewById<TextView>(R.id.tvLabel)
         val tvDescValue = itemDescription.findViewById<TextView>(R.id.tvValue)
@@ -169,6 +172,16 @@ class ProductDetailFragment : Fragment() {
                             // Resumen destacado
                             priceValue.text = "Q" + product.price.amount.toPlainString()
                             stockValue.text = product.stock.value.toString()
+                            // 4.1: negativo en rojo (información, no error)
+                            val negative = product.stock.value < 0
+                            stockValue.setTextColor(
+                                androidx.core.content.ContextCompat.getColor(
+                                    requireContext(), if (negative) R.color.danger_text else R.color.text_primary
+                                )
+                            )
+                            stockHint.visibility = if (negative) View.VISIBLE else View.GONE
+
+                            renderMovements(movementsContainer, movementsEmpty, state.movements)
 
                             // Detalles (label/value). Valores con fallback a resources.
                             tvDescValue.text = product.description?.trim().takeIf { !it.isNullOrBlank() }
@@ -195,6 +208,50 @@ class ProductDetailFragment : Fragment() {
                 }
             }
         }
+    }
+
+    /** Historial del libro de movimientos (lo que este teléfono conoce; más reciente primero). */
+    private fun renderMovements(
+        container: android.widget.LinearLayout,
+        empty: TextView,
+        movements: List<com.are.distribuidora.stockmovement.domain.model.StockMovement>,
+    ) {
+        container.removeAllViews()
+        empty.visibility = if (movements.isEmpty()) View.VISIBLE else View.GONE
+        if (movements.isEmpty()) return
+        val inflater = LayoutInflater.from(requireContext())
+        val fmt = java.text.SimpleDateFormat("dd/MM/yyyy HH:mm", java.util.Locale("es", "GT"))
+        movements.forEach { m ->
+            val row = inflater.inflate(R.layout.item_stock_movement, container, false)
+            val delta = row.findViewById<TextView>(R.id.movementDelta)
+            val isIn = m.type == com.are.distribuidora.stockmovement.domain.model.MovementType.ENTRADA
+            delta.text = (if (isIn) "+" else "−") + m.quantity
+            delta.setTextColor(
+                androidx.core.content.ContextCompat.getColor(
+                    requireContext(), if (isIn) R.color.success_text else R.color.danger_text
+                )
+            )
+            row.findViewById<TextView>(R.id.movementReason).text = reasonLabel(m.reason)
+            row.findViewById<TextView>(R.id.movementMeta).text = buildString {
+                append(fmt.format(java.util.Date(m.createdAt)))
+                append(" · ").append(m.createdByName)
+                m.orderId?.let { append(" · Pedido ").append(it.take(8)) }
+            }
+            val note = row.findViewById<TextView>(R.id.movementNote)
+            if (m.note.isNullOrBlank()) note.visibility = View.GONE else { note.visibility = View.VISIBLE; note.text = m.note }
+            container.addView(row)
+        }
+    }
+
+    private fun reasonLabel(reason: com.are.distribuidora.stockmovement.domain.model.MovementReason): String = when (reason) {
+        com.are.distribuidora.stockmovement.domain.model.MovementReason.COMPRA -> getString(R.string.reason_COMPRA)
+        com.are.distribuidora.stockmovement.domain.model.MovementReason.DEVOLUCION -> getString(R.string.reason_DEVOLUCION)
+        com.are.distribuidora.stockmovement.domain.model.MovementReason.AJUSTE -> getString(R.string.reason_AJUSTE)
+        com.are.distribuidora.stockmovement.domain.model.MovementReason.MERMA -> getString(R.string.reason_MERMA)
+        com.are.distribuidora.stockmovement.domain.model.MovementReason.OTRO -> getString(R.string.reason_OTRO)
+        com.are.distribuidora.stockmovement.domain.model.MovementReason.PEDIDO -> getString(R.string.reason_PEDIDO)
+        com.are.distribuidora.stockmovement.domain.model.MovementReason.PEDIDO_EDICION -> getString(R.string.reason_PEDIDO_EDICION)
+        com.are.distribuidora.stockmovement.domain.model.MovementReason.PEDIDO_BORRADO -> getString(R.string.reason_PEDIDO_BORRADO)
     }
 
     private fun bindImage(imageView: ImageView, imageUrl: String?, localUri: String?) {

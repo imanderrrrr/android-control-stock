@@ -139,8 +139,8 @@ interface PedidoDao {
     // --- End FIX ---
 
     /** Marca el pedido como PENDING_UPDATE (edición offline pendiente de sync). */
-    @Query("UPDATE pedidos SET syncStatus = 'PENDING_UPDATE', subtotal = :subtotal, total = :total, ivaAmount = :ivaAmount, updatedAt = :updatedAt WHERE id = :id")
-    suspend fun markPedidoPendingUpdate(id: String, subtotal: Double, total: Double, ivaAmount: Double, updatedAt: Long)
+    @Query("UPDATE pedidos SET syncStatus = 'PENDING_UPDATE', subtotal = :subtotal, total = :total, ivaAmount = :ivaAmount, version = :version, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun markPedidoPendingUpdate(id: String, subtotal: Double, total: Double, ivaAmount: Double, updatedAt: Long, version: Int)
 
     /** Obtiene un pedido completo con ítems activos (isDeleted=0) para la UI de edición. */
     @Transaction

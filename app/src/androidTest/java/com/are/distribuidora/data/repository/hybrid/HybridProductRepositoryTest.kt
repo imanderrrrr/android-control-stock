@@ -40,7 +40,8 @@ class HybridProductRepositoryTest {
             local = db.productDao(),
             database = db,
             imageStorage = imageStorage,
-            pendingUploadDao = db.pendingUploadDao()
+            pendingUploadDao = db.pendingUploadDao(),
+            movementDao = db.stockMovementDao(),
         )
 
         // CUANDO: sincronizamos (remoto -> local) usando nueva interfaz

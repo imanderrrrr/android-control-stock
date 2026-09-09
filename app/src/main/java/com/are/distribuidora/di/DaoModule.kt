@@ -61,4 +61,8 @@ object DaoModule {
 
     @Provides
     fun provideScreenAccessDao(db: DistribuidoraDatabase): ScreenAccessDao = db.screenAccessDao()
+
+    @Provides
+    fun provideStockMovementDao(db: DistribuidoraDatabase): com.are.distribuidora.stockmovement.data.local.dao.StockMovementDao =
+        db.stockMovementDao()
 }

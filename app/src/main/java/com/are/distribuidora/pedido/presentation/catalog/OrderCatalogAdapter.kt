@@ -182,14 +182,15 @@ class OrderCatalogAdapter(
             subtitle.text = subtitleParts.joinToString(" · ")
             subtitle.visibility = if (subtitleParts.isEmpty()) View.GONE else View.VISIBLE
 
-            // Stock disponible = existencias − comprometido
-            val available = (product.stock.value - product.comprometido).coerceAtLeast(0)
-            if (available > 0) {
-                textStock.text = "STOCK $available"
+            // 4.1: el stock es INFORMACIÓN, no un bloqueo. Se muestra siempre el número; en rojo
+            // si es cero o negativo (un negativo significa "entregado antes del vale de entrada").
+            // Nunca se impide vender: la venta real manda y el libro de movimientos la explica.
+            val stock = product.stock.value
+            textStock.text = "STOCK $stock"
+            if (stock > 0) {
                 textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.brand_soft)
                 textStock.setTextColor(ContextCompat.getColor(ctx, R.color.success_text))
             } else {
-                textStock.text = "SIN STOCK"
                 textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.danger_bg)
                 textStock.setTextColor(ContextCompat.getColor(ctx, R.color.danger_text))
             }

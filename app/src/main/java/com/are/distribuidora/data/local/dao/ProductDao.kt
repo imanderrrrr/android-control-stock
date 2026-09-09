@@ -72,7 +72,9 @@ interface ProductDao {
         """
         UPDATE products
         SET syncStatus = :syncedStatus,
-            lastSyncedAt = :lastSyncedAt
+            lastSyncedAt = :lastSyncedAt,
+            updatedAt = COALESCE(:serverUpdatedAt, updatedAt),
+            stock = COALESCE(:stock, stock)
         WHERE id = :id
           AND syncStatus = 'SYNCING'
     """
@@ -80,6 +82,8 @@ interface ProductDao {
     suspend fun markSyncedInternal(
         id: String,
         lastSyncedAt: Long,
+        serverUpdatedAt: Long?,
+        stock: Int?,
         syncedStatus: com.are.distribuidora.data.local.SyncStatus = com.are.distribuidora.data.local.SyncStatus.SYNCED,
     )
 
@@ -107,9 +111,16 @@ interface ProductDao {
         markSyncingInternal(id)
     }
 
+    /**
+     * Marca SYNCED tras subir. [serverUpdatedAt] es el `updatedAt` que el servidor asignó al doc
+     * (serverTimestamp): adoptarlo evita que el cursor de bajada (MAX(updatedAt) de los SYNCED)
+     * se envenene con un reloj local adelantado y deje de recibir cambios (hallazgo 1 de la
+     * auditoría 2026-09-03; mismo patrón que ClientSyncRepositoryImpl). [stock] es el contador
+     * remoto vigente + movimientos locales pendientes; null = conservar el local.
+     */
     @androidx.room.Transaction
-    suspend fun markSynced(id: String, lastSyncedAt: Long) {
-        markSyncedInternal(id, lastSyncedAt)
+    suspend fun markSynced(id: String, lastSyncedAt: Long, serverUpdatedAt: Long? = null, stock: Int? = null) {
+        markSyncedInternal(id, lastSyncedAt, serverUpdatedAt, stock)
     }
 
     @Query("SELECT COUNT(*) FROM products WHERE isDeleted = 0")
@@ -197,72 +208,40 @@ interface ProductDao {
 
     /**
      * Busca un producto activo por su código de barras.
-     * Usado por el flujo "Agregar stock".
+     * Usado por el flujo "Agregar stock" / "Nuevo vale".
      */
     @Query("SELECT * FROM products WHERE barcode = :barcode AND isDeleted = 0 LIMIT 1")
     suspend fun findByBarcode(barcode: String): ProductEntity?
 
-    /**
-     * Restaura [cantidad] unidades al stock disponible y reduce [comprometido] en la misma
-     * cantidad (sin bajar de cero), deshaciendo un descuento previo.
-     *
-     * Lógica inversa de [deductStockAndCommit]:
-     *  - stock'       = stock + cantidad
-     *  - comprometido' = MAX(0, comprometido - cantidad)   → no baja de 0
-     *
-     * Ejemplos:
-     *  - stock=0,  comprometido=8,  cantidad=8  → stock=8,  comprometido=0
-     *  - stock=5,  comprometido=0,  cantidad=3  → stock=8,  comprometido=0
-     *  - stock=0,  comprometido=3,  cantidad=10 → stock=10, comprometido=0
-     *
-     * SYNC: además marca el producto como PENDING_UPDATE para que el cambio de stock se
-     * suba a Firestore y el downsync NO lo revierta (las filas PENDING_* están protegidas).
-     * Sin esto, el producto seguía SYNCED, nunca se subía y el siguiente downsync devolvía
-     * el stock al valor remoto viejo. Preservamos PENDING_CREATE/PENDING_DELETE para no
-     * cambiar el tipo de operación pendiente. NO tocamos updatedAt (igual que save()): la
-     * autoridad del timestamp es del servidor.
-     */
+    /** Búsqueda por nombre/categoría/código para elegir producto en "Nuevo vale". */
     @Query("""
-        UPDATE products
-        SET stock        = stock + :cantidad,
-            comprometido = MAX(0, comprometido - :cantidad),
-            syncStatus   = CASE
-                WHEN syncStatus IN ('PENDING_CREATE', 'PENDING_DELETE') THEN syncStatus
-                ELSE 'PENDING_UPDATE'
-            END
-        WHERE id = :id
+        SELECT * FROM products
+        WHERE isDeleted = 0
+          AND (name LIKE '%' || :query || '%' OR category LIKE '%' || :query || '%' OR barcode LIKE '%' || :query || '%')
+        ORDER BY name COLLATE NOCASE ASC
+        LIMIT :limit
     """)
-    suspend fun restoreStock(id: String, cantidad: Int)
+    suspend fun searchByName(query: String, limit: Int): List<ProductEntity>
 
     /**
-     * Descuenta [cantidad] del stock disponible e incrementa [comprometido] por la
-     * diferencia que no pudo cubrirse con el stock restante.
+     * ÚNICA escritura del contador de stock desde 4.1.
      *
-     * Lógica:
-     *  - stockDescontado = MIN(stock, cantidad)     → lo que realmente se resta del stock
-     *  - excedente       = cantidad - stockDescontado → lo que va a comprometido
+     * Aplica el efecto con signo de un movimiento del libro (`stock_movements`): +cantidad para
+     * ENTRADA, -cantidad para SALIDA. Se permite quedar en negativo (decisión #6 del plan).
      *
-     * Ejemplos:
-     *  - stock=10, cantidad=10 → stock=0, comprometido sin cambio
-     *  - stock=2,  cantidad=10 → stock=0, comprometido += 8
-     *  - stock=0,  cantidad=5  → stock=0, comprometido += 5
-     *
-     * SYNC: además marca el producto como PENDING_UPDATE para que el descuento de stock se
-     * suba a Firestore y el downsync NO lo revierta (las filas PENDING_* están protegidas).
-     * Sin esto, el producto seguía SYNCED, nunca se subía y el siguiente downsync devolvía
-     * el stock al valor remoto viejo ("hago un pedido y al ratito vuelve el stock").
-     * Preservamos PENDING_CREATE/PENDING_DELETE para no cambiar el tipo de operación
-     * pendiente. NO tocamos updatedAt (igual que save()): la autoridad del timestamp es del servidor.
+     * A propósito NO toca `syncStatus` ni `updatedAt`: el teléfono ya no sube `stock` como valor
+     * absoluto (el sync de productos solo sube campos descriptivos), así que mover el contador no
+     * "ensucia" el producto. Lo que viaja al servidor es el movimiento, con un incremento
+     * atómico en la misma transacción; el downsync reconstruye el stock local como
+     * `stock remoto + movimientos pendientes` (ver ProductSyncRepositoryImpl).
      */
-    @Query("""
-        UPDATE products
-        SET stock        = stock - MIN(stock, :cantidad),
-            comprometido = comprometido + MAX(0, :cantidad - stock),
-            syncStatus   = CASE
-                WHEN syncStatus IN ('PENDING_CREATE', 'PENDING_DELETE') THEN syncStatus
-                ELSE 'PENDING_UPDATE'
-            END
-        WHERE id = :id
-    """)
-    suspend fun deductStockAndCommit(id: String, cantidad: Int)
+    @Query("UPDATE products SET stock = stock + :delta WHERE id = :id")
+    suspend fun applyMovement(id: String, delta: Int)
+
+    /**
+     * Sobrescribe el contador local con un valor reconstruido (stock remoto + pendientes).
+     * Solo lo usa el sync; nunca la UI ni los pedidos.
+     */
+    @Query("UPDATE products SET stock = :stock WHERE id = :id")
+    suspend fun setStockFromSync(id: String, stock: Int)
 }

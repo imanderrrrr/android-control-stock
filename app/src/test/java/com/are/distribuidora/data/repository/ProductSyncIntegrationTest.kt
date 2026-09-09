@@ -50,7 +50,8 @@ class ProductSyncIntegrationTest {
             local = dao,
             database = db,
             imageStorage = mockk(relaxed = true),
-            pendingUploadDao = db.pendingUploadDao()
+            pendingUploadDao = db.pendingUploadDao(),
+            movementDao = db.stockMovementDao(),
         )
     }
 
@@ -71,7 +72,6 @@ class ProductSyncIntegrationTest {
             imageUrl = null,
             barcode = "123",
             stock = 100,
-            comprometido = 0,
             isActive = true,
             isDeleted = false,
             createdRemoteAt = 1000L,
@@ -122,7 +122,6 @@ class ProductSyncIntegrationTest {
             imageUrl = null,
             barcode = null,
             stock = 10,
-            comprometido = 0,
             isActive = true,
             isDeleted = false,
             createdRemoteAt = 100L,
@@ -172,7 +171,6 @@ class ProductSyncIntegrationTest {
             imageUrl = null,
             barcode = null,
             stock = 10,
-            comprometido = 0,
             isActive = true,
             isDeleted = false,
             createdRemoteAt = 100L,

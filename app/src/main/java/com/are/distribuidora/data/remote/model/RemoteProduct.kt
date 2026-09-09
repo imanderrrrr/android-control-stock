@@ -9,7 +9,6 @@ data class RemoteProduct(
     val imageUrl: String?,
     val barcode: String?,
     val stock: Int?,
-    val comprometido: Int?,
     val isActive: Boolean?,
     val isDeleted: Boolean?,
     val createdRemoteAt: Long?,

@@ -123,7 +123,6 @@ class FirestoreProductDataSource(
         val imageUrl = doc.getString("imagenUrl") ?: doc.getString("imageUrl")
         val barcode = doc.getString("codigoBarras") ?: doc.getString("barcode")
         val stock = (doc.getLong("stock") ?: doc.getLong("existencias"))?.toInt()
-        val comprometido = (doc.getLong("comprometido"))?.toInt()
         val isActive = doc.getBoolean("isActive")
         val isDeleted = doc.getBoolean("isDeleted")
 
@@ -144,7 +143,6 @@ class FirestoreProductDataSource(
             imageUrl = imageUrl,
             barcode = barcode,
             stock = stock,
-            comprometido = comprometido,
             isActive = isActive,
             isDeleted = isDeleted,
             createdRemoteAt = createdRemoteAt,
@@ -166,7 +164,9 @@ class FirestoreProductDataSource(
                 "price" to product.price,
                 "imageUrl" to product.imageUrl,
                 "barcode" to product.barcode,
-                "stock" to product.stock,
+                // NUNCA "stock": desde 4.1 el contador remoto solo se mueve con
+                // FieldValue.increment desde el libro de movimientos (stock_movements).
+                // Subirlo como valor absoluto es lo que hacía que dos teléfonos se pisaran.
                 "isActive" to product.isActive,
                 "isDeleted" to product.isDeleted,
                 "createdAt" to product.createdRemoteAt?.let { Date(it) },
@@ -190,6 +190,12 @@ class FirestoreProductDataSource(
             Log.e(tag, "FirestoreProductDataSource.uploadProduct: Error uploading product ${product.id}", e)
             throw e
         }
+    }
+
+    override suspend fun fetchProductById(id: String): RemoteProduct? {
+        val doc = firestore.collection(collectionName).document(id).get().await()
+        if (!doc.exists()) return null
+        return mapDocumentToRemoteProduct(doc)
     }
 
     override suspend fun softDeleteProduct(id: String, timestamp: Long) {

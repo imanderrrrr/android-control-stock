@@ -27,36 +27,36 @@ import org.junit.Test
  * Tests unitarios para [EditPedidoUseCase].
  *
  * Cubre:
- * 1. Ã‰xito: guardado atÃ³mico llama al repo con los parÃ¡metros correctos.
- * 2. Error: lista de Ã­tems vacÃ­a â†’ ValidationError.
- * 3. Error: cantidad = 0 â†’ ValidationError.
- * 4. Error: total negativo (descuento global excede subtotal) â†’ ValidationError.
- * 5. Ã‰xito con soft-delete: Ã­tems en itemIdsToDelete se pasan al repo correctamente.
- * 6. Ã‰xito con Ã­tem nuevo (itemId == null): el usecase lo pasa tal cual al repo.
- * 7. PropagaciÃ³n de error del repo (DatabaseError / NotFound).
+ * 1. Éxito: guardado atómico llama al repo con los parámetros correctos.
+ * 2. Error: lista de ítems vacía → ValidationError.
+ * 3. Error: cantidad = 0 → ValidationError.
+ * 4. Error: total negativo (descuento global excede subtotal) → ValidationError.
+ * 5. Éxito con soft-delete: ítems en itemIdsToDelete se pasan al repo correctamente.
+ * 6. Éxito con ítem nuevo (itemId == null): el usecase lo pasa tal cual al repo.
+ * 7. Propagación de error del repo (DatabaseError / NotFound).
  */
 class EditPedidoUseCaseTest {
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─────────────────────────────────────────────────────────────────────────
     // Fake repo
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─────────────────────────────────────────────────────────────────────────
 
     /**
-     * Fake completo de [PedidoRepository] que implementa todos los mÃ©todos
-     * (incluidos los nuevos de ediciÃ³n) con stubs mÃ­nimos.
+     * Fake completo de [PedidoRepository] que implementa todos los métodos
+     * (incluidos los nuevos de edición) con stubs mínimos.
      *
-     * [editResult]     â€” lo que devuelve editPedido().
-     * [pedidoExists]   â€” true â†’ getById encuentra el pedido; false â†’ editPedido devuelve NotFound.
+     * [editResult]     — lo que devuelve editPedido().
+     * [pedidoExists]   — true → getById encuentra el pedido; false → editPedido devuelve NotFound.
      */
     private class FakePedidoRepository(
         private val editResult: Result<Unit> = Result.Success(Unit),
         private val pedidoExists: Boolean = true,
     ) : PedidoRepository {
 
-        /** Captura los parÃ¡metros con los que se llamÃ³ editPedido(). */
+        /** Captura los parámetros con los que se llamó editPedido(). */
         var capturedEditParams: EditPedidoParams? = null
 
-        // â”€â”€ MÃ©todos de ediciÃ³n â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Métodos de edición ────────────────────────────────────────────────
 
         override suspend fun editPedido(params: EditPedidoParams): Result<Unit> {
             capturedEditParams = params
@@ -69,7 +69,7 @@ class EditPedidoUseCaseTest {
 
         override suspend fun getPendingUpdatePedidosForSync(limit: Int): List<PedidoWithItems> = emptyList()
 
-        // â”€â”€ Stubs obligatorios de la interfaz â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+        // ── Stubs obligatorios de la interfaz ─────────────────────────────────
 
         override suspend fun createPedido(params: CreatePedidoParams): Result<String> = Result.Success("id")
         override suspend fun listPedidosByCliente(clienteId: String): Result<List<Pedido>> = Result.Success(emptyList())
@@ -87,9 +87,9 @@ class EditPedidoUseCaseTest {
             com.are.distribuidora.domain.pedido.model.ReportResult(0.0, 0, 0.0, 0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
     }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Fake ClientRepository (sin lÃ­mite de compra por defecto)
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─────────────────────────────────────────────────────────────────────────
+    // Fake ClientRepository (sin límite de compra por defecto)
+    // ─────────────────────────────────────────────────────────────────────────
 
     private class FakeClientRepository(
         private val client: Client? = null,
@@ -113,9 +113,9 @@ class EditPedidoUseCaseTest {
         clientRepo: FakeClientRepository = FakeClientRepository(),
     ) = EditPedidoUseCase(repo, clientRepo, ValidateOrderLimitUseCase()) { UserAccess.admin() }
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Helpers de construcciÃ³n de datos de prueba
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─────────────────────────────────────────────────────────────────────────
+    // Helpers de construcción de datos de prueba
+    // ─────────────────────────────────────────────────────────────────────────
 
     private fun itemInput(
         itemId: String? = "item-1",
@@ -151,11 +151,11 @@ class EditPedidoUseCaseTest {
         descuentoGlobal = descuentoGlobal,
     )
 
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─────────────────────────────────────────────────────────────────────────
     // Tests
-    // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ─────────────────────────────────────────────────────────────────────────
 
-    // â”€â”€ 1. Happy path: ediciÃ³n exitosa â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 1. Happy path: edición exitosa ────────────────────────────────────────
 
     @Test
     fun `edicion exitosa devuelve Success y llama al repo con los parametros correctos`() = runBlocking {
@@ -177,7 +177,7 @@ class EditPedidoUseCaseTest {
         // El use case retorna Success
         assertTrue("Esperaba Result.Success pero fue: $result", result is Result.Success)
 
-        // El repo recibiÃ³ exactamente los mismos parÃ¡metros
+        // El repo recibió exactamente los mismos parámetros
         val captured = repo.capturedEditParams
         assertNotNull("editPedido() en el repo nunca fue llamado", captured)
         assertEquals("pedido-42",  captured!!.pedidoId)
@@ -186,7 +186,7 @@ class EditPedidoUseCaseTest {
         assertEquals(5.0,          captured.descuentoGlobal, 0.0)
     }
 
-    // â”€â”€ 2. Items vacÃ­os â†’ ValidationError â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 2. Items vacíos → ValidationError ────────────────────────────────────
 
     @Test
     fun `items vacios devuelve ValidationError y NO llama al repo`() = runBlocking {
@@ -199,14 +199,14 @@ class EditPedidoUseCaseTest {
         val failure = (result as Result.Error).failure
         assertTrue(failure is Failure.ValidationError)
         assertEquals(
-            "El pedido debe tener al menos un Ã­tem",
+            "El pedido debe tener al menos un ítem",
             (failure as Failure.ValidationError).message,
         )
         // El repo no debe haber sido llamado
-        assertNull("No deberÃ­a haber llamado al repo", repo.capturedEditParams)
+        assertNull("No debería haber llamado al repo", repo.capturedEditParams)
     }
 
-    // â”€â”€ 3. Cantidad = 0 â†’ ValidationError â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 3. Cantidad = 0 → ValidationError ────────────────────────────────────
 
     @Test
     fun `item con cantidad cero devuelve ValidationError y NO llama al repo`() = runBlocking {
@@ -219,20 +219,20 @@ class EditPedidoUseCaseTest {
         val failure = (result as Result.Error).failure
         assertTrue(failure is Failure.ValidationError)
         assertEquals(
-            "La cantidad de cada Ã­tem debe ser mayor a 0",
+            "La cantidad de cada ítem debe ser mayor a 0",
             (failure as Failure.ValidationError).message,
         )
         assertNull(repo.capturedEditParams)
     }
 
-    // â”€â”€ 4. Total negativo â†’ ValidationError â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 4. Total negativo → ValidationError ──────────────────────────────────
 
     @Test
     fun `descuento global mayor al subtotal devuelve ValidationError`() = runBlocking {
         val repo    = FakePedidoRepository()
         val useCase = buildUseCase(repo)
 
-        // subtotal = 10 * 1 = 10, descuentoGlobal = 20 â†’ total = -10
+        // subtotal = 10 * 1 = 10, descuentoGlobal = 20 → total = -10
         val result = useCase(editParams(
             items           = listOf(itemInput(precio = 10.0, cantidad = 1)),
             descuentoGlobal = 20.0,
@@ -248,7 +248,7 @@ class EditPedidoUseCaseTest {
         assertNull(repo.capturedEditParams)
     }
 
-    // â”€â”€ 5. Soft-delete: itemIdsToDelete llega correctamente al repo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 5. Soft-delete: itemIdsToDelete llega correctamente al repo ───────────
 
     @Test
     fun `items a eliminar se pasan al repo en itemIdsToDelete`() = runBlocking {
@@ -265,7 +265,7 @@ class EditPedidoUseCaseTest {
         assertEquals(listOf("item-viejo-1", "item-viejo-2"), captured.itemIdsToDelete)
     }
 
-    // â”€â”€ 6. Ãtem nuevo (itemId == null) pasa validaciÃ³n y llega al repo â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 6. Ítem nuevo (itemId == null) pasa validación y llega al repo ────────
 
     @Test
     fun `item nuevo con itemId null es valido y llega al repo`() = runBlocking {
@@ -278,12 +278,12 @@ class EditPedidoUseCaseTest {
         assertTrue(result is Result.Success)
         val captured = repo.capturedEditParams!!
         assertEquals(1, captured.itemsToUpsert.size)
-        assertNull("itemId de Ã­tem nuevo debe ser null", captured.itemsToUpsert[0].itemId)
+        assertNull("itemId de ítem nuevo debe ser null", captured.itemsToUpsert[0].itemId)
         assertEquals("prod-99", captured.itemsToUpsert[0].productoId)
         assertEquals(5, captured.itemsToUpsert[0].cantidad)
     }
 
-    // â”€â”€ 7a. El repo devuelve DatabaseError â†’ se propaga â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 7a. El repo devuelve DatabaseError → se propaga ───────────────────────
 
     @Test
     fun `cuando el repo falla con DatabaseError se propaga el error`() = runBlocking {
@@ -296,7 +296,7 @@ class EditPedidoUseCaseTest {
         assertEquals(Failure.DatabaseError, (result as Result.Error).failure)
     }
 
-    // â”€â”€ 7b. El repo devuelve NotFound â†’ se propaga â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 7b. El repo devuelve NotFound → se propaga ────────────────────────────
 
     @Test
     fun `cuando el pedido no existe el repo devuelve NotFound y se propaga`() = runBlocking {
@@ -309,7 +309,7 @@ class EditPedidoUseCaseTest {
         assertEquals(Failure.NotFound, (result as Result.Error).failure)
     }
 
-    // â”€â”€ 8. CÃ¡lculo de totales: el usecase valida el total correcto â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── 8. Cálculo de totales: el usecase valida el total correcto ─────────────
 
     @Test
     fun `calculo de total es correcto con descuentos por item y descuento global`() = runBlocking {
@@ -318,7 +318,7 @@ class EditPedidoUseCaseTest {
 
         // item1: (15 * 4) - 10 = 50
         // item2: (8  * 3) -  4 = 20
-        // subtotal = 70, descuentoGlobal = 5, total = 65 (positivo â†’ OK)
+        // subtotal = 70, descuentoGlobal = 5, total = 65 (positivo → OK)
         val result = useCase(editParams(
             items = listOf(
                 itemInput(itemId = "i1", precio = 15.0, cantidad = 4, descuento = 10.0),
@@ -327,26 +327,26 @@ class EditPedidoUseCaseTest {
             descuentoGlobal = 5.0,
         ))
 
-        assertTrue("El total calculado deberÃ­a ser positivo â†’ Success", result is Result.Success)
-        // Los parÃ¡metros llegan intactos al repo (el usecase no modifica los Ã­tems)
+        assertTrue("El total calculado debería ser positivo → Success", result is Result.Success)
+        // Los parámetros llegan intactos al repo (el usecase no modifica los ítems)
         val captured = repo.capturedEditParams!!
         assertEquals(2,   captured.itemsToUpsert.size)
         assertEquals(5.0, captured.descuentoGlobal, 0.0)
     }
 
-    // â”€â”€ 9. Un solo Ã­tem vÃ¡lido con descuento exactamente igual al subtotalBase â”€
+    // ── 9. Un solo ítem válido con descuento exactamente igual al subtotalBase ─
 
     @Test
     fun `total exactamente cero con descuento igual al subtotal es valido`() = runBlocking {
         val repo    = FakePedidoRepository()
         val useCase = buildUseCase(repo)
 
-        // item: (10 * 2) - 0 = 20, descuentoGlobal = 20 â†’ total = 0 (vÃ¡lido, no negativo)
+        // item: (10 * 2) - 0 = 20, descuentoGlobal = 20 → total = 0 (válido, no negativo)
         val result = useCase(editParams(
             items           = listOf(itemInput(precio = 10.0, cantidad = 2)),
             descuentoGlobal = 20.0,
         ))
 
-        assertTrue("Total = 0 es vÃ¡lido (no negativo)", result is Result.Success)
+        assertTrue("Total = 0 es válido (no negativo)", result is Result.Success)
     }
 }

@@ -16,9 +16,8 @@ data class ProductEntity(
     /** URI local de la imagen (solo para renderizar en este dispositivo). NUNCA se sube a Firestore. */
     val imageLocalUri: String? = null,
     val barcode: String?,
+    /** Existencias (puede ser negativo desde 4.1). Ver [com.are.distribuidora.stockmovement]. */
     val stock: Int,
-    /** Unidades pedidas que exceden el stock disponible. Default 0. */
-    val comprometido: Int = 0,
 
     val isActive: Boolean = true, // Default true to match Client structure suggestion/requirement
     val isDeleted: Boolean = false,

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Tarjeta de producto — rediseño "Bosque Pro". Conserva ids que enlaza InventoryAdapter:
-     productImage, productName, productPrice, productStock (badge), productComprometido,
+     productImage, productName, productPrice, productStock (badge),
      menuButton, syncIndicatorText, activeIndicatorText (estos dos ocultos). -->
 <com.google.android.material.card.MaterialCardView xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
@@ -74,16 +74,6 @@
                     android:textColor="@color/success_text"
                     android:textSize="10sp"
                     android:textStyle="bold" />
-
-                <TextView
-                    android:id="@+id/productComprometido"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginStart="8dp"
-                    android:fontFamily="sans-serif"
-                    android:textColor="@color/text_tertiary"
-                    android:textSize="11sp"
-                    android:visibility="gone" />
             </LinearLayout>
         </LinearLayout>
 

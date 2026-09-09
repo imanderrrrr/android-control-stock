@@ -17,6 +17,7 @@ class ProductSyncWorker @AssistedInject constructor(
     @Assisted appContext: Context,
     @Assisted workerParams: WorkerParameters,
     private val syncProductsUseCase: SyncProductsUseCase,
+    private val syncStockMovementsUseCase: com.are.distribuidora.stockmovement.domain.usecase.SyncStockMovementsUseCase,
     private val logger: Logger
 ) : CoroutineWorker(appContext, workerParams) {
 
@@ -36,6 +37,14 @@ class ProductSyncWorker @AssistedInject constructor(
              // Using 'runId' for logging consistency inside UseCase if supported, or just let UseCase generate its own logs.
              // Here we just wrap the call.
              
+             // 4.1: primero los movimientos de stock sueltos (vales), para que el contador remoto
+             // ya incluya sus incrementos cuando baje el catálogo. Un fallo aquí no bloquea el
+             // sync de productos: los movimientos quedan pendientes y se reintentan.
+             val movementsResult = syncStockMovementsUseCase()
+             if (movementsResult.isFailure) {
+                 Log.w(SyncDebug.TAG_SYNC, "${SyncDebug.prefix(runId)} MOVEMENTS_SYNC_FAILED ex=${movementsResult.exceptionOrNull()?.message}")
+             }
+
              val result = syncProductsUseCase()
 
             val tsEnd = System.currentTimeMillis()

@@ -40,7 +40,7 @@ import java.math.BigDecimal
 
 /**
  * Regression suite for the product-sync DATA-LOSS bug: a downsync silently reverting
- * a local STOCK edit (and resetting comprometido / zeroing stock).
+ * a local edit (and zeroing stock).
  *
  * The decisive proof is [downsync does NOT revert a PENDING_UPDATE stock edit on an equal-timestamp tie]:
  * it FAILS on the pre-fix code (stock reverts 100 -> 50) and PASSES after the fix.
@@ -48,7 +48,7 @@ import java.math.BigDecimal
  * Acceptance criteria covered:
  *  A — a not-yet-durably-synced local row is never overwritten by remote (PENDING_UPDATE tie,
  *      SYNCING, CONFLICT).
- *  B — comprometido is preserved across sync (only changes when the remote explicitly carries it).
+ *  B — stock local = remoto + movimientos pendientes (4.1).
  *  C — stock is never zeroed because the remote doc omits the field.
  *  D — after the edit uploads, the app converges (no revert loop, no stuck PENDING).
  */
@@ -79,6 +79,7 @@ class ProductSyncDataLossTest {
             database = db,
             imageStorage = mockk(relaxed = true),
             pendingUploadDao = db.pendingUploadDao(),
+            movementDao = db.stockMovementDao(),
         )
 
         val scheduler = mockk<com.are.distribuidora.workers.ProductSyncScheduler>(relaxed = true)
@@ -105,44 +106,39 @@ class ProductSyncDataLossTest {
     // ───────────────────────────── CRITERION A (the headline data-loss) ─────────────────────────────
 
     /**
-     * THE bug: user edits stock offline; the edit is PENDING_UPDATE and (per ProductRepository.save)
-     * keeps the OLD updatedAt. A downsync then sees the stale remote doc at the SAME timestamp and,
-     * pre-fix, the strict `>` conflict guard misses the tie and LWW's `>=` lets stale remote win.
-     *
-     * Pre-fix: stock reverts 100 -> 50 (and comprometido 8 -> 0). Post-fix: edit survives.
+     * THE bug (4.1 flavor): a not-yet-uploaded LOCAL edit must survive a downsync that brings the
+     * stale remote doc at the SAME timestamp (the tie). Since 4.1 the stock edit is a pending
+     * MOVEMENT, so the assertion is "stock local = remoto + pendientes" and the dirty price edit
+     * (PENDING_UPDATE) is protected as before.
      */
     @Test
-    fun `downsync does NOT revert a PENDING_UPDATE stock edit on an equal-timestamp tie`() = runTest {
-        // GIVEN a durably-synced product: stock 50, comprometido 8, updatedAt 1000.
-        dao.insert(syncedEntity(id = "p1", stock = 50, comprometido = 8, updatedAt = 1000L))
+    fun `local edit (price) and pending stock movement survive a downsync at the same timestamp`() = runTest {
+        dao.insert(syncedEntity(id = "p1", stock = 50, updatedAt = 1000L))
+        remote.storage["p1"] = remoteProduct(id = "p1", stock = 50, updatedRemoteAt = 1000L)
 
-        // WHEN the user edits stock 50 -> 100 (realistic path through the repository).
-        productRepo.save(domainProduct(id = "p1", stock = 100, comprometido = 8, updatedAt = 1000L))
+        // Offline: user edits price (dirty row) AND registers an entrada voucher of 50 (movement).
+        productRepo.save(domainProduct(id = "p1", stock = 50, updatedAt = 1000L, price = 12.0))
+        db.stockMovementDao().insert(pendingMovement("m1", "p1", "ENTRADA", 50))
+        dao.applyMovement("p1", +50)
+        val dirty = dao.getById("p1")!!
+        assertEquals(SyncStatus.PENDING_UPDATE, dirty.syncStatus)
+        assertEquals(100, dirty.stock)
+        assertEquals(1000L, dirty.updatedAt)
 
-        // Precondition that sets up the tie: the edit is PENDING_UPDATE and PRESERVES updatedAt=1000.
-        val afterEdit = dao.getById("p1")!!
-        assertEquals(SyncStatus.PENDING_UPDATE, afterEdit.syncStatus)
-        assertEquals(100, afterEdit.stock)
-        assertEquals("save() must preserve the old updatedAt (this creates the tie)", 1000L, afterEdit.updatedAt)
-
-        // AND the remote still holds the STALE value at the SAME timestamp (the tie) + omits comprometido.
-        remote.storage["p1"] = remoteProduct(id = "p1", stock = 50, comprometido = null, updatedRemoteAt = 1000L)
-
-        // WHEN a downsync runs (INVENTORY_OPEN / reconnect).
+        // Stale remote at the same timestamp.
         syncRepo.syncDownstream()
 
-        // THEN the user's edit MUST survive.
         val after = dao.getById("p1")!!
-        assertEquals("STOCK EDIT WAS SILENTLY REVERTED BY DOWNSYNC", 100, after.stock)
-        assertEquals("comprometido must not be reset", 8, after.comprometido)
-        assertEquals("row stays dirty so uploadPendingProducts can push it", SyncStatus.PENDING_UPDATE, after.syncStatus)
+        assertEquals("LOCAL EDIT WAS SILENTLY REVERTED BY DOWNSYNC", 100, after.stock)
+        assertEquals(12.0, after.price, 0.0)
+        assertEquals(SyncStatus.PENDING_UPDATE, after.syncStatus)
     }
 
-    /** Criterion A(b): a SYNCING (in-flight upload) row must not be overwritten — even by a strictly NEWER remote. */
+    /** A SYNCING row (upload in flight) must never be overwritten by remote data. */
     @Test
-    fun `downsync does NOT overwrite a SYNCING row even when remote is newer`() = runTest {
-        dao.insert(dirtyEntity(id = "p2", stock = 100, comprometido = 4, updatedAt = 1000L, status = SyncStatus.SYNCING))
-        remote.storage["p2"] = remoteProduct(id = "p2", stock = 50, comprometido = null, updatedRemoteAt = 2000L)
+    fun `downsync never overwrites a SYNCING row`() = runTest {
+        dao.insert(dirtyEntity(id = "p2", stock = 100, updatedAt = 1000L, status = SyncStatus.SYNCING))
+        remote.storage["p2"] = remoteProduct(id = "p2", stock = 50, updatedRemoteAt = 2000L)
 
         syncRepo.syncDownstream()
 
@@ -151,57 +147,51 @@ class ProductSyncDataLossTest {
         assertEquals(SyncStatus.SYNCING, after.syncStatus)
     }
 
-    /** Criterion A(b): a CONFLICT row keeps the local copy (the documented contract) — never overwritten. */
+    /** A CONFLICT row is local intent too: protect it. */
     @Test
-    fun `downsync does NOT overwrite a CONFLICT row`() = runTest {
-        dao.insert(dirtyEntity(id = "p3", stock = 100, comprometido = 2, updatedAt = 1000L, status = SyncStatus.CONFLICT))
-        remote.storage["p3"] = remoteProduct(id = "p3", stock = 50, comprometido = null, updatedRemoteAt = 2000L)
+    fun `downsync never overwrites a CONFLICT row`() = runTest {
+        dao.insert(dirtyEntity(id = "p3", stock = 100, updatedAt = 1000L, status = SyncStatus.CONFLICT))
+        remote.storage["p3"] = remoteProduct(id = "p3", stock = 50, updatedRemoteAt = 2000L)
 
         syncRepo.syncDownstream()
 
-        val after = dao.getById("p3")!!
-        assertEquals(100, after.stock)
-        assertEquals(SyncStatus.CONFLICT, after.syncStatus)
+        assertEquals(100, dao.getById("p3")!!.stock)
+        assertEquals(SyncStatus.CONFLICT, dao.getById("p3")!!.syncStatus)
     }
 
-    // ───────────────────────────── CRITERION B (comprometido) ─────────────────────────────
+    // ───────────────────────────── CRITERION B (stock = remote + pending movements) ─────────────────────────────
 
-    /**
-     * On a CLEAN (SYNCED) row that the remote legitimately updates, comprometido must be preserved
-     * when the remote omits it, and adopted when the remote explicitly carries it.
-     */
     @Test
-    fun `downsync preserves comprometido when remote omits it and adopts it when present`() = runTest {
-        dao.insert(syncedEntity(id = "p4", stock = 50, comprometido = 8, updatedAt = 1000L, name = "P4"))
+    fun `downsync rebuilds stock as remote plus pending movements and converges when they upload`() = runTest {
+        dao.insert(syncedEntity(id = "p4", stock = 50, updatedAt = 1000L, name = "P4"))
+        db.stockMovementDao().insert(pendingMovement("m4", "p4", "SALIDA", 8))
+        dao.applyMovement("p4", -8) // local 42
 
-        // Remote update WITHOUT comprometido (the normal case — comprometido is never written to Firestore).
-        remote.storage["p4"] = remoteProduct(id = "p4", stock = 70, comprometido = null, updatedRemoteAt = 2000L, name = "P4-new")
+        // Another phone sold 20 → remote 30 (its own movement already applied server-side).
+        remote.storage["p4"] = remoteProduct(id = "p4", stock = 30, updatedRemoteAt = 2000L, name = "P4-new")
         syncRepo.syncDownstream()
 
         val a = dao.getById("p4")!!
-        assertEquals("remote wins on a clean SYNCED row", 70, a.stock)
+        assertEquals("30 remoto - 8 pendiente", 22, a.stock)
         assertEquals("P4-new", a.name)
-        assertEquals("comprometido must be preserved, not reset to 0", 8, a.comprometido)
-        assertEquals(2000L, a.updatedAt)
-        assertEquals(SyncStatus.SYNCED, a.syncStatus)
 
-        // Remote update WITH an explicit comprometido → adopt it.
-        remote.storage["p4"] = remoteProduct(id = "p4", stock = 90, comprometido = 3, updatedRemoteAt = 3000L, name = "P4-new")
+        // Our movement uploads: server applies increment(-8) → 22 and we mark it SYNCED.
+        remote.storage["p4"] = remoteProduct(id = "p4", stock = 22, updatedRemoteAt = 3000L, name = "P4-new")
+        db.stockMovementDao().markSynced(listOf("m4"), at = 3000L)
         syncRepo.syncDownstream()
 
         val b = dao.getById("p4")!!
-        assertEquals(3, b.comprometido)
-        assertEquals(90, b.stock)
+        assertEquals("no double deduction after the movement is synced", 22, b.stock)
+        assertEquals(3000L, b.updatedAt)
     }
 
     // ───────────────────────────── CRITERION C (stock null) ─────────────────────────────
 
-    /** A partial/merge remote write that omits `stock` must not zero the local stock. */
     @Test
     fun `downsync preserves stock when remote stock field is absent`() = runTest {
-        dao.insert(syncedEntity(id = "p5", stock = 50, comprometido = 0, updatedAt = 1000L, name = "P5"))
+        dao.insert(syncedEntity(id = "p5", stock = 50, updatedAt = 1000L, name = "P5"))
 
-        remote.storage["p5"] = remoteProduct(id = "p5", stock = null, comprometido = null, updatedRemoteAt = 2000L, name = "P5-renamed")
+        remote.storage["p5"] = remoteProduct(id = "p5", stock = null, updatedRemoteAt = 2000L, name = "P5-renamed")
         syncRepo.syncDownstream()
 
         val a = dao.getById("p5")!!
@@ -212,37 +202,31 @@ class ProductSyncDataLossTest {
 
     // ───────────────────────────── CRITERION D (convergence) ─────────────────────────────
 
-    /**
-     * After the offline edit DOES upload, the app converges: the value persists, the row becomes
-     * SYNCED, comprometido survives end-to-end, and repeated downsyncs never revert it (no loop).
-     */
     @Test
     fun `pending edit converges after upload and is not reverted by later downsyncs`() = runTest {
-        dao.insert(syncedEntity(id = "p6", stock = 50, comprometido = 8, updatedAt = 1000L, name = "P6"))
-        remote.storage["p6"] = remoteProduct(id = "p6", stock = 50, comprometido = null, updatedRemoteAt = 1000L, name = "P6")
+        dao.insert(syncedEntity(id = "p6", stock = 50, updatedAt = 1000L, name = "P6"))
+        remote.storage["p6"] = remoteProduct(id = "p6", stock = 50, updatedRemoteAt = 1000L, name = "P6")
 
-        // User edits 50 -> 100.
-        productRepo.save(domainProduct(id = "p6", stock = 100, comprometido = 8, updatedAt = 1000L, name = "P6"))
+        // User edits the price 10 -> 15 (stock is preserved by the repository; stock only moves via movements).
+        productRepo.save(domainProduct(id = "p6", stock = 999, updatedAt = 1000L, name = "P6", price = 15.0))
         assertEquals(SyncStatus.PENDING_UPDATE, dao.getById("p6")!!.syncStatus)
+        assertEquals("save() never writes stock as an absolute value", 50, dao.getById("p6")!!.stock)
 
-        // Full cycle: upload (server assigns a fresh authoritative timestamp) THEN downsync.
         remote.assignServerTimestampOnUpload = 5000L
         val result = useCase()
         assertTrue(result.isSuccess)
 
         val afterCycle = dao.getById("p6")!!
-        assertEquals("edit persisted through the upload→downsync cycle", 100, afterCycle.stock)
+        assertEquals("edit persisted through the upload→downsync cycle", 15.0, afterCycle.price, 0.0)
         assertEquals("converged to SYNCED (no stuck PENDING/CONFLICT)", SyncStatus.SYNCED, afterCycle.syncStatus)
-        assertEquals("comprometido survived the full real cycle", 8, afterCycle.comprometido)
         assertEquals("local adopted the fresh server timestamp", 5000L, afterCycle.updatedAt)
-        assertEquals("remote now holds the user's value", 100, remote.storage["p6"]!!.stock)
+        assertEquals("remote keeps its own stock (client never uploads it)", 50, remote.storage["p6"]!!.stock)
+        assertEquals(15.0, remote.storage["p6"]!!.price!!, 0.0)
 
-        // Repeated downsyncs must remain stable (no infinite revert / no loop).
         repeat(3) { syncRepo.syncDownstream() }
         val finalRow = dao.getById("p6")!!
-        assertEquals(100, finalRow.stock)
+        assertEquals(50, finalRow.stock)
         assertEquals(SyncStatus.SYNCED, finalRow.syncStatus)
-        assertEquals(8, finalRow.comprometido)
     }
 
     // ───────────────────────────── helpers & fakes ─────────────────────────────
@@ -250,13 +234,12 @@ class ProductSyncDataLossTest {
     private fun syncedEntity(
         id: String,
         stock: Int,
-        comprometido: Int,
         updatedAt: Long,
         name: String = "P-$id",
     ) = ProductEntity(
         id = id, name = name, description = null, category = null, price = 10.0,
         imageUrl = null, imageLocalUri = null, barcode = null,
-        stock = stock, comprometido = comprometido,
+        stock = stock,
         isActive = true, isDeleted = false,
         syncStatus = SyncStatus.SYNCED,
         createdAt = updatedAt, updatedAt = updatedAt, lastSyncedAt = updatedAt,
@@ -265,32 +248,37 @@ class ProductSyncDataLossTest {
     private fun dirtyEntity(
         id: String,
         stock: Int,
-        comprometido: Int,
         updatedAt: Long,
         status: SyncStatus,
     ) = ProductEntity(
         id = id, name = "P-$id", description = null, category = null, price = 10.0,
         imageUrl = null, imageLocalUri = null, barcode = null,
-        stock = stock, comprometido = comprometido,
+        stock = stock,
         isActive = true, isDeleted = false,
         syncStatus = status,
         createdAt = updatedAt, updatedAt = updatedAt, lastSyncedAt = updatedAt,
     )
 
+    private fun pendingMovement(id: String, productId: String, type: String, qty: Int) =
+        com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity(
+            id = id, productId = productId, productName = "P-$productId", type = type, quantity = qty,
+            reason = "AJUSTE", orderId = null, note = null, createdBy = "u", createdByName = "U",
+            createdAt = 1L, syncStatus = SyncStatus.PENDING_CREATE,
+        )
+
     private fun domainProduct(
         id: String,
         stock: Int,
-        comprometido: Int,
         updatedAt: Long,
         name: String = "P-$id",
+        price: Double = 10.0,
     ) = Product(
         id = ProductId.of(id),
         name = name,
         description = null, category = null,
-        price = Money.of(BigDecimal.valueOf(10.0)),
+        price = Money.of(BigDecimal.valueOf(price)),
         imageUrl = null, imageLocalUri = null, barcode = null,
         stock = Quantity.of(stock),
-        comprometido = comprometido,
         isActive = true, isDeleted = false,
         createdAt = updatedAt, updatedAt = updatedAt,
     )
@@ -298,21 +286,20 @@ class ProductSyncDataLossTest {
     private fun remoteProduct(
         id: String,
         stock: Int?,
-        comprometido: Int?,
         updatedRemoteAt: Long,
         name: String = "P-$id",
         price: Double = 10.0,
     ) = RemoteProduct(
         id = id, name = name, description = null, category = null, price = price,
         imageUrl = null, barcode = null,
-        stock = stock, comprometido = comprometido,
+        stock = stock,
         isActive = true, isDeleted = false,
         createdRemoteAt = updatedRemoteAt, updatedRemoteAt = updatedRemoteAt,
     )
 
     /**
      * Controllable fake that mimics Firestore's downsync (whereGreaterThanOrEqualTo, ordered) and its
-     * upload semantics: the server assigns `updatedAt`, and `comprometido` is NOT persisted remotely.
+     * upload semantics: the server assigns `updatedAt` and NEVER takes `stock` from the payload (4.1).
      */
     private class ControllableFakeRemote : ProductRemoteDataSource {
         val storage = mutableMapOf<String, RemoteProduct>()
@@ -328,9 +315,11 @@ class ProductSyncDataLossTest {
 
         override suspend fun uploadProduct(product: RemoteProduct) {
             val serverTs = assignServerTimestampOnUpload ?: product.updatedRemoteAt
-            // Firestore never stores comprometido → drop it, exactly like FirestoreProductDataSource.
-            storage[product.id] = product.copy(comprometido = null, updatedRemoteAt = serverTs)
+            // 4.1: the client omits stock; the server keeps its own value.
+            storage[product.id] = product.copy(stock = product.stock ?: storage[product.id]?.stock, updatedRemoteAt = serverTs)
         }
+
+        override suspend fun fetchProductById(id: String): RemoteProduct? = storage[id]
 
         override suspend fun softDeleteProduct(id: String, timestamp: Long) {
             storage[id]?.let { storage[id] = it.copy(isDeleted = true, updatedRemoteAt = timestamp) }

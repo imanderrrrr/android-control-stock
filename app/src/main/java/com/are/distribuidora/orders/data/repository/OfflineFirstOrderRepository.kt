@@ -11,7 +11,13 @@ import com.are.distribuidora.orders.data.local.entity.OrderItemStagingEntity
 import com.are.distribuidora.orders.data.mapper.toDomain
 import com.are.distribuidora.orders.data.remote.OrderRemoteDataSource
 import com.are.distribuidora.core.money.RoundToQuarterQuetzalUseCase
+import com.are.distribuidora.data.local.SyncStatus
 import com.are.distribuidora.orders.domain.model.EditOrderItemInput
+import com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity
+import com.are.distribuidora.stockmovement.domain.model.MovementReason
+import com.are.distribuidora.stockmovement.domain.model.MovementType
+import com.are.distribuidora.stockmovement.domain.model.StockMovement
+import com.are.distribuidora.stockmovement.domain.model.StockMovementIds
 import com.are.distribuidora.orders.domain.model.Order
 import com.are.distribuidora.orders.domain.model.OrderItem
 import com.are.distribuidora.orders.domain.repository.OrderRepository
@@ -596,17 +602,47 @@ class OfflineFirstOrderRepository(
         val now = System.currentTimeMillis()
         val uid = currentUserIdProvider.get()
 
-        // 1) Soft delete en Firestore (NO borra físicamente)
+        // 4.1: borrar un pedido ajeno también DEVUELVE el stock: ENTRADA/PEDIDO_BORRADO por ítem.
+        // Si los ítems no están descargados (header-only) se leen del remoto para poder compensar.
+        val compensation: List<StockMovement> = try {
+            val localItems = local.getItemsByOrderId(orderId)
+            val itemsForCompensation: List<Triple<String, String, Pair<String, Int>>> =
+                if (localItems.isNotEmpty()) {
+                    localItems.map { Triple(it.itemId, it.productId, it.productName to it.quantity) }
+                } else {
+                    remote.fetchOrderItems(routeId, orderId).map { Triple(it.itemId, it.productId, it.productName to it.quantity) }
+                }
+            itemsForCompensation.mapNotNull { (itemId, productId, nameQty) ->
+                buildMovement(
+                    id = StockMovementIds.forOrderItemDeletion(orderId, itemId),
+                    productId = productId, productName = nameQty.first, delta = +nameQty.second,
+                    reason = MovementReason.PEDIDO_BORRADO, orderId = orderId, uid = uid, now = now,
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "deleteOrder: no se pudieron calcular los movimientos orderId=$orderId (${e.message})", e)
+            return Result.Error(Failure.NetworkError)
+        }
+        val stillPending = local.getUnsyncedMovements(orderId)
+
+        // 1) Soft delete en Firestore (NO borra físicamente) + movimientos, en una transacción
         try {
-            remote.markOrderDeleted(routeId = routeId, orderId = orderId, deletedByUid = uid)
+            remote.markOrderDeleted(
+                routeId = routeId, orderId = orderId, deletedByUid = uid,
+                movements = stillPending.map { it.toDomain() } + compensation,
+            )
         } catch (e: Exception) {
             Log.e(tag, "deleteOrder: remoto falló orderId=$orderId (${e.message})", e)
             return Result.Error(Failure.NetworkError)
         }
 
-        // 2) Soft delete local: marcar isDeleted=true en Room
+        // 2) Soft delete local + movimientos (ya en el servidor → SYNCED) + stock local, atómico
         try {
-            local.markOrderDeleted(orderId = orderId, now = now)
+            local.markMovementsSynced(stillPending.map { it.id }, now)
+            local.commitOrderDeletion(
+                orderId = orderId, now = now,
+                syncedMovements = compensation.map { StockMovementEntity.fromDomain(it, SyncStatus.SYNCED) },
+            )
         } catch (e: Exception) {
             Log.e(tag, "deleteOrder: markOrderDeleted local falló orderId=$orderId (${e.message})", e)
             return Result.Error(Failure.DatabaseError)
@@ -716,14 +752,38 @@ class OfflineFirstOrderRepository(
             )
         }
 
+        // 4.1: movimientos PEDIDO_EDICION por ÍTEM con la diferencia respecto a los ítems locales.
+        val previous = try { local.getItemsByOrderId(orderId) } catch (_: Exception) { emptyList() }
+        val prevById = previous.associateBy { it.itemId }
+        val editVersion = order.editVersion + 1
+        val uid = currentUserIdProvider.get()
+        val movements = buildList {
+            previous.filter { p -> finalItems.none { it.itemId == p.itemId } }.forEach { removed ->
+                buildMovement(
+                    id = StockMovementIds.forOtherOrderEdit(orderId, removed.itemId, editVersion),
+                    productId = removed.productId, productName = removed.productName, delta = +removed.quantity,
+                    reason = MovementReason.PEDIDO_EDICION, orderId = orderId, uid = uid, now = now,
+                )?.let(::add)
+            }
+            finalItems.forEach { item ->
+                val prevQty = prevById[item.itemId]?.quantity ?: 0
+                buildMovement(
+                    id = StockMovementIds.forOtherOrderEdit(orderId, item.itemId, editVersion),
+                    productId = item.productId, productName = item.productName, delta = -(item.quantity - prevQty),
+                    reason = MovementReason.PEDIDO_EDICION, orderId = orderId, uid = uid, now = now,
+                )?.let(::add)
+            }
+        }
+
         return try {
             local.commitEditedItems(
                 orderId = orderId,
                 finalItems = finalItems,
                 totalAmount = totalAmount,
                 now = now,
+                movements = movements.map { StockMovementEntity.fromDomain(it, SyncStatus.PENDING_CREATE) },
             )
-            Log.i(tag, "editOrderItems: local ok orderId=$orderId items=${finalItems.size} total=$totalAmount pendingUpload=1")
+            Log.i(tag, "editOrderItems: local ok orderId=$orderId items=${finalItems.size} movements=${movements.size} total=$totalAmount pendingUpload=1")
             Result.Success(Unit)
         } catch (e: Exception) {
             Log.e(tag, "editOrderItems: commit local falló orderId=$orderId (${e.message})", e)
@@ -775,16 +835,27 @@ class OfflineFirstOrderRepository(
                         items.sumOf { (it.unitPrice * it.quantity - it.discountAmount).coerceAtLeast(0.0) }
                     )
 
-                remote.uploadOrderEdit(
-                    routeId = order.routeId,
-                    orderId = orderId,
-                    items = dtos,
-                    totalAmount = total,
-                    editedByUid = uid,
-                )
+                val movements = local.getUnsyncedMovements(orderId)
+                val movementIds = movements.map { it.id }
+                local.markMovementsSyncing(movementIds)
+                try {
+                    remote.uploadOrderEdit(
+                        routeId = order.routeId,
+                        orderId = orderId,
+                        items = dtos,
+                        totalAmount = total,
+                        editedByUid = uid,
+                        movements = movements.map { it.toDomain() },
+                    )
+                } catch (e: Exception) {
+                    local.revertMovementsSyncing(movementIds)
+                    throw e
+                }
 
-                local.setPendingUpload(orderId = orderId, pending = false, now = System.currentTimeMillis())
-                Log.i(tag, "uploadPendingOrders: subido orderId=$orderId items=${dtos.size} total=$total")
+                val doneAt = System.currentTimeMillis()
+                local.markMovementsSynced(movementIds, doneAt)
+                local.setPendingUpload(orderId = orderId, pending = false, now = doneAt)
+                Log.i(tag, "uploadPendingOrders: subido orderId=$orderId items=${dtos.size} movements=${movementIds.size} total=$total")
             } catch (e: Exception) {
                 anyFailed = true
                 // Mantener pendingUpload=1 para reintento del worker.
@@ -793,5 +864,33 @@ class OfflineFirstOrderRepository(
         }
 
         return if (anyFailed) Result.Error(Failure.NetworkError) else Result.Success(Unit)
+    }
+
+    /** Movimiento de stock del pipeline B (null si no aplica: delta 0 o ítem personalizado). */
+    private fun buildMovement(
+        id: String,
+        productId: String,
+        productName: String,
+        delta: Int,
+        reason: MovementReason,
+        orderId: String,
+        uid: String?,
+        now: Long,
+    ): StockMovement? {
+        if (delta == 0 || !StockMovementIds.isCatalogProduct(productId)) return null
+        val actor = uid ?: "desconocido"
+        return StockMovement(
+            id = id,
+            productId = productId,
+            productName = productName,
+            type = MovementType.fromDelta(delta),
+            quantity = kotlin.math.abs(delta),
+            reason = reason,
+            orderId = orderId,
+            note = null,
+            createdBy = actor,
+            createdByName = currentUserIdProvider.getDisplayName() ?: actor,
+            createdAt = now,
+        )
     }
 }

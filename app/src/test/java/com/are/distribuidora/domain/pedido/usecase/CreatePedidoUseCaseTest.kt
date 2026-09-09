@@ -1,4 +1,4 @@
-﻿package com.are.distribuidora.domain.pedido.usecase
+package com.are.distribuidora.domain.pedido.usecase
 
 import com.are.distribuidora.client.domain.model.Client
 import com.are.distribuidora.client.domain.repository.ClientRepository
@@ -90,7 +90,7 @@ class CreatePedidoUseCaseTest {
         )
     }
 
-    // â”€â”€ Validaciones â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Validaciones ──────────────────────────────────────────────────────────
 
     @Test
     fun `lista de items vacia retorna error de validacion`() = runBlocking {
@@ -103,7 +103,7 @@ class CreatePedidoUseCaseTest {
         assertTrue(resultado is Result.Error)
         val failure = (resultado as Result.Error).failure
         assertTrue(failure is Failure.ValidationError)
-        assertEquals("El pedido debe tener al menos un Ã­tem", (failure as Failure.ValidationError).message)
+        assertEquals("El pedido debe tener al menos un ítem", (failure as Failure.ValidationError).message)
     }
 
     @Test
@@ -116,7 +116,7 @@ class CreatePedidoUseCaseTest {
         )
         assertTrue(resultado is Result.Error)
         assertEquals(
-            "La cantidad de los Ã­tems debe ser mayor a 0",
+            "La cantidad de los ítems debe ser mayor a 0",
             ((resultado as Result.Error).failure as Failure.ValidationError).message
         )
     }
@@ -166,7 +166,7 @@ class CreatePedidoUseCaseTest {
         assertTrue(resultado is Result.Error)
     }
 
-    // â”€â”€ Camino feliz â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Camino feliz ──────────────────────────────────────────────────────────
 
     @Test
     fun `pedido con cliente temporal valido delega al repositorio`() = runBlocking {
@@ -206,7 +206,7 @@ class CreatePedidoUseCaseTest {
         assertEquals(Failure.DatabaseError, (resultado as Result.Error).failure)
     }
 
-    // â”€â”€ Regla de negocio: 1 pedido por cliente por dÃ­a â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // ── Regla de negocio: 1 pedido por cliente por día ────────────────────────
 
     @Test
     fun `cliente existente con pedido activo el mismo dia retorna DuplicateOrder`() = runBlocking {
@@ -249,7 +249,7 @@ class CreatePedidoUseCaseTest {
 
     @Test
     fun `mismo cliente ruta diferente mismo dia sigue bloqueado por regla dia`() = runBlocking {
-        // La nueva regla bloquea por cliente+dÃ­a sin importar la ruta ni el vendedor
+        // La nueva regla bloquea por cliente+día sin importar la ruta ni el vendedor
         val repo = FakePedidoRepository(existingOrderForClienteToday = "pedido-ruta-anterior")
         val resultado = CreatePedidoUseCase(repo, FakeClientRepository(), ValidateOrderLimitUseCase())(
             vendedorId = "vendedor-1", routeId = "ruta-2",  // ruta diferente
@@ -260,7 +260,7 @@ class CreatePedidoUseCaseTest {
         assertTrue((resultado as Result.Error).failure is Failure.DuplicateOrder)
     }
 
-    // â”€â”€ Tests OrderKeyUtil (sin cambios, la utilidad sigue existiendo para el sync con Firestore) â”€â”€â”€
+    // ── Tests OrderKeyUtil (sin cambios, la utilidad sigue existiendo para el sync con Firestore) ───
 
     @Test
     fun `misma entrada produce el mismo hash deterministico`() {

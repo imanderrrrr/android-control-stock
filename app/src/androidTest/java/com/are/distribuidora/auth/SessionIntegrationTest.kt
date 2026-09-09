@@ -76,6 +76,8 @@ class SessionIntegrationTest {
             remote = object : AuthRemoteDataSource {
                 override suspend fun login(email: String, password: String) =
                     throw AssertionError("Remote no debe llamarse en S1")
+
+                override suspend fun signOut() = Unit
             }
         )
 
@@ -100,6 +102,8 @@ class SessionIntegrationTest {
             remote = object : AuthRemoteDataSource {
                 override suspend fun login(email: String, password: String) =
                     throw AssertionError("Remote no debe llamarse en S2")
+
+                override suspend fun signOut() = Unit
             }
         )
 
@@ -125,6 +129,8 @@ class SessionIntegrationTest {
             remote = object : AuthRemoteDataSource {
                 override suspend fun login(email: String, password: String) =
                     throw RuntimeException("Simulated remote failure")
+
+                override suspend fun signOut() = Unit
             }
         )
 

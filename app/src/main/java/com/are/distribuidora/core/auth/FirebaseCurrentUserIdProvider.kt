@@ -7,5 +7,10 @@ import com.google.firebase.auth.FirebaseAuth
  */
 class FirebaseCurrentUserIdProvider : CurrentUserIdProvider {
     override fun get(): String? = FirebaseAuth.getInstance().currentUser?.uid
+
+    override fun getDisplayName(): String? {
+        val user = FirebaseAuth.getInstance().currentUser ?: return null
+        return user.displayName?.takeIf { it.isNotBlank() } ?: user.email
+    }
 }
 
