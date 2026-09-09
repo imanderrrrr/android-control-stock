@@ -490,4 +490,12 @@
     <string name="screen_access_denied_title">Sección restringida</string>
     <string name="screen_access_denied_message">No tienes acceso a esta sección. Pídeselo a un administrador.</string>
     <string name="screen_access_back">Volver</string>
-</resources>
+
+    <!-- Roles 4.0 -->
+    <string name="pedido_created_at_label">Confirmado: %1$s</string>
+    <string name="role_forbidden_action">No tienes permiso para esta acción. Pídeselo a un administrador.</string>
+    <string name="nav_clients_title">Clientes</string>
+    <string name="nav_cobros">Cobros</string>
+    <string name="inicio_card_cobros_title">Cuentas por cobrar</string>
+    <string name="inicio_card_cobros_subtitle">Ver cobros</string>
+</resources>

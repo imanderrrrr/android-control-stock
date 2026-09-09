@@ -16,7 +16,8 @@ object RemoteModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance()
+    fun provideFirebaseFirestore(): FirebaseFirestore =
+        com.are.distribuidora.core.firebase.FirebaseEmulators.firestore()
 
     @Provides
     @Singleton

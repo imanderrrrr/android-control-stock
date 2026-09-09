@@ -1319,4 +1319,18 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE order_items_staging ADD COLUMN discountAmount REAL NOT NULL DEFAULT 0")
         }
     }
+
+    /**
+     * v38 -> v39
+     * - Agrega columna `role` (TEXT NULL) a `screen_access`.
+     *
+     * Motivo (DailyStock 4.0, roles): el panel web escribe `role: "admin"|"vendedor"`
+     * en `userScreenAccess/{uid}`; la app lo cachea junto a las banderas de pantalla.
+     * NULL = todavía no llegó ⇒ se resuelve a vendedor (mínimo privilegio).
+     */
+    val MIGRATION_38_39: Migration = object : Migration(38, 39) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE screen_access ADD COLUMN role TEXT")
+        }
+    }
 }

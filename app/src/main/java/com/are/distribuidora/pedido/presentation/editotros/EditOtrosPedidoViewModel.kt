@@ -225,6 +225,7 @@ class EditOtrosPedidoViewModel @Inject constructor(
                     val msg = when (val f = result.failure) {
                         is Failure.ValidationError -> f.message
                         Failure.NotFound -> "El pedido ya no existe"
+                        Failure.Forbidden -> "No tienes permiso para editar este pedido"
                         else -> "No se pudieron guardar los cambios"
                     }
                     _saveEvent.emit(SaveEvent.Error(msg))

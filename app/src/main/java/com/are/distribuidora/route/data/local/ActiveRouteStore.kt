@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.are.distribuidora.route.domain.repository.ActiveRouteReader
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -22,12 +23,12 @@ private val Context.activeRouteDataStore: DataStore<Preferences> by preferencesD
 @Singleton
 class ActiveRouteStore @Inject constructor(
     @ApplicationContext private val context: Context,
-) {
+) : ActiveRouteReader {
     private val keyId = stringPreferencesKey("active_route_id")
     private val keyDate = stringPreferencesKey("active_route_date")
 
     /** Id de la ruta activa solo si fue fijada en [today] (yyyy-MM-dd); si no, null. */
-    fun observeActiveRouteId(today: String): Flow<String?> =
+    override fun observeActiveRouteId(today: String): Flow<String?> =
         context.activeRouteDataStore.data.map { prefs ->
             if (prefs[keyDate] == today) prefs[keyId] else null
         }

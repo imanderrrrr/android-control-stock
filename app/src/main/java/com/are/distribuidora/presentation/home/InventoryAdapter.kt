@@ -31,6 +31,15 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
     var onDeleteClick: ((ProductUiModel) -> Unit)? = null
     var onProductClick: ((String) -> Unit)? = null
 
+    /** Roles 4.0: sin EDIT_PRODUCT se oculta el menú de 3 puntos (editar/borrar). */
+    var canEdit: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                notifyItemRangeChanged(0, itemCount, PAYLOAD_SYNC)
+            }
+        }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProductVH {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_inventory_product, parent, false)
@@ -39,12 +48,14 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
 
     override fun onBindViewHolder(holder: ProductVH, position: Int) {
         getItem(position)?.let { item -> holder.bind(item) }
+        holder.setMenuVisible(canEdit)
     }
 
     override fun onBindViewHolder(holder: ProductVH, position: Int, payloads: MutableList<Any>) {
         if (payloads.contains(PAYLOAD_SYNC)) {
             // Cambió SOLO el estado de sync: bind parcial, sin recargar imagen.
             getItem(position)?.let { item -> holder.bindSyncOnly(item) }
+            holder.setMenuVisible(canEdit)
         } else {
             super.onBindViewHolder(holder, position, payloads)
         }
@@ -68,6 +79,10 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
         private val activeIndicator = itemView.findViewById<TextView>(R.id.activeIndicatorText)
 
         private var currentProduct: ProductUiModel? = null
+
+        fun setMenuVisible(visible: Boolean) {
+            menuButton.visibility = if (visible) View.VISIBLE else View.GONE
+        }
 
         init {
             // Click en tarjeta -> detalle

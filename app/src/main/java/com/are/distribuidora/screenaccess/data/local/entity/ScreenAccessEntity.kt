@@ -4,12 +4,13 @@ import androidx.room.Entity
 import androidx.room.PrimaryKey
 
 /**
- * Cache local (Room) de la configuración de acceso por pantalla de un usuario,
+ * Cache local (Room) del rol y la configuración de acceso por pantalla de un usuario,
  * espejo de `userScreenAccess/{uid}` en Firestore. Permite que el control de
  * acceso funcione offline con la última configuración conocida.
  *
- * Cada bandera es NULLABLE a propósito: `null` = clave ausente = PERMITIDO
- * (regla default-allow); `false` = denegado; `true` = permitido explícito.
+ * - [role]: "admin" | "vendedor". `null` = no llegó todavía ⇒ vendedor (mínimo privilegio).
+ * - Cada bandera de pantalla es NULLABLE a propósito: `null` = clave ausente = no
+ *   restringe; `false` = denegado; `true` = permitido explícito (nunca amplía el rol).
  */
 @Entity(tableName = "screen_access")
 data class ScreenAccessEntity(
@@ -22,4 +23,5 @@ data class ScreenAccessEntity(
     val cuentasPendientes: Boolean?,
     val updatedAtMillis: Long?,
     val updatedBy: String?,
+    val role: String? = null,
 )

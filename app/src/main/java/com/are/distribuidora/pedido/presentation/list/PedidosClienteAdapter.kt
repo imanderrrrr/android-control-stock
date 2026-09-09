@@ -59,6 +59,7 @@ class PedidosClienteAdapter(
             popup.menuInflater.inflate(R.menu.menu_pedido_item, popup.menu)
             // Ocultar "Editar" si el pedido no es editable
             popup.menu.findItem(R.id.action_edit_pedido)?.isVisible = item.isEditable
+            popup.menu.findItem(R.id.action_delete_pedido)?.isVisible = item.isEditable
             popup.setOnMenuItemClickListener { menuItem ->
                 when (menuItem.itemId) {
                     R.id.action_edit_pedido -> {

@@ -22,6 +22,8 @@ import com.are.distribuidora.domain.product.GetProductImageUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteAndDateUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteUseCase
 import com.are.distribuidora.route.domain.model.Route
+import com.are.distribuidora.route.domain.repository.ActiveRouteReader
+import com.are.distribuidora.screenaccess.domain.model.UserAccess
 import com.are.distribuidora.route.domain.repository.RouteRepository
 import com.are.distribuidora.route.domain.usecase.GetRoutesUseCase
 import kotlinx.coroutines.Dispatchers
@@ -197,6 +199,8 @@ class PedidosViewModelTest {
         pedidosThrows: Exception? = null,
         routesThrows: Exception? = null,
         orderRepository: FakeOrderRepository = FakeOrderRepository(),
+        access: UserAccess = UserAccess.admin(),
+        activeRouteId: String? = null,
     ): PedidosViewModel {
         val fakePedidoRepo = FakePedidoRepository(pedidos, pedidosThrows)
         val fakeRouteRepo  = FakeRouteRepository(routes, routesThrows)
@@ -204,7 +208,7 @@ class PedidosViewModelTest {
         return PedidosViewModel(
             observeAllPedidosUseCase                   = ObserveAllPedidosUseCase(fakePedidoRepo),
             getRoutesUseCase                           = GetRoutesUseCase(fakeRouteRepo),
-            deletePedidoUseCase                        = DeletePedidoUseCase(fakePedidoRepo),
+            deletePedidoUseCase                        = DeletePedidoUseCase(fakePedidoRepo, { UserAccess.admin() }, fakeAuthRepo),
             authRepository                             = fakeAuthRepo,
             observeOtherOrdersByRouteUseCase           = ObserveOtherOrdersByRouteUseCase(orderRepository),
             observeOtherOrdersByRouteAndDateUseCase    = ObserveOtherOrdersByRouteAndDateUseCase(orderRepository),
@@ -213,6 +217,8 @@ class PedidosViewModelTest {
             fetchAllOrdersHeaderUseCase                = FetchAllOrdersHeaderUseCase(orderRepository),
             getProductImageUseCase                     = GetProductImageUseCase(FakeProductRepository()),
             getOtrosPedidoDetalleUseCase               = GetOtrosPedidoDetalleUseCase(orderRepository),
+            userAccessProvider                         = { access },
+            activeRouteReader                          = object : ActiveRouteReader { override fun observeActiveRouteId(today: String) = flowOf(activeRouteId) },
         )
     }
 

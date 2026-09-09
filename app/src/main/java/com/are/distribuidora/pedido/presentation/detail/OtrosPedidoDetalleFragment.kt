@@ -43,13 +43,17 @@ class OtrosPedidoDetalleFragment : Fragment(R.layout.fragment_otros_pedido_detal
         val layoutContent = view.findViewById<View>(R.id.layoutOtrosDetalleContent)
         val recycler      = view.findViewById<RecyclerView>(R.id.recyclerOtrosDetalle)
         val textSeller    = view.findViewById<TextView>(R.id.textOtrosDetalleSeller)
+        val textCreatedAt = view.findViewById<TextView>(R.id.textOtrosDetalleCreatedAt)
         val textTotal     = view.findViewById<TextView>(R.id.textOtrosDetalleTotal)
 
         toolbar.title = clientName.ifBlank { getString(R.string.pedidos_detalle_title) }
         toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
 
         // Acción "Editar": abre el editor de pedido ajeno (agregar/quitar ítems).
+        // Roles 4.0: el ítem se muestra solo si el ViewModel confirma que puede editar
+        // (admin, o vendedor dueño del pedido). El caso de uso vuelve a comprobarlo.
         toolbar.inflateMenu(R.menu.menu_otros_detalle)
+        toolbar.menu.findItem(R.id.action_edit_otros)?.isVisible = false
         toolbar.setOnMenuItemClickListener { mi ->
             when (mi.itemId) {
                 R.id.action_edit_otros -> {
@@ -108,6 +112,9 @@ class OtrosPedidoDetalleFragment : Fragment(R.layout.fragment_otros_pedido_detal
 
                             adapter.submitList(state.items)
                             textTotal.text = state.totalFormatted
+                            textCreatedAt.text = getString(R.string.pedido_created_at_label, state.createdAtFormatted)
+                            textCreatedAt.visibility = View.VISIBLE
+                            toolbar.menu.findItem(R.id.action_edit_otros)?.isVisible = state.canEdit
                         }
                         is OtrosPedidoDetalleViewModel.UiState.Error -> {
                             progress.visibility      = View.GONE

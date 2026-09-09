@@ -13,6 +13,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -21,6 +22,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.presentation.product.AddProductFragment
 import com.are.distribuidora.presentation.product.AddStockScannerFragment
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.snackbar.Snackbar
 import com.google.android.material.textfield.TextInputEditText
@@ -32,6 +35,16 @@ import kotlinx.coroutines.flow.collectLatest
 class InventoryFragment : Fragment() {
 
     private val viewModel: InventoryViewModel by viewModels()
+
+    // Roles 4.0: EDIT_PRODUCT gobierna nuevo producto, editar, borrar y agregar stock.
+    private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
+
+    private fun canEditProduct(): Boolean =
+        screenAccessViewModel.access.value.can(Permission.EDIT_PRODUCT)
+
+    private fun showForbidden() {
+        Snackbar.make(requireView(), R.string.role_forbidden_action, Snackbar.LENGTH_SHORT).show()
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -63,6 +76,7 @@ class InventoryFragment : Fragment() {
         }
 
         newProductButton.setOnClickListener { anchor ->
+            if (!canEditProduct()) { showForbidden(); return@setOnClickListener }
             val popup = PopupMenu(requireContext(), anchor)
             popup.menuInflater.inflate(R.menu.menu_product_plus, popup.menu)
             popup.setOnMenuItemClickListener { item ->
@@ -83,6 +97,17 @@ class InventoryFragment : Fragment() {
 
         val adapter = InventoryAdapter()
 
+        // Vendedor: catálogo en modo consulta (sin botón "+" ni menú de editar/borrar).
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                screenAccessViewModel.access.collect { access ->
+                    val canEdit = access.can(Permission.EDIT_PRODUCT)
+                    newProductButton.visibility = if (canEdit) View.VISIBLE else View.GONE
+                    adapter.canEdit = canEdit
+                }
+            }
+        }
+
         adapter.onProductClick = { productId ->
             parentFragmentManager.beginTransaction()
                 .replace(
@@ -97,7 +122,7 @@ class InventoryFragment : Fragment() {
 
         // Conectar el callback de editar
         adapter.onEditClick = { uiModel ->
-            parentFragmentManager.beginTransaction()
+            if (!canEditProduct()) showForbidden() else parentFragmentManager.beginTransaction()
                 .replace(
                     R.id.fragmentContainer,
                     com.are.distribuidora.presentation.product.EditProductFragment.newInstance(
@@ -112,7 +137,7 @@ class InventoryFragment : Fragment() {
         // en cada tarjeta, no desde el click en toda la tarjeta
         
         adapter.onDeleteClick = { uiModel ->
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            if (!canEditProduct()) showForbidden() else androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("Eliminar Producto")
                 .setMessage("¿Estás seguro de que deseas eliminar '${uiModel.product.name}'? Esta acción no se puede deshacer.")
                 .setPositiveButton("Eliminar") { _, _ ->

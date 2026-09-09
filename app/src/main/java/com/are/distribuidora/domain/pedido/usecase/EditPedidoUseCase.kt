@@ -6,6 +6,9 @@ import com.are.distribuidora.core.result.Failure
 import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.domain.pedido.PedidoRepository
 import com.are.distribuidora.domain.pedido.model.EditPedidoParams
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.domain.repository.UserAccessProvider
+import kotlinx.coroutines.flow.firstOrNull
 import javax.inject.Inject
 
 /**
@@ -14,6 +17,10 @@ import javax.inject.Inject
  * Pre-condiciones:
  * - [params.itemsToUpsert] contiene SOLO los ítems activos (el ViewModel ya filtró los eliminados).
  * - [params.itemIdsToDelete] contiene los IDs de ítems existentes que deben marcarse como isDeleted en Room.
+ *
+ * Autorización (roles 4.0): EDIT_ANY_ORDER edita cualquiera; si no, EDIT_OWN_ORDER exige que
+ * el pedido sea del usuario (`pedido.vendedorId == params.vendedorId`). De lo contrario
+ * [Failure.Forbidden].
  *
  * Validaciones:
  * - Al menos un ítem activo.
@@ -25,8 +32,16 @@ class EditPedidoUseCase @Inject constructor(
     private val repository: PedidoRepository,
     private val clientRepository: ClientRepository,
     private val validateOrderLimitUseCase: ValidateOrderLimitUseCase,
+    private val userAccessProvider: UserAccessProvider,
 ) {
     suspend operator fun invoke(params: EditPedidoParams): Result<Unit> {
+        val access = userAccessProvider.current()
+        if (!access.can(Permission.EDIT_ANY_ORDER)) {
+            if (!access.can(Permission.EDIT_OWN_ORDER)) return Result.Error(Failure.Forbidden)
+            val owner = repository.observePedidoWithItems(params.pedidoId).firstOrNull()?.pedido?.vendedorId
+            if (owner.isNullOrBlank() || owner != params.vendedorId) return Result.Error(Failure.Forbidden)
+        }
+
         if (params.itemsToUpsert.isEmpty()) {
             return Result.Error(Failure.ValidationError("El pedido debe tener al menos un ítem"))
         }
@@ -57,5 +72,3 @@ class EditPedidoUseCase @Inject constructor(
         return repository.editPedido(params)
     }
 }
-
-

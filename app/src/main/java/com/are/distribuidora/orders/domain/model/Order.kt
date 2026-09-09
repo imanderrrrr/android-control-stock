@@ -32,6 +32,11 @@ data class Order(
      * sin depender de Room ni de la entidad de infraestructura.
      */
     val isDeleted: Boolean = false,
+    /**
+     * UID del vendedor dueño del pedido (Firestore `vendedorId`). Null en pedidos legacy.
+     * Lo usan los gates de EDIT_OWN_ORDER / EDIT_ANY_ORDER (roles 4.0).
+     */
+    val vendedorId: String? = null,
 )
 
 enum class OrderDownloadStatus {

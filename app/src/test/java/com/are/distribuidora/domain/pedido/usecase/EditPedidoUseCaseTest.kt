@@ -1,5 +1,7 @@
 package com.are.distribuidora.domain.pedido.usecase
 
+import com.are.distribuidora.screenaccess.domain.model.UserAccess
+
 import com.are.distribuidora.client.domain.model.Client
 import com.are.distribuidora.client.domain.repository.ClientRepository
 import com.are.distribuidora.client.domain.usecase.ValidateOrderLimitUseCase
@@ -109,7 +111,7 @@ class EditPedidoUseCaseTest {
     private fun buildUseCase(
         repo: FakePedidoRepository = FakePedidoRepository(),
         clientRepo: FakeClientRepository = FakeClientRepository(),
-    ) = EditPedidoUseCase(repo, clientRepo, ValidateOrderLimitUseCase())
+    ) = EditPedidoUseCase(repo, clientRepo, ValidateOrderLimitUseCase()) { UserAccess.admin() }
 
     // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
     // Helpers de construcciÃ³n de datos de prueba

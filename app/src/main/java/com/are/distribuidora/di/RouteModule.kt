@@ -1,5 +1,7 @@
 package com.are.distribuidora.di
 
+import com.are.distribuidora.route.data.local.ActiveRouteStore
+import com.are.distribuidora.route.domain.repository.ActiveRouteReader
 import com.are.distribuidora.route.domain.repository.RouteRepository
 import com.are.distribuidora.route.domain.repository.RouteSyncRepository
 import com.are.distribuidora.route.domain.usecase.AssignClientToRouteUseCase
@@ -40,4 +42,7 @@ object RouteModule {
     @Provides
     fun provideDownloadRoutesUseCase(repository: RouteSyncRepository): DownloadRoutesUseCase =
         DownloadRoutesUseCase(repository)
+
+    @Provides
+    fun provideActiveRouteReader(store: ActiveRouteStore): ActiveRouteReader = store
 }

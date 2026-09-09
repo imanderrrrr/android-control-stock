@@ -11,6 +11,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -20,6 +21,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.pendingaccount.presentation.adapter.PendingAccountCardAdapter
 import com.are.distribuidora.pendingaccount.presentation.model.PendingAccountUiModel
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import com.google.android.material.floatingactionbutton.FloatingActionButton
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -31,6 +34,10 @@ import kotlinx.coroutines.launch
 class PendingAccountsFragment : Fragment(R.layout.fragment_pending_accounts) {
 
     private val viewModel: PendingAccountsViewModel by viewModels()
+
+    // Roles 4.0 (scope de Activity, mismo listener que HomeActivity).
+    private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
+    private var canManage = false
 
     private lateinit var adapter: PendingAccountCardAdapter
     private lateinit var chipAll: TextView
@@ -66,11 +73,24 @@ class PendingAccountsFragment : Fragment(R.layout.fragment_pending_accounts) {
         recycler.layoutManager = LinearLayoutManager(requireContext())
         recycler.adapter = adapter
 
-        view.findViewById<View>(R.id.btnBack).setOnClickListener {
+        val btnBack = view.findViewById<View>(R.id.btnBack)
+        btnBack.setOnClickListener {
             requireActivity().onBackPressedDispatcher.onBackPressed()
         }
+        // Roles 4.0: cuando esta pantalla es la raíz de la pestaña "Cobros" no hay a dónde volver.
+        btnBack.visibility = if (parentFragmentManager.backStackEntryCount == 0) View.INVISIBLE else View.VISIBLE
         view.findViewById<View>(R.id.btnViewActivity).setOnClickListener { openActivity() }
-        view.findViewById<FloatingActionButton>(R.id.fabAdd).setOnClickListener { openForm(null) }
+        val fabAdd = view.findViewById<FloatingActionButton>(R.id.fabAdd)
+        fabAdd.setOnClickListener { openForm(null) }
+        // Roles 4.0: crear/borrar cuentas solo con MANAGE_RECEIVABLES (el VM vuelve a comprobarlo).
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                screenAccessViewModel.access.collect { access ->
+                    canManage = access.can(Permission.MANAGE_RECEIVABLES)
+                    fabAdd.visibility = if (canManage) View.VISIBLE else View.GONE
+                }
+            }
+        }
 
         chipAll.setOnClickListener { viewModel.setFilter(PendingAccountsViewModel.Filter.ALL) }
         chipOverdue.setOnClickListener { viewModel.setFilter(PendingAccountsViewModel.Filter.OVERDUE) }
@@ -169,6 +189,7 @@ class PendingAccountsFragment : Fragment(R.layout.fragment_pending_accounts) {
     }
 
     private fun confirmDelete(account: PendingAccountUiModel) {
+        if (!canManage) { toast(R.string.role_forbidden_action); return }
         ConfirmActionBottomSheet.newInstance(
             title = getString(R.string.cxc_confirm_delete_title),
             message = getString(R.string.cxc_confirm_delete_msg, account.clientName, account.amountFormatted),

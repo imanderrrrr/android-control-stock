@@ -8,11 +8,14 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
 import dagger.hilt.android.AndroidEntryPoint
@@ -27,6 +30,9 @@ import java.util.Calendar
 class InicioFragment : Fragment(R.layout.fragment_inicio) {
 
     private val viewModel: InicioViewModel by viewModels()
+
+    // Roles 4.0: mismo acceso que HomeActivity (scope de Activity).
+    private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
@@ -74,6 +80,23 @@ class InicioFragment : Fragment(R.layout.fragment_inicio) {
         view.findViewById<MaterialCardView>(R.id.cardCatalogo).setOnClickListener { home?.goToTab(R.id.nav_inventory) }
         view.findViewById<MaterialCardView>(R.id.cardClientes).setOnClickListener { home?.goToTab(R.id.nav_clients) }
         view.findViewById<MaterialCardView>(R.id.cardReportes).setOnClickListener { home?.goToTab(R.id.nav_reportes) }
+
+        // Roles 4.0: el vendedor no ve Reportes; su acceso a "Clientes" es la pantalla de cobros.
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                screenAccessViewModel.access.collect { access ->
+                    view.findViewById<View>(R.id.cardReportes).visibility =
+                        if (access.can(Permission.VIEW_REPORTS)) View.VISIBLE else View.GONE
+                    val cobrosOnly = !access.can(Permission.MANAGE_CLIENTS)
+                    view.findViewById<View>(R.id.cardClientes).visibility =
+                        if (access.can(Permission.MANAGE_CLIENTS) || access.can(Permission.VIEW_RECEIVABLES)) View.VISIBLE else View.GONE
+                    if (cobrosOnly) {
+                        view.findViewById<TextView>(R.id.clientesTitle)?.setText(R.string.inicio_card_cobros_title)
+                        view.findViewById<TextView>(R.id.clientesSubtitle)?.setText(R.string.inicio_card_cobros_subtitle)
+                    }
+                }
+            }
+        }
         view.findViewById<TextView>(R.id.verTodos).setOnClickListener { home?.goToTab(R.id.nav_clients) }
 
         viewLifecycleOwner.lifecycleScope.launch {

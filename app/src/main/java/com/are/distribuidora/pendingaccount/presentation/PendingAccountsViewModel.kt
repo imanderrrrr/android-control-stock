@@ -16,7 +16,9 @@ import com.are.distribuidora.pendingaccount.presentation.model.AccountActivityUi
 import com.are.distribuidora.pendingaccount.presentation.model.DueState
 import com.are.distribuidora.pendingaccount.presentation.model.PendingAccountUiModel
 import com.are.distribuidora.route.domain.model.Route
+import com.are.distribuidora.roles.domain.Permission
 import com.are.distribuidora.route.domain.usecase.GetRoutesUseCase
+import com.are.distribuidora.screenaccess.domain.repository.UserAccessProvider
 import com.are.distribuidora.workers.ImageUploadSyncScheduler
 import com.are.distribuidora.workers.PendingAccountSyncScheduler
 import com.google.firebase.auth.FirebaseAuth
@@ -66,7 +68,15 @@ class PendingAccountsViewModel @Inject constructor(
     private val pendingAccountSyncScheduler: PendingAccountSyncScheduler,
     private val firebaseStorage: FirebaseStorage,
     private val firebaseAuth: FirebaseAuth,
+    private val userAccessProvider: UserAccessProvider,
 ) : ViewModel() {
+
+    /** Roles 4.0: crear/editar/borrar cuentas exige MANAGE_RECEIVABLES; cobrar, COLLECT_RECEIVABLE. */
+    private suspend fun denied(permission: Permission): Boolean {
+        val ok = userAccessProvider.current().can(permission)
+        if (!ok) _events.send(Event.Error(appContext.getString(R.string.role_forbidden_action)))
+        return !ok
+    }
 
     enum class Filter { ALL, OVERDUE, UPCOMING }
 
@@ -201,6 +211,7 @@ class PendingAccountsViewModel @Inject constructor(
         notes: String?,
     ) {
         viewModelScope.launch {
+            if (denied(Permission.MANAGE_RECEIVABLES)) return@launch
             val now = System.currentTimeMillis()
             val accountId = UUID.randomUUID().toString()
             val localFilePath = invoiceLocalPath?.takeIf { File(it).exists() }
@@ -242,6 +253,7 @@ class PendingAccountsViewModel @Inject constructor(
         isNewPhoto: Boolean,
     ) {
         viewModelScope.launch {
+            if (denied(Permission.MANAGE_RECEIVABLES)) return@launch
             val now = System.currentTimeMillis()
             pendingAccountDao.updateDetails(
                 id = id,
@@ -269,6 +281,7 @@ class PendingAccountsViewModel @Inject constructor(
 
     fun markAccountPaid(accountId: String) {
         viewModelScope.launch {
+            if (denied(Permission.COLLECT_RECEIVABLE)) return@launch
             val now = System.currentTimeMillis()
             val userEmail = firebaseAuth.currentUser?.email ?: "desconocido"
             pendingAccountDao.markPaid(accountId, now, userEmail)
@@ -280,6 +293,7 @@ class PendingAccountsViewModel @Inject constructor(
 
     fun deleteAccount(accountId: String) {
         viewModelScope.launch {
+            if (denied(Permission.MANAGE_RECEIVABLES)) return@launch
             val now = System.currentTimeMillis()
             val userEmail = firebaseAuth.currentUser?.email ?: "desconocido"
             pendingAccountDao.markDeleted(accountId, now, userEmail)

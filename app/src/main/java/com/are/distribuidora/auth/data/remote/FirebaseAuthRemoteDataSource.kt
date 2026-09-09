@@ -55,4 +55,8 @@ class FirebaseAuthRemoteDataSource(
             throw Exception(e.message ?: "Error inesperado al iniciar sesión.", e)
         }
     }
+
+    override suspend fun signOut() {
+        firebaseAuth.signOut()
+    }
 }

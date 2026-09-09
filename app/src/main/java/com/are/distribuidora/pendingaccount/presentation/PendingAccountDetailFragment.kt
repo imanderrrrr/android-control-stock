@@ -13,6 +13,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.isVisible
 import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -20,6 +21,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
 import com.are.distribuidora.pendingaccount.presentation.model.DueState
 import com.are.distribuidora.pendingaccount.presentation.model.PendingAccountUiModel
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import com.bumptech.glide.Glide
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.card.MaterialCardView
@@ -35,6 +38,7 @@ import java.io.File
 class PendingAccountDetailFragment : Fragment(R.layout.fragment_pending_account_detail) {
 
     private val viewModel: PendingAccountsViewModel by viewModels()
+    private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
     private val accountId: String by lazy { requireArguments().getString(ARG_ID).orEmpty() }
 
     private var current: PendingAccountUiModel? = null
@@ -54,6 +58,20 @@ class PendingAccountDetailFragment : Fragment(R.layout.fragment_pending_account_
         view.findViewById<MaterialButton>(R.id.btnEdit).setOnClickListener { openEdit() }
         view.findViewById<MaterialButton>(R.id.btnMarkPaid).setOnClickListener { current?.let { confirmMarkPaid(it) } }
         view.findViewById<MaterialButton>(R.id.btnDelete).setOnClickListener { current?.let { confirmDelete(it) } }
+
+        // Roles 4.0: editar/borrar solo con MANAGE_RECEIVABLES; cobrar (btnMarkPaid) con COLLECT_RECEIVABLE.
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                screenAccessViewModel.access.collect { access ->
+                    val manage = access.can(Permission.MANAGE_RECEIVABLES)
+                    view.findViewById<View>(R.id.btnEditTop).visibility = if (manage) View.VISIBLE else View.GONE
+                    view.findViewById<View>(R.id.btnEdit).visibility = if (manage) View.VISIBLE else View.GONE
+                    view.findViewById<View>(R.id.btnDelete).visibility = if (manage) View.VISIBLE else View.GONE
+                    view.findViewById<View>(R.id.btnMarkPaid).visibility =
+                        if (access.can(Permission.COLLECT_RECEIVABLE)) View.VISIBLE else View.GONE
+                }
+            }
+        }
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {

@@ -405,6 +405,7 @@ class EditPedidoViewModel @Inject constructor(
                 is Result.Error -> {
                     val msg = when (val f = result.failure) {
                         is com.are.distribuidora.core.result.Failure.ValidationError -> f.message
+                        com.are.distribuidora.core.result.Failure.Forbidden -> "No tienes permiso para editar este pedido"
                         is com.are.distribuidora.core.result.Failure.OrderLimitExceeded -> {
                             val limitFormatted = f.limitInCents / 100.0
                             val totalFormatted = f.totalInCents / 100.0

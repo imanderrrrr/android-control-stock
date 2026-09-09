@@ -40,6 +40,7 @@ class PedidoDetalleFragment : Fragment(R.layout.fragment_pedido_detalle) {
         }
 
         val title      = view.findViewById<TextView>(R.id.textDetalleTitle)
+        val subtitle   = view.findViewById<TextView>(R.id.textDetalleSubtitle)
         val recycler   = view.findViewById<RecyclerView>(R.id.recyclerDetalle)
         val textTotal  = view.findViewById<TextView>(R.id.textTotalDetalle)
 
@@ -60,6 +61,8 @@ class PedidoDetalleFragment : Fragment(R.layout.fragment_pedido_detalle) {
                         val items = viewModel.getItemsByPedido(pedidoId)
                         adapter.submitList(items)
                         textTotal.text = viewModel.getTotalPedido(pedidoId)
+                        // 4.0: fecha y hora en que se confirmó el carrito
+                        viewModel.getCreadoEnFormatted(pedidoId)?.let { subtitle.text = it }
                     }
                 }
             }

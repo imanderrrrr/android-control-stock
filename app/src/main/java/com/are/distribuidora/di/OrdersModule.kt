@@ -12,6 +12,7 @@ import com.are.distribuidora.orders.data.remote.OrderRemoteDataSource
 import com.are.distribuidora.orders.data.repository.OfflineFirstOrderRepository
 import com.are.distribuidora.orders.domain.repository.OrderRepository
 import com.are.distribuidora.orders.domain.usecase.DeleteOrderUseCase
+import com.are.distribuidora.screenaccess.domain.repository.UserAccessProvider
 import com.are.distribuidora.orders.domain.usecase.DownloadOrderItemsUseCase
 import com.are.distribuidora.orders.domain.usecase.EditOtrosOrderUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchAllOrdersHeaderUseCase
@@ -74,8 +75,11 @@ object OrdersModule {
         DownloadOrderItemsUseCase(repository)
 
     @Provides
-    fun provideDeleteOrderUseCase(repository: OrderRepository): DeleteOrderUseCase =
-        DeleteOrderUseCase(repository)
+    fun provideDeleteOrderUseCase(
+        repository: OrderRepository,
+        userAccessProvider: UserAccessProvider,
+        currentUserIdProvider: CurrentUserIdProvider,
+    ): DeleteOrderUseCase = DeleteOrderUseCase(repository, userAccessProvider, currentUserIdProvider)
 
     @Provides
     fun provideObserveOtherOrdersByRouteUseCase(repository: OrderRepository): ObserveOtherOrdersByRouteUseCase =
@@ -94,6 +98,9 @@ object OrdersModule {
         UploadPendingOrdersUseCase(repository)
 
     @Provides
-    fun provideEditOtrosOrderUseCase(repository: OrderRepository): EditOtrosOrderUseCase =
-        EditOtrosOrderUseCase(repository)
+    fun provideEditOtrosOrderUseCase(
+        repository: OrderRepository,
+        userAccessProvider: UserAccessProvider,
+        currentUserIdProvider: CurrentUserIdProvider,
+    ): EditOtrosOrderUseCase = EditOtrosOrderUseCase(repository, userAccessProvider, currentUserIdProvider)
 }

@@ -23,9 +23,11 @@ import com.are.distribuidora.client.presentation.SelectClientFragment
 import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogFragment
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
 import com.are.distribuidora.pedido.presentation.list.PedidosFragment
+import com.are.distribuidora.pendingaccount.presentation.PendingAccountsFragment
+import com.are.distribuidora.roles.domain.Permission
 import com.are.distribuidora.route.presentation.SelectRouteFragment
 import com.are.distribuidora.screenaccess.domain.model.AppScreen
-import com.are.distribuidora.screenaccess.domain.model.ScreenAccess
+import com.are.distribuidora.screenaccess.domain.model.UserAccess
 import com.are.distribuidora.screenaccess.presentation.NoAccessFragment
 import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import java.text.SimpleDateFormat
@@ -57,6 +59,8 @@ class HomeActivity : FragmentActivity() {
                 fragment is InventoryFragment ||
                 fragment is PedidosFragment ||
                 fragment is ClientsFragment ||
+                // Vendedor: la pestaña "Cobros" muestra Cuentas por cobrar como raíz.
+                (fragment is PendingAccountsFragment && supportFragmentManager.backStackEntryCount == 0) ||
                 // El placeholder "sin acceso" de una pestaña también es nivel superior:
                 // así la barra inferior sigue visible y el usuario puede ir a otra sección.
                 (fragment is NoAccessFragment && fragment.isTabLevel())
@@ -263,13 +267,35 @@ class HomeActivity : FragmentActivity() {
         }
     }
 
-    /** Atenúa el icono de las pestañas denegadas (sin deshabilitarlas: el tap muestra el mensaje). */
-    private fun applyTabDimming(access: ScreenAccess) {
+    /**
+     * Roles 4.0: las pestañas que el rol NO concede (Reportes y Clientes para vendedor) se
+     * OCULTAN; las que el panel web restringe con `screens.<x>=false` se atenúan y muestran
+     * el mensaje "sin acceso" al tocarlas (comportamiento 3.x).
+     *
+     * La pestaña Clientes se convierte en "Cobros" cuando el usuario no gestiona clientes
+     * pero sí puede ver Cuentas por cobrar (vendedor).
+     */
+    private fun applyTabDimming(access: UserAccess) {
         setTabDim(R.id.nav_home, access.isAllowed(AppScreen.INICIO))
         setTabDim(R.id.nav_inventory, access.isAllowed(AppScreen.INVENTARIO))
         setTabDim(R.id.nav_orders, access.isAllowed(AppScreen.PEDIDOS))
         setTabDim(R.id.nav_clients, access.isAllowed(AppScreen.CLIENTES))
         setTabDim(R.id.nav_reportes, access.isAllowed(AppScreen.REPORTES))
+
+        setTabVisible(R.id.nav_reportes, access.can(Permission.VIEW_REPORTS))
+        val clientsVisible = access.can(Permission.MANAGE_CLIENTS) || access.can(Permission.VIEW_RECEIVABLES)
+        setTabVisible(R.id.nav_clients, clientsVisible)
+        bottomNav.menu.findItem(R.id.nav_clients)?.title =
+            if (access.can(Permission.MANAGE_CLIENTS)) getString(R.string.nav_clients_title)
+            else getString(R.string.nav_cobros)
+
+        // Si la pestaña actual desapareció (p. ej. cambió el rol), volver a Inicio.
+        val currentVisible = bottomNav.menu.findItem(bottomNav.selectedItemId)?.isVisible ?: true
+        if (!currentVisible) bottomNav.selectedItemId = R.id.nav_home
+    }
+
+    private fun setTabVisible(itemId: Int, visible: Boolean) {
+        bottomNav.menu.findItem(itemId)?.isVisible = visible
     }
 
     private fun setTabDim(itemId: Int, allowed: Boolean) {
@@ -285,22 +311,26 @@ class HomeActivity : FragmentActivity() {
         else -> null
     }
 
+    /** Vendedor (sin MANAGE_CLIENTS): la pestaña Clientes muestra directamente los cobros. */
+    private fun clientsTabIsCobros(): Boolean =
+        !screenAccessViewModel.access.value.can(Permission.MANAGE_CLIENTS)
+
     private fun realFragmentFor(screen: AppScreen): Fragment = when (screen) {
         AppScreen.INICIO -> InicioFragment()
         AppScreen.INVENTARIO -> InventoryFragment()
         AppScreen.PEDIDOS -> PedidosFragment()
-        AppScreen.CLIENTES -> ClientsFragment()
+        AppScreen.CLIENTES -> if (clientsTabIsCobros()) PendingAccountsFragment() else ClientsFragment()
         AppScreen.REPORTES -> HomeFragment()
         // CUENTAS_PENDIENTES no es una pestaña; se accede desde Clientes.
-        AppScreen.CUENTAS_PENDIENTES -> ClientsFragment()
+        AppScreen.CUENTAS_PENDIENTES -> PendingAccountsFragment()
     }
 
     private fun realFragmentClassFor(screen: AppScreen): Class<out Fragment> = when (screen) {
         AppScreen.INICIO -> InicioFragment::class.java
         AppScreen.INVENTARIO -> InventoryFragment::class.java
         AppScreen.PEDIDOS -> PedidosFragment::class.java
-        AppScreen.CLIENTES -> ClientsFragment::class.java
+        AppScreen.CLIENTES -> if (clientsTabIsCobros()) PendingAccountsFragment::class.java else ClientsFragment::class.java
         AppScreen.REPORTES -> HomeFragment::class.java
-        AppScreen.CUENTAS_PENDIENTES -> ClientsFragment::class.java
+        AppScreen.CUENTAS_PENDIENTES -> PendingAccountsFragment::class.java
     }
 }

@@ -13,9 +13,15 @@ interface ScreenAccessDao {
     @Query("SELECT * FROM screen_access WHERE uid = :uid LIMIT 1")
     fun observeByUid(uid: String): Flow<ScreenAccessEntity?>
 
+    @Query("SELECT * FROM screen_access WHERE uid = :uid LIMIT 1")
+    suspend fun getByUid(uid: String): ScreenAccessEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(entity: ScreenAccessEntity)
 
     @Query("DELETE FROM screen_access WHERE uid = :uid")
     suspend fun deleteByUid(uid: String)
+
+    @Query("DELETE FROM screen_access")
+    suspend fun deleteAll()
 }

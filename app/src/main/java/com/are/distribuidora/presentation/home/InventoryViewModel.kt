@@ -12,6 +12,8 @@ import com.are.distribuidora.domain.product.ObserveProductsUseCase
 import com.are.distribuidora.domain.sale.SellProductUseCase
 import com.are.distribuidora.presentation.home.mapper.toUiModel
 import com.are.distribuidora.presentation.home.model.ProductUiModel
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.domain.repository.UserAccessProvider
 import com.are.distribuidora.workers.ProductSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -49,6 +51,7 @@ class InventoryViewModel @Inject constructor(
     private val sellProductUseCase: SellProductUseCase,
     private val deleteProductUseCase: com.are.distribuidora.domain.product.DeleteProductUseCase,
     private val productSyncScheduler: ProductSyncScheduler,
+    private val userAccessProvider: UserAccessProvider,
 ) : ViewModel() {
 
     init {
@@ -137,6 +140,11 @@ class InventoryViewModel @Inject constructor(
      */
     fun confirmSale(productId: String, quantity: Int) {
         viewModelScope.launch {
+            // Roles 4.0: la venta directa desde Inventario mueve stock ⇒ EDIT_PRODUCT.
+            if (!userAccessProvider.current().can(Permission.EDIT_PRODUCT)) {
+                _events.emit(InventoryEvent.SaleError(productId = productId, message = "Sin permiso (rol vendedor)"))
+                return@launch
+            }
             try {
                 // TODO: Update sell logic to handle ID correctly if needed, but here we just pass ID.
                 // Note: The UI now binds ProductUiModel, but the click listener might still pass Product or we just use ID.
@@ -155,6 +163,10 @@ class InventoryViewModel @Inject constructor(
 
     fun deleteProduct(productId: String) {
         viewModelScope.launch {
+            if (!userAccessProvider.current().can(Permission.EDIT_PRODUCT)) {
+                android.util.Log.w("InventoryViewModel", "deleteProduct denegado por rol: $productId")
+                return@launch
+            }
             try {
                 // Delegation to UseCase -> Repository -> DAO (soft delete)
                 // The repository handles marking logic: isDeleted=1, syncStatus=PENDING_DELETE
