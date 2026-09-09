@@ -165,6 +165,9 @@ class OfflineFirstOrderRepository(
                             sellerName = dto.sellerName,
                             itemsCount = dto.itemsCount,
                             vendedorId = dto.vendedorId,
+                            // 4.0: adoptar la hora de confirmación remota si el doc la trae
+                            // (filas cacheadas por 3.x guardaban la hora de descarga).
+                            createdAt = dto.creadoEn ?: existing.createdAt,
                             updatedAt = now,
                         )
                     )
@@ -189,7 +192,9 @@ class OfflineFirstOrderRepository(
                             failedReasonMessage = existing?.failedReasonMessage,
                             failedAttempts = existing?.failedAttempts ?: 0,
                             lastAttemptAt = existing?.lastAttemptAt,
-                            createdAt = existing?.createdAt ?: now,
+                            // 4.0: hora de confirmación del carrito; si el doc no la trae, se conserva
+                            // la local (o la hora de descarga en la primera bajada).
+                            createdAt = dto.creadoEn ?: existing?.createdAt ?: now,
                             updatedAt = now,
                             vendedorId = dto.vendedorId,
                         )
@@ -304,6 +309,9 @@ class OfflineFirstOrderRepository(
                             sellerName = dto.sellerName,
                             itemsCount = dto.itemsCount,
                             vendedorId = dto.vendedorId,
+                            // 4.0: adoptar la hora de confirmación remota si el doc la trae
+                            // (filas cacheadas por 3.x guardaban la hora de descarga).
+                            createdAt = dto.creadoEn ?: existing.createdAt,
                             updatedAt = now,
                         )
                     )
@@ -326,7 +334,9 @@ class OfflineFirstOrderRepository(
                             failedReasonMessage = existing?.failedReasonMessage,
                             failedAttempts = existing?.failedAttempts ?: 0,
                             lastAttemptAt = existing?.lastAttemptAt,
-                            createdAt = existing?.createdAt ?: now,
+                            // 4.0: hora de confirmación del carrito; si el doc no la trae, se conserva
+                            // la local (o la hora de descarga en la primera bajada).
+                            createdAt = dto.creadoEn ?: existing?.createdAt ?: now,
                             updatedAt = now,
                             vendedorId = dto.vendedorId,
                         )

@@ -46,6 +46,8 @@ class FirestoreOrderRemoteDataSource(
             val vendedorId = (data["vendedorId"] as? String)?.trim()?.takeIf { it.isNotBlank() }
             // isDeleted: soft delete. Default false para compatibilidad con docs legacy sin el campo.
             val isDeleted = (data["isDeleted"] as? Boolean) ?: false
+            // creadoEn: hora de confirmación del carrito (4.0 muestra HH:mm en Otros pedidos).
+            val creadoEn = parseEpochMillis(data["creadoEn"])
 
             if (orderId.isBlank() || rId.isBlank() || date.isBlank() || clientName.isBlank()) {
                 Log.w(tag, "fetchOrderHeaders: header incompleto; skip docId=${doc.id}")
@@ -70,6 +72,7 @@ class FirestoreOrderRemoteDataSource(
                 itemsCount = itemsCount,
                 vendedorId = vendedorId,
                 isDeleted = isDeleted,
+                creadoEn = creadoEn,
             )
         }
     }
@@ -93,6 +96,8 @@ class FirestoreOrderRemoteDataSource(
             val sellerName = data["sellerName"] as? String
             val vendedorId = (data["vendedorId"] as? String)?.trim()?.takeIf { it.isNotBlank() }
             val isDeleted = (data["isDeleted"] as? Boolean) ?: false
+            // creadoEn: hora de confirmación del carrito (4.0 muestra HH:mm en Otros pedidos).
+            val creadoEn = parseEpochMillis(data["creadoEn"])
 
             if (orderId.isBlank() || rId.isBlank() || clientName.isBlank()) {
                 Log.w(tag, "fetchAllOrderHeaders: header incompleto; skip docId=${doc.id}")
@@ -117,6 +122,7 @@ class FirestoreOrderRemoteDataSource(
                 itemsCount = itemsCount,
                 vendedorId = vendedorId,
                 isDeleted = isDeleted,
+                creadoEn = creadoEn,
             )
         }
     }
@@ -327,4 +333,13 @@ class FirestoreOrderRemoteDataSource(
             "uploadOrderEdit: ok orderId=$orderId routeId=$routeId set=${items.size} deleted=$deleted total=$totalAmount editedBy=$editedByUid",
         )
     }
+
+    /** Acepta epoch en Long/Double (como escribe la app) o Timestamp (panel/Admin SDK). */
+    private fun parseEpochMillis(value: Any?): Long? = when (value) {
+        is Long -> value
+        is Number -> value.toLong()
+        is com.google.firebase.Timestamp -> value.toDate().time
+        is java.util.Date -> value.time
+        else -> null
+    }?.takeIf { it > 0L }
 }

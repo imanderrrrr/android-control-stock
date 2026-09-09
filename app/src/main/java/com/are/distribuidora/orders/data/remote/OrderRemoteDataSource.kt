@@ -27,6 +27,12 @@ interface OrderRemoteDataSource {
          * Default false para compatibilidad con pedidos legacy sin el campo.
          */
         val isDeleted: Boolean = false,
+        /**
+         * Instante (epoch ms) en que el vendedor CONFIRMÓ el carrito (Firestore `creadoEn`).
+         * Null en documentos legacy sin el campo; el repositorio conserva entonces el valor
+         * local o usa la hora de descarga.
+         */
+        val creadoEn: Long? = null,
     )
 
     data class OrderItemDto(
