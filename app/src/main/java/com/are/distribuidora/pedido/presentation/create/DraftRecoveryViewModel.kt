@@ -3,6 +3,7 @@ package com.are.distribuidora.pedido.presentation.create
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.are.distribuidora.auth.domain.repository.AuthRepository
+import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.domain.pedido.PedidoDraftRepository
 import com.are.distribuidora.domain.pedido.model.PedidoDraft
 import com.are.distribuidora.domain.pedido.usecase.ValidateDraftForRecoveryUseCase
@@ -30,6 +31,7 @@ class DraftRecoveryViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val validateDraft: ValidateDraftForRecoveryUseCase,
     private val gate: DraftRecoveryGate,
+    private val logger: Logger,
 ) : ViewModel() {
 
     sealed interface State {
@@ -51,25 +53,39 @@ class DraftRecoveryViewModel @Inject constructor(
      * diálogo solo se ofrezca una vez por sesión.
      */
     fun checkForRecoverableDraft() {
-        if (!gate.tryConsume()) return
+        if (!gate.tryConsume()) {
+            logger.d(TAG, "checkForRecoverableDraft: ya ofrecido en esta sesión, se omite")
+            return
+        }
         viewModelScope.launch {
             // Filtrado por uid: con roles en producción, el borrador de un vendedor
             // NUNCA se le ofrece a otro. La consulta va por vendedorId, así que un uid
             // distinto simplemente no encuentra nada.
-            val uid = authRepository.getCurrentSession()?.userId ?: return@launch
-            val draft = draftRepository.get(uid) ?: return@launch
+            val uid = authRepository.getCurrentSession()?.userId
+            if (uid == null) {
+                logger.d(TAG, "checkForRecoverableDraft: sin sesión, no se ofrece nada")
+                return@launch
+            }
+            val draft = draftRepository.get(uid)
+            if (draft == null) {
+                logger.d(TAG, "checkForRecoverableDraft: no hay borrador para uid=$uid")
+                return@launch
+            }
+            logger.d(TAG, "checkForRecoverableDraft: borrador con ${draft.itemCount} ítems, revalidando")
 
             val today = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
             when (val outcome = runCatching { validateDraft(draft, today) }.getOrNull()) {
                 is ValidateDraftForRecoveryUseCase.Outcome.Restore -> {
+                    logger.d(TAG, "checkForRecoverableDraft: se ofrece (avisos=${outcome.notices.size})")
                     _state.value = State.Offer(outcome.draft, outcome.notices)
                 }
                 is ValidateDraftForRecoveryUseCase.Outcome.Discard -> {
+                    logger.d(TAG, "checkForRecoverableDraft: descartado por ${outcome.reason}")
                     // Ya no sirve (vencido, duplicado o sin ítems vivos): se limpia en
                     // silencio para que no vuelva a aparecer en el próximo arranque.
                     draftRepository.delete(uid)
                 }
-                null -> Unit // fallo al revalidar: se deja el borrador para el próximo intento
+                null -> logger.e(TAG, "checkForRecoverableDraft: la revalidación falló; se conserva el borrador")
             }
         }
     }
@@ -88,5 +104,9 @@ class DraftRecoveryViewModel @Inject constructor(
     /** El vendedor eligió "Retomar"; la Activity ya rehidrató el flujo. */
     fun consumed() {
         _state.value = State.Idle
+    }
+
+    private companion object {
+        const val TAG = "DRAFT_RECOVERY"
     }
 }
