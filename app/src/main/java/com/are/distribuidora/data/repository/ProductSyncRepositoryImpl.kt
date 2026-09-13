@@ -41,6 +41,7 @@ class ProductSyncRepositoryImpl @Inject constructor(
     private val imageStorage: ProductImageStorage,
     private val pendingUploadDao: com.are.distribuidora.data.local.dao.PendingUploadDao,
     private val movementDao: com.are.distribuidora.stockmovement.data.local.dao.StockMovementDao,
+    private val cursorStore: com.are.distribuidora.data.local.prefs.ProductSyncCursorStore,
 ) : ProductSyncRepository {
 
     /**
@@ -345,14 +346,21 @@ class ProductSyncRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncDownstream() = withContext(Dispatchers.IO) {
-        val lastSyncedProduct = local.getLastSyncedProduct()
-        val maxUpdatedAt = lastSyncedProduct?.updatedAt ?: 0L
-        val lastId = lastSyncedProduct?.id
+        // ── El watermark de bajada NO puede salir de la tabla `products` ──────────────
+        // `MAX(updatedAt)` de las filas SYNCED responde "cuál es el sello más nuevo que tengo",
+        // no "hasta dónde bajé". Al subir un producto adoptamos el `updatedAt` que le asigna el
+        // servidor, así que ese máximo SALTA: cualquier documento que otro teléfono escribió en
+        // medio (el vale que mueve `stock` con increment) queda por debajo del cursor y no se
+        // descarga NUNCA — el stock nuevo no llega y el watermark deja de moverse. Ver
+        // ProductSyncCursorStore.
+        val maxUpdatedAt = cursorStore.get() ?: 0L
+        val lastId = local.getLastSyncedProduct()?.id
 
         Log.d(TAG, "syncDownstream: Starting downstream sync from timestamp=$maxUpdatedAt, lastId=$lastId")
 
         var totalUpdated = 0
         var totalProtected = 0
+        var totalStale = 0
         var totalBatches = 0
         val startTime = System.currentTimeMillis()
 
@@ -372,6 +380,7 @@ class ProductSyncRepositoryImpl @Inject constructor(
                             val now = System.currentTimeMillis()
                             var batchDocsUpdated = 0
                             var batchProtected = 0
+                            var batchStale = 0
 
                             batch.forEach { r ->
                                 try {
@@ -417,8 +426,16 @@ class ProductSyncRepositoryImpl @Inject constructor(
                                          return@forEach
                                     }
 
-                                    saveRemoteProductToLocal(r, existing, now)
-                                    batchDocsUpdated++
+                                    // El contador solo cuenta ESCRITURAS REALES. Antes se
+                                    // incrementaba siempre, incluso cuando saveRemoteProductToLocal
+                                    // descartaba el write por LWW, así que el log `Updated=N` no era
+                                    // evidencia de que se hubiera escrito nada y despistaba el
+                                    // diagnóstico del downsync.
+                                    if (saveRemoteProductToLocal(r, existing, now)) {
+                                        batchDocsUpdated++
+                                    } else {
+                                        batchStale++
+                                    }
 
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error processing item ${r.id} in batch", e)
@@ -427,24 +444,37 @@ class ProductSyncRepositoryImpl @Inject constructor(
                             }
                             totalUpdated += batchDocsUpdated
                             totalProtected += batchProtected
-                            Log.d(TAG, "syncDownstream: Batch committed. Updated=$batchDocsUpdated, Protected=$batchProtected")
+                            totalStale += batchStale
+                            Log.d(TAG, "syncDownstream: Batch committed. Updated=$batchDocsUpdated, Protected=$batchProtected, StaleIgnored=$batchStale")
                         }
                     } catch (e: Exception) {
                          Log.e(TAG, "Batch transaction failed", e)
                          throw e
                     }
+
+                    // Solo una bajada REALMENTE aplicada mueve el watermark, y solo hasta el sello
+                    // más alto del lote ya commiteado (los lotes llegan en orden ascendente). Si el
+                    // proceso muere antes de esta línea, el siguiente ciclo vuelve a bajar el lote:
+                    // es idempotente (LWW) y nunca deja un hueco.
+                    batch.mapNotNull { it.updatedRemoteAt }.maxOrNull()?.let { cursorStore.advanceTo(it) }
                 }
         } finally {
             val duration = System.currentTimeMillis() - startTime
-            Log.i(TAG, "syncDownstream: Completed. Duration=${duration}ms, Batches=$totalBatches, Updated=$totalUpdated, Protected=$totalProtected")
+            Log.i(TAG, "syncDownstream: Completed. Duration=${duration}ms, Batches=$totalBatches, Updated=$totalUpdated, Protected=$totalProtected, StaleIgnored=$totalStale")
         }
     }
 
-    private suspend fun saveRemoteProductToLocal(r: RemoteProduct, existing: com.are.distribuidora.data.local.entity.ProductEntity?, now: Long) {
+    /**
+     * @return true si REALMENTE se escribió la fila (insert o update); false si el write se
+     * descartó (LWW: el remoto es más viejo que lo local, o llamada defensiva con isDeleted).
+     * El contador `Updated=` del log depende de este booleano: contar intentos en vez de
+     * escrituras hacía que un downsync que no aplicaba nada se reportara como exitoso.
+     */
+    private suspend fun saveRemoteProductToLocal(r: RemoteProduct, existing: com.are.distribuidora.data.local.entity.ProductEntity?, now: Long): Boolean {
         if (r.isDeleted == true) {
             // Should have been handled by caller, but safety check.
             Log.w(TAG, "saveRemoteProductToLocal called with isDeleted=true. Ignoring to prevent resurrection.")
-            return
+            return false
         }
 
         // Remote imageUrl is always the authoritative remote URL (https://...)
@@ -486,14 +516,16 @@ class ProductSyncRepositoryImpl @Inject constructor(
 
         if (existing == null) {
             local.insert(entity)
+            return true
+        }
+        // Caller guarantees `existing` is durably SYNCED here (dirty rows are protected
+        // upstream). Strict LWW: newest server timestamp wins; ties resolve to remote.
+        return if (entity.updatedAt >= existing.updatedAt) {
+            local.update(entity)
+            true
         } else {
-             // Caller guarantees `existing` is durably SYNCED here (dirty rows are protected
-             // upstream). Strict LWW: newest server timestamp wins; ties resolve to remote.
-             if (entity.updatedAt >= existing.updatedAt) {
-                 local.update(entity)
-             } else {
-                 Log.d(TAG, "Msg: Ignored stale remote update for ${r.id}")
-             }
+            Log.d(TAG, "Msg: Ignored stale remote update for ${r.id} (remote=${entity.updatedAt} < local=${existing.updatedAt})")
+            false
         }
     }
 }

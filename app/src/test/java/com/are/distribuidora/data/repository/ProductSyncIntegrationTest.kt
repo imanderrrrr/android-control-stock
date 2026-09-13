@@ -52,6 +52,7 @@ class ProductSyncIntegrationTest {
             imageStorage = mockk(relaxed = true),
             pendingUploadDao = db.pendingUploadDao(),
             movementDao = db.stockMovementDao(),
+            cursorStore = com.are.distribuidora.data.local.prefs.InMemoryProductSyncCursorStore(),
         )
     }
 

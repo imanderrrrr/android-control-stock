@@ -68,6 +68,7 @@ class ProductOrderStockSyncTest {
             imageStorage = mockk(relaxed = true),
             pendingUploadDao = db.pendingUploadDao(),
             movementDao = movementDao,
+            cursorStore = com.are.distribuidora.data.local.prefs.InMemoryProductSyncCursorStore(),
         )
         useCase = SyncProductsUseCase(
             repository = syncRepo,

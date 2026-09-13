@@ -42,6 +42,7 @@ class HybridProductRepositoryTest {
             imageStorage = imageStorage,
             pendingUploadDao = db.pendingUploadDao(),
             movementDao = db.stockMovementDao(),
+            cursorStore = com.are.distribuidora.data.local.prefs.InMemoryProductSyncCursorStore(),
         )
 
         // CUANDO: sincronizamos (remoto -> local) usando nueva interfaz

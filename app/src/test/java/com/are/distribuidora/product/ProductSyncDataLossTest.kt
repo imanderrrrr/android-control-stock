@@ -80,6 +80,7 @@ class ProductSyncDataLossTest {
             imageStorage = mockk(relaxed = true),
             pendingUploadDao = db.pendingUploadDao(),
             movementDao = db.stockMovementDao(),
+            cursorStore = com.are.distribuidora.data.local.prefs.InMemoryProductSyncCursorStore(),
         )
 
         val scheduler = mockk<com.are.distribuidora.workers.ProductSyncScheduler>(relaxed = true)

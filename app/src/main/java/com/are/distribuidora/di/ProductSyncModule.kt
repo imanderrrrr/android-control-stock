@@ -19,6 +19,12 @@ abstract class ProductSyncBindingsModule {
     @Binds
     @Singleton
     abstract fun bindProductSyncRepository(impl: ProductSyncRepositoryImpl): ProductSyncRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindProductSyncCursorStore(
+        impl: com.are.distribuidora.data.local.prefs.SharedPrefsProductSyncCursorStore,
+    ): com.are.distribuidora.data.local.prefs.ProductSyncCursorStore
 }
 
 @Module

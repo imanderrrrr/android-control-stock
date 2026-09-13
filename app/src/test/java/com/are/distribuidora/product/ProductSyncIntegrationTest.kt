@@ -77,6 +77,7 @@ class ProductSyncIntegrationTest {
             imageStorage = mockk(relaxed = true), // No se testea upload aquí
             pendingUploadDao = mockk(relaxed = true),
             movementDao = mockk(relaxed = true),
+            cursorStore = com.are.distribuidora.data.local.prefs.InMemoryProductSyncCursorStore(),
         )
 
         val scheduler = mockk<com.are.distribuidora.workers.ProductSyncScheduler>(relaxed = true)
