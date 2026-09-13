@@ -7,6 +7,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.core.content.ContextCompat
+import androidx.core.view.children
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
@@ -30,16 +31,29 @@ import java.util.Locale
 /**
  * Adapter del catálogo de productos en el flujo de creación de pedido.
  *
- * Diseño (fix de la race "Inconsistency detected. Invalid view holder
- * adapter position"):
- *  - El PagingData transporta SOLO [Product]. La cantidad del carrito NO
- *    forma parte del item paginado.
- *  - `submitData()` tiene una ÚNICA fuente (búsqueda/categoría). El carrito
- *    llega por un canal separado vía [submitCartQuantities], que emite un
- *    `notifyItemChanged(pos, PAYLOAD_QTY)` puntual. Así nunca hay dos
- *    generaciones de PagingData compitiendo con el layout pass del
- *    RecyclerView — que era exactamente la causa del crash (un scrap holder
- *    de la lista filtrada reusado contra la generación de la lista completa).
+ * Diseño (fix definitivo del crash "Inconsistency detected", tercera aparición):
+ *  - El PagingData transporta SOLO [Product]. La cantidad del carrito NO forma
+ *    parte del item paginado.
+ *  - El differ de Paging es el ÚNICO que notifica al RecyclerView. Este adapter
+ *    no llama a `notify*` en ningún caso: ni `notifyItemChanged`, ni rangos, ni
+ *    `notifyDataSetChanged`.
+ *  - Las cantidades del carrito llegan por [submitCartQuantities] y se pintan
+ *    escribiendo DIRECTO sobre los ViewHolders visibles ([ProductVH.bindQuantityOnly]),
+ *    sin tocar la contabilidad de posiciones del RecyclerView. Las filas que aún
+ *    no están enlazadas toman la cantidad de [quantities] en el bind normal.
+ *
+ * Por qué los dos intentos anteriores no bastaron:
+ *  - `1519ad1` metió el carrito DENTRO del PagingData (combine + submitData). Dos
+ *    orígenes de emisión alimentaban un `collectLatest`, que cancelaba diffs a
+ *    medio aplicar.
+ *  - `500e7bb` sacó el carrito del PagingData, pero lo dejó notificando a mano con
+ *    `notifyItemChanged(pos, PAYLOAD_QTY)`. Seguían siendo DOS fuentes escribiendo
+ *    sobre la misma contabilidad de posiciones: RecyclerView no consume esas
+ *    operaciones cuando se emiten, sino de forma diferida en el layout, así que al
+ *    cambiar el tamaño de la lista de golpe (vaciar la búsqueda: ~3 ítems → ~450)
+ *    los offsets del differ y los del notify manual divergían y reventaba en
+ *    `onLayout`. El comentario que decía que era seguro "porque ambos canales corren
+ *    en el main thread" era falso por esa razón.
  *
  * @param logger Inyectado para que los fallos del adapter (ej. Glide image load
  *               failures) alimenten el ring buffer del crash reporter y queden
@@ -71,6 +85,23 @@ class OrderCatalogAdapter(
      */
     private var quantities: Map<String, Int> = emptyMap()
 
+    /**
+     * RecyclerView al que está enlazado el adapter. Se usa SOLO para recorrer los
+     * ViewHolders visibles en [submitCartQuantities] y escribirles la cantidad
+     * directamente. Nunca para notificar cambios.
+     */
+    private var recyclerView: RecyclerView? = null
+
+    override fun onAttachedToRecyclerView(recyclerView: RecyclerView) {
+        super.onAttachedToRecyclerView(recyclerView)
+        this.recyclerView = recyclerView
+    }
+
+    override fun onDetachedFromRecyclerView(recyclerView: RecyclerView) {
+        super.onDetachedFromRecyclerView(recyclerView)
+        if (this.recyclerView === recyclerView) this.recyclerView = null
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProductVH {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_order_catalog_product, parent, false)
@@ -91,37 +122,43 @@ class OrderCatalogAdapter(
         }
     }
 
-    override fun onBindViewHolder(holder: ProductVH, position: Int, payloads: MutableList<Any>) {
-        if (payloads.contains(PAYLOAD_QTY)) {
-            getItem(position)?.let { product ->
-                holder.updateQuantity(quantities[product.id.value] ?: 0, animate = true)
-            }
-        } else {
-            super.onBindViewHolder(holder, position, payloads)
-        }
+    /**
+     * Actualiza SOLO las cantidades del carrito, SIN notificar al RecyclerView.
+     *
+     * El differ de Paging es el único dueño de las notificaciones; este método no
+     * puede emitir `notify*` sin volver a abrir la race que crashea en `onLayout`
+     * (ver el KDoc de la clase). En su lugar:
+     *  - guarda el mapa, que es lo que leerán las filas que se enlacen después, y
+     *  - recorre los ViewHolders YA visibles y escribe la cantidad directamente en
+     *    sus vistas, identificándolos por el producto que tienen enlazado — nunca
+     *    por posición de adapter, para no tocar la contabilidad de Paging ni
+     *    disparar la carga de páginas.
+     */
+    fun submitCartQuantities(newQuantities: Map<String, Int>) {
+        quantities = newQuantities
+
+        val rv = recyclerView ?: return
+        // Durante el layout, cambiar la visibilidad del stepper dispararía un
+        // requestLayout anidado. Se difiere al siguiente frame; el mapa ya quedó
+        // guardado arriba, así que el repaso diferido lee el estado más reciente.
+        if (rv.isComputingLayout) rv.post { repaintVisibleQuantities(rv) }
+        else repaintVisibleQuantities(rv)
     }
 
     /**
-     * Actualiza SOLO las cantidades del carrito sin re-disparar `submitData`.
+     * Escribe la cantidad actual en cada ViewHolder visible cuyo número cambió.
      *
-     * Recorre el snapshot presentado actualmente y emite un
-     * `notifyItemChanged(pos, PAYLOAD_QTY)` únicamente en los ítems cuya
-     * cantidad cambió. Coexiste de forma segura con `submitData` porque:
-     *  - `submitData` tiene UNA sola fuente (búsqueda/categoría), así que no
-     *    hay dos generaciones de PagingData compitiendo.
-     *  - El notify es puntual y acotado a posiciones realmente presentadas
-     *    (nunca un rango ni `notifyDataSetChanged`), respetando el itemCount real.
-     *  - Ambos canales corren en el main thread, por lo que se serializan.
+     * La referencia de "lo viejo" es lo que el propio holder tiene pintado
+     * ([ProductVH.boundQuantity]), no un mapa anterior: es el estado real de la
+     * pantalla y sigue siendo correcto aunque el repaso se haya diferido y en medio
+     * hayan entrado más cambios.
      */
-    fun submitCartQuantities(newQuantities: Map<String, Int>) {
-        val old = quantities
-        quantities = newQuantities
-        snapshot().forEachIndexed { index, product ->
-            if (product != null) {
-                val oldQty = old[product.id.value] ?: 0
-                val newQty = newQuantities[product.id.value] ?: 0
-                if (oldQty != newQty) notifyItemChanged(index, PAYLOAD_QTY)
-            }
+    private fun repaintVisibleQuantities(rv: RecyclerView) {
+        rv.children.forEach { child ->
+            val holder = rv.getChildViewHolder(child) as? ProductVH ?: return@forEach
+            val productId = holder.boundProductId ?: return@forEach
+            val newQty = quantities[productId] ?: 0
+            if (holder.boundQuantity != newQty) holder.bindQuantityOnly(newQty, animate = true)
         }
     }
 
@@ -151,6 +188,13 @@ class OrderCatalogAdapter(
         private val buttonIncrement  = itemView.findViewById<MaterialButton>(R.id.buttonIncrement)
 
         private var current: Product? = null
+        private var currentQty: Int = 0
+
+        /** Producto actualmente enlazado, o null si el holder aún no se enlazó. */
+        val boundProductId: String? get() = current?.id?.value
+
+        /** Última cantidad pintada en este holder. */
+        val boundQuantity: Int get() = currentQty
 
         init {
             card.setOnClickListener { current?.let(onCardClicked) }
@@ -196,10 +240,16 @@ class OrderCatalogAdapter(
             }
 
             bindImage(product)
-            updateQuantity(qty, animate)
+            bindQuantityOnly(qty, animate)
         }
 
-        fun updateQuantity(qty: Int, animate: Boolean) {
+        /**
+         * Pinta SOLO la cantidad y el estado del stepper. Único sitio donde viven
+         * esas reglas de presentación: lo reutilizan el bind completo y la
+         * actualización directa desde [OrderCatalogAdapter.submitCartQuantities].
+         */
+        fun bindQuantityOnly(qty: Int, animate: Boolean) {
+            currentQty = qty
             textQuantity.text = qty.toString()
             // Borde verde de marca cuando el producto está en el carrito (como en Pencil).
             card.setStrokeColor(
@@ -332,16 +382,14 @@ class OrderCatalogAdapter(
     }
 
     companion object {
-        private const val PAYLOAD_QTY = "payload_qty"
-
         /**
          * DiffUtil sobre [Product] — la cantidad del carrito ya NO vive en el
          * item paginado, se aplica vía [submitCartQuantities].
          *  - areItemsTheSame: mismo productId (identidad estable).
          *  - areContentsTheSame: producto idéntico (precio, nombre, imagen…).
          *
-         * Sin `getChangePayload` de qty: los cambios de cantidad los notifica
-         * [submitCartQuantities] con [PAYLOAD_QTY], no el diff de paginación.
+         * Sin `getChangePayload`: los cambios de cantidad NO se notifican, los
+         * pinta [submitCartQuantities] directamente sobre los ViewHolders visibles.
          */
         private val DIFF = object : DiffUtil.ItemCallback<Product>() {
             override fun areItemsTheSame(oldItem: Product, newItem: Product) =
