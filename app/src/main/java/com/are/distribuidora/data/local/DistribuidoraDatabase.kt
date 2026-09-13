@@ -10,12 +10,15 @@ import com.are.distribuidora.data.local.entity.PendingUploadEntity
 import com.are.distribuidora.client.data.local.dao.ClientDao
 import com.are.distribuidora.data.local.dao.PedidoDao
 import com.are.distribuidora.data.local.dao.PedidoItemDao
+import com.are.distribuidora.data.local.dao.PedidoDraftDao
 import com.are.distribuidora.data.local.dao.ProductDao
 import com.are.distribuidora.data.local.dao.SaleDao
 import com.are.distribuidora.data.local.dao.SaleItemDao
 import com.are.distribuidora.client.data.local.entity.ClientEntity
 import com.are.distribuidora.data.local.entity.PedidoEntity
 import com.are.distribuidora.data.local.entity.PedidoItemEntity
+import com.are.distribuidora.data.local.entity.PedidoDraftEntity
+import com.are.distribuidora.data.local.entity.PedidoDraftItemEntity
 import com.are.distribuidora.data.local.entity.ProductEntity
 import com.are.distribuidora.data.local.entity.SaleEntity
 import com.are.distribuidora.data.local.entity.SaleItemEntity
@@ -53,8 +56,11 @@ import com.are.distribuidora.screenaccess.data.local.entity.ScreenAccessEntity
         ScreenAccessEntity::class,
         // Libro de movimientos de inventario (4.1)
         com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity::class,
+        // Borrador del pedido en curso (4.1.1) — puramente local, nunca se sincroniza
+        PedidoDraftEntity::class,
+        PedidoDraftItemEntity::class,
     ],
-    version = 40,
+    version = 41,
     exportSchema = true,
 )
 @androidx.room.TypeConverters(
@@ -66,6 +72,9 @@ abstract class DistribuidoraDatabase : RoomDatabase() {
     abstract fun saleItemDao(): SaleItemDao
     abstract fun pedidoDao(): PedidoDao
     abstract fun pedidoItemDao(): PedidoItemDao
+
+    // Borrador del pedido en curso
+    abstract fun pedidoDraftDao(): PedidoDraftDao
     abstract fun clientDao(): ClientDao
 
     // Routes

@@ -2,15 +2,21 @@ package com.are.distribuidora.pedido.presentation.create
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.are.distribuidora.auth.domain.repository.AuthRepository
 import com.are.distribuidora.client.domain.repository.ClientRepository
 import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.domain.pedido.DiscountType
+import com.are.distribuidora.domain.pedido.PedidoDraftRepository
 import com.are.distribuidora.domain.pedido.model.ClienteSelection
+import com.are.distribuidora.domain.pedido.model.PedidoDraft
+import com.are.distribuidora.domain.pedido.model.PedidoDraftItem
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountByAmountUseCase
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountUseCase
 import com.are.distribuidora.domain.pedido.usecase.RoundToQuarterQuetzalUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -64,7 +70,139 @@ class CreatePedidoFlowViewModel @Inject constructor(
     private val applyItemDiscountUseCase: ApplyItemDiscountUseCase,
     private val applyItemDiscountByAmountUseCase: ApplyItemDiscountByAmountUseCase,
     private val clientRepository: ClientRepository,
+    private val draftRepository: PedidoDraftRepository,
+    private val authRepository: AuthRepository,
 ) : ViewModel() {
+
+    // ── Borrador persistente ─────────────────────────────────────────────────
+    //
+    // Requisito de Anderson: en cuanto cambie CUALQUIER cosa del pedido (agregar un
+    // ítem, tocar una cantidad, aplicar un descuento, elegir cliente o fecha) tiene
+    // que quedar guardado en local, para que un cierre inesperado no se lleve el
+    // trabajo. Nada de debounce: una ventana de 300 ms es justo lo que se perdería
+    // si la app muere justo después de un toque.
+    //
+    // El guardado es INMEDIATO pero SERIALIZADO: cada mutación pide un guardado con
+    // [requestDraftSave] y un único consumidor los atiende de uno en uno. El canal
+    // tiene capacidad 1 con DROP_OLDEST, así que si el vendedor machaca el "+" más
+    // rápido de lo que Room escribe, las peticiones intermedias se descartan pero
+    // SIEMPRE queda una pendiente que persiste el estado final — nunca se pierde el
+    // último cambio y nunca hay dos escrituras pisándose. `tryEmit` no suspende, así
+    // que la UI jamás se bloquea por esto.
+    private val draftSaveRequests = MutableSharedFlow<Unit>(
+        replay = 0,
+        extraBufferCapacity = 1,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST,
+    )
+
+    /** uid del vendedor dueño del borrador. Se cachea para no leer la sesión en cada guardado. */
+    @Volatile
+    private var vendedorId: String? = null
+
+    init {
+        viewModelScope.launch {
+            // `collect` (no `collectLatest`): una escritura en curso nunca se cancela
+            // a medias; la siguiente petición espera su turno y persiste el estado
+            // más reciente, que es el que importa.
+            draftSaveRequests.collect { persistDraft() }
+        }
+    }
+
+    private fun requestDraftSave() {
+        draftSaveRequests.tryEmit(Unit)
+    }
+
+    private suspend fun currentVendedorId(): String? =
+        vendedorId ?: authRepository.getCurrentSession()?.userId?.also { vendedorId = it }
+
+    /**
+     * Escribe el estado actual del flujo en Room, o borra el borrador si ya no hay
+     * nada que recuperar.
+     *
+     * Lee el estado en el momento de escribir (no un snapshot capturado al pedir el
+     * guardado), que es lo que hace correcta la conflación descrita arriba.
+     */
+    private suspend fun persistDraft() {
+        val uid = currentVendedorId() ?: return
+        val route = _routeId.value
+        val selection = _clienteSelection.value
+        val items = _cartItems.value
+
+        // Sin flujo activo o con el carrito vacío no hay nada que retomar: se borra
+        // para que "existe borrador" siga significando "hay trabajo sin terminar".
+        if (route.isNullOrBlank() || selection == null || items.isEmpty()) {
+            runCatching { draftRepository.delete(uid) }
+            return
+        }
+
+        val draft = PedidoDraft(
+            vendedorId    = uid,
+            routeId       = route,
+            cliente       = selection,
+            clienteNombre = _clienteNombre.value
+                ?: (selection as? ClienteSelection.Temporal)?.snapshot?.nombre
+                ?: "",
+            deliveryDate  = _deliveryDate.value,
+            ivaEnabled    = _ivaEnabled.value,
+            updatedAt     = System.currentTimeMillis(),
+            items = items.values.map { item ->
+                PedidoDraftItem(
+                    productoId       = item.productId,
+                    nombre           = item.name,
+                    precioUnitario   = item.priceAmount,
+                    cantidad         = item.quantity,
+                    descuentoAmount  = item.discountAmount,
+                    descuentoPercent = item.discountPercent,
+                    descuentoType    = item.discountType,
+                    notes            = item.notes,
+                    category         = item.category,
+                    imageUrl         = item.imageUrl,
+                    barcode          = item.barcode,
+                )
+            },
+        )
+        // El borrador es una comodidad: si Room falla, el pedido en memoria sigue
+        // intacto y el vendedor puede confirmarlo igual. No se propaga el error.
+        runCatching { draftRepository.save(draft) }
+    }
+
+    /**
+     * Rehidrata el flujo desde un borrador ya revalidado y lo vuelve a guardar
+     * (el borrador puede haber cambiado en la revalidación: precios nuevos, ítems
+     * quitados o fecha de entrega corregida).
+     */
+    fun restoreFrom(draft: PedidoDraft) {
+        vendedorId = draft.vendedorId
+        _routeId.value = draft.routeId
+        _deliveryDate.value = draft.deliveryDate
+        _clienteSelection.value = draft.cliente
+        _ivaEnabled.value = draft.ivaEnabled
+        _cartItems.value = draft.items.associate { item ->
+            item.productoId to CartItem(
+                productId       = item.productoId,
+                name            = item.nombre,
+                priceAmount     = item.precioUnitario,
+                category        = item.category,
+                quantity        = item.cantidad,
+                imageUrl        = item.imageUrl,
+                barcode         = item.barcode,
+                notes           = item.notes,
+                discountAmount  = item.descuentoAmount,
+                discountPercent = item.descuentoPercent,
+                discountType    = item.descuentoType,
+            )
+        }
+        loadClientOrderLimit(draft.cliente)
+        requestDraftSave()
+    }
+
+    /**
+     * Descarta el borrador del vendedor sin tocar el estado en memoria.
+     * Lo usa la recuperación cuando el vendedor elige "Descartar".
+     */
+    fun discardDraft(vendedorIdToDiscard: String) {
+        viewModelScope.launch { runCatching { draftRepository.delete(vendedorIdToDiscard) } }
+    }
 
     private val _routeId = MutableStateFlow<String?>(null)
     val routeId: StateFlow<String?> = _routeId.asStateFlow()
@@ -85,7 +223,10 @@ class CreatePedidoFlowViewModel @Inject constructor(
     /** Si el vendedor activó el IVA del 12% en el carrito. Por defecto desactivado. */
     val ivaEnabled: StateFlow<Boolean> = _ivaEnabled.asStateFlow()
 
-    fun setIvaEnabled(enabled: Boolean) { _ivaEnabled.value = enabled }
+    fun setIvaEnabled(enabled: Boolean) {
+        _ivaEnabled.value = enabled
+        requestDraftSave()
+    }
 
     /** Subtotal neto del carrito (suma de subtotales de ítems, sin IVA). */
     val cartSubtotal: StateFlow<Double> = _cartItems
@@ -130,6 +271,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
         _deliveryDate.value = deliveryDate
         _clienteSelection.value = selection
         loadClientOrderLimit(selection)
+        requestDraftSave()
     }
 
     /**
@@ -145,6 +287,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
                         _maxOrderAmountInCents.value = result.value?.maxOrderAmountInCents
                         _clienteNombre.value = result.value?.name
                         _clienteDireccion.value = result.value?.address
+                        requestDraftSave()
                     } else {
                         _maxOrderAmountInCents.value = null
                     }
@@ -154,11 +297,24 @@ class CreatePedidoFlowViewModel @Inject constructor(
                 _maxOrderAmountInCents.value = null
                 _clienteNombre.value = selection.snapshot.nombre
                 _clienteDireccion.value = selection.snapshot.direccion
+                requestDraftSave()
             }
         }
     }
 
+    /**
+     * Cierra el flujo LIMPIAMENTE: borra el estado en memoria y el borrador persistido.
+     *
+     * Este es el punto que le da sentido a toda la recuperación: se llama al confirmar
+     * el pedido con éxito y al abandonar el flujo a propósito. Por eso, que al arrancar
+     * exista un borrador significa exactamente que nadie cerró el flujo bien — sea por
+     * un crash o porque Android mató el proceso por memoria.
+     */
     fun clear() {
+        val uid = vendedorId
+        if (uid != null) {
+            viewModelScope.launch { runCatching { draftRepository.delete(uid) } }
+        }
         _routeId.value = null
         _deliveryDate.value = ""
         _clienteSelection.value = null
@@ -188,6 +344,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
             )
         }
         _cartItems.value = current
+        requestDraftSave()
     }
 
     /** Incrementa la cantidad de un producto en el carrito. */
@@ -196,6 +353,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
         val item = current[productId] ?: return
         current[productId] = item.copy(quantity = item.quantity + 1)
         _cartItems.value = current
+        requestDraftSave()
     }
 
     /** Decrementa la cantidad. Si llega a 0, elimina el item. */
@@ -208,6 +366,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
             current[productId] = item.copy(quantity = item.quantity - 1)
         }
         _cartItems.value = current
+        requestDraftSave()
     }
 
     /** Establece una cantidad directa (0 = elimina).
@@ -215,6 +374,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
     fun setQuantity(productId: String, qty: Int) {
         if (qty <= 0) {
             _cartItems.value = _cartItems.value.toMutableMap().also { it.remove(productId) }
+            requestDraftSave()
         } else {
             val current = _cartItems.value.toMutableMap()
             val item = current[productId] ?: return
@@ -247,6 +407,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
                 discountAmount = newDiscountAmount,
             )
             _cartItems.value = current
+        requestDraftSave()
         }
     }
 
@@ -256,15 +417,18 @@ class CreatePedidoFlowViewModel @Inject constructor(
         val item = current[productId] ?: return
         current[productId] = item.copy(notes = notes?.trim()?.takeIf { it.isNotBlank() })
         _cartItems.value = current
+        requestDraftSave()
     }
 
     fun clearCart() {
         _cartItems.value = emptyMap()
+        requestDraftSave()
     }
 
     /** Elimina un producto del carrito por ID. */
     fun removeFromCart(productId: String) {
         _cartItems.value = _cartItems.value.toMutableMap().also { it.remove(productId) }
+        requestDraftSave()
     }
 
     /**
@@ -295,6 +459,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
             discountType    = DiscountType.PERCENTAGE,
         )
         _cartItems.value = current
+        requestDraftSave()
     }
 
     /**
@@ -324,6 +489,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
             discountType    = DiscountType.AMOUNT,
         )
         _cartItems.value = current
+        requestDraftSave()
     }
 
     /**
@@ -353,6 +519,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
             )
         }
         _cartItems.value = current
+        requestDraftSave()
     }
 
     /**
@@ -379,5 +546,6 @@ class CreatePedidoFlowViewModel @Inject constructor(
             notes       = notes?.takeIf { it.isNotBlank() },
         )
         _cartItems.value = current
+        requestDraftSave()
     }
 }

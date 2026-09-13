@@ -21,7 +21,12 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.are.distribuidora.client.presentation.SelectClientFragment
 import com.are.distribuidora.pedido.presentation.catalog.OrderCatalogFragment
+import com.are.distribuidora.pedido.presentation.cart.OrderCartFragment
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
+import com.are.distribuidora.pedido.presentation.create.DraftRecoveryViewModel
+import com.are.distribuidora.domain.pedido.model.PedidoDraft
+import com.are.distribuidora.domain.pedido.usecase.ValidateDraftForRecoveryUseCase
+import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.are.distribuidora.pedido.presentation.list.PedidosFragment
 import com.are.distribuidora.pendingaccount.presentation.PendingAccountsFragment
 import com.are.distribuidora.roles.domain.Permission
@@ -30,7 +35,9 @@ import com.are.distribuidora.screenaccess.domain.model.AppScreen
 import com.are.distribuidora.screenaccess.domain.model.UserAccess
 import com.are.distribuidora.screenaccess.presentation.NoAccessFragment
 import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
+import java.text.NumberFormat
 import java.text.SimpleDateFormat
+import java.util.Currency
 import java.util.Date
 import java.util.Locale
 
@@ -42,6 +49,9 @@ class HomeActivity : FragmentActivity() {
 
     // Permisos de pantalla del usuario (compartido con los fragments vía activityViewModels()).
     private val screenAccessViewModel: ScreenAccessViewModel by viewModels()
+
+    // Recuperación del pedido en curso tras un cierre inesperado.
+    private val draftRecoveryViewModel: DraftRecoveryViewModel by viewModels()
 
     @Inject lateinit var getProductCount: GetProductCountUseCase
 
@@ -171,7 +181,141 @@ class HomeActivity : FragmentActivity() {
                     if (supportFragmentManager.backStackEntryCount == 0) {
                         renderCurrentTab()
                     }
+                    // Sesión y rol ya resueltos: este es el momento de ofrecer el
+                    // pedido a medias, sin competir con el splash ni con el login.
+                    // Es idempotente (DraftRecoveryGate), así que da igual que el
+                    // acceso emita varias veces.
+                    draftRecoveryViewModel.checkForRecoverableDraft()
                 }
+            }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                draftRecoveryViewModel.state.collect { state ->
+                    if (state is DraftRecoveryViewModel.State.Offer) {
+                        showDraftRecoveryDialog(state.draft, state.notices)
+                    }
+                }
+            }
+        }
+    }
+
+    // ---------------------------------------------------------------------------
+    // Recuperación del pedido tras un cierre inesperado
+    // ---------------------------------------------------------------------------
+
+    /**
+     * Avisa de que la app se cerró sin terminar el pedido y ofrece retomarlo.
+     *
+     * Se nombra al cliente y se dice cuántos productos llevaba, para que el vendedor
+     * sepa de qué pedido se trata antes de decidir.
+     */
+    private fun showDraftRecoveryDialog(
+        draft: PedidoDraft,
+        notices: List<ValidateDraftForRecoveryUseCase.Notice>,
+    ) {
+        val productos = resources.getQuantityString(
+            R.plurals.draft_recovery_product_count,
+            draft.itemCount,
+            draft.itemCount,
+        )
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.draft_recovery_title)
+            .setMessage(getString(R.string.draft_recovery_message, draft.clienteNombre, productos))
+            .setPositiveButton(R.string.draft_recovery_restore) { _, _ ->
+                restoreDraft(draft, notices)
+            }
+            // Descartar destruye trabajo, así que pide una segunda confirmación.
+            .setNegativeButton(R.string.draft_recovery_discard) { _, _ ->
+                confirmDiscardDraft(draft)
+            }
+            // Si lo ignora tocando fuera, el borrador se conserva y se le vuelve a
+            // ofrecer en el siguiente arranque (pero ya no en esta sesión).
+            .setOnCancelListener { draftRecoveryViewModel.dismiss() }
+            .show()
+    }
+
+    private fun confirmDiscardDraft(draft: PedidoDraft) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.draft_discard_confirm_title)
+            .setMessage(getString(R.string.draft_discard_confirm_message, draft.clienteNombre))
+            .setPositiveButton(R.string.draft_discard_confirm_yes) { _, _ ->
+                draftRecoveryViewModel.discard(draft)
+            }
+            .setNegativeButton(R.string.draft_discard_confirm_no) { _, _ ->
+                // Vuelve a ofrecer el diálogo principal: cancelar aquí no debe
+                // equivaler a perder la oferta.
+                showDraftRecoveryDialog(draft, emptyList())
+            }
+            .show()
+    }
+
+    /**
+     * Rehidrata el flujo y deja al vendedor en el carrito, que es donde revisa y
+     * confirma. Se apila también el catálogo por debajo para que "atrás" desde el
+     * carrito lleve al catálogo, igual que en el flujo normal.
+     */
+    private fun restoreDraft(
+        draft: PedidoDraft,
+        notices: List<ValidateDraftForRecoveryUseCase.Notice>,
+    ) {
+        createPedidoFlowViewModel.restoreFrom(draft)
+        draftRecoveryViewModel.consumed()
+
+        supportFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+            .replace(R.id.fragmentContainer, OrderCatalogFragment())
+            .addToBackStack("FLOW_CREATE_ORDER_CATALOG")
+            .commit()
+        supportFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+            .replace(R.id.fragmentContainer, OrderCartFragment(), "ORDER_CART")
+            .addToBackStack("FLOW_CATALOG")
+            .commit()
+
+        val message = buildRecoveryNoticeMessage(notices)
+        if (message == null) {
+            Toast.makeText(this, R.string.draft_restored_toast, Toast.LENGTH_SHORT).show()
+        } else {
+            // Los cambios se cuentan en un diálogo, no en un toast: el vendedor tiene
+            // que enterarse de que le quitamos productos o le cambiamos un precio.
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.draft_restored_toast)
+                .setMessage(message)
+                .setPositiveButton(android.R.string.ok, null)
+                .show()
+        }
+    }
+
+    /** Une los avisos de la revalidación en un solo texto, o null si no hubo ninguno. */
+    private fun buildRecoveryNoticeMessage(
+        notices: List<ValidateDraftForRecoveryUseCase.Notice>,
+    ): String? {
+        if (notices.isEmpty()) return null
+        val nf = NumberFormat.getCurrencyInstance(Locale("es", "GT")).also {
+            it.currency = Currency.getInstance("GTQ")
+        }
+        return notices.joinToString("\n\n") { notice ->
+            when (notice) {
+                is ValidateDraftForRecoveryUseCase.Notice.ItemsRemoved ->
+                    getString(
+                        R.string.draft_notice_items_removed,
+                        notice.names.joinToString(", "),
+                    )
+                is ValidateDraftForRecoveryUseCase.Notice.PricesChanged ->
+                    getString(
+                        R.string.draft_notice_prices_changed,
+                        notice.changes.joinToString(", ") {
+                            "${it.name} (${nf.format(it.oldPrice)} → ${nf.format(it.newPrice)})"
+                        },
+                    )
+                is ValidateDraftForRecoveryUseCase.Notice.DeliveryDateReset ->
+                    getString(
+                        R.string.draft_notice_date_reset,
+                        notice.previousDate,
+                        notice.newDate,
+                    )
             }
         }
     }

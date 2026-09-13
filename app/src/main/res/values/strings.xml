@@ -531,4 +531,28 @@
     <string name="movements_empty">Sin movimientos registrados en este teléfono</string>
     <string name="movement_pending">Pendiente de subir</string>
     <string name="product_stock_negative_hint">Negativo: se entregó antes del vale de entrada</string>
+
+    <!-- Abandono explícito del flujo de pedido (atrás desde el catálogo) -->
+    <string name="catalog_abandon_title">¿Salir del pedido?</string>
+    <string name="catalog_abandon_message">Se perderá el pedido que llevas. Si solo quieres ver otra pantalla, puedes volver después.</string>
+    <string name="catalog_abandon_confirm">Salir y borrar</string>
+    <string name="catalog_abandon_cancel">Seguir con el pedido</string>
+
+    <!-- Recuperación del pedido tras un cierre inesperado -->
+    <string name="draft_recovery_title">Se cerró inesperadamente</string>
+    <string name="draft_recovery_message">La aplicación se cerró sin que terminaras el pedido de %1$s, que llevaba %2$s.\n\n¿Quieres retomarlo?</string>
+    <string name="draft_recovery_restore">Retomar</string>
+    <string name="draft_recovery_discard">Descartar</string>
+    <plurals name="draft_recovery_product_count">
+        <item quantity="one">%d producto</item>
+        <item quantity="other">%d productos</item>
+    </plurals>
+    <string name="draft_discard_confirm_title">¿Descartar el pedido?</string>
+    <string name="draft_discard_confirm_message">Se borrará el pedido de %1$s y no se podrá recuperar.</string>
+    <string name="draft_discard_confirm_yes">Sí, descartar</string>
+    <string name="draft_discard_confirm_no">Cancelar</string>
+    <string name="draft_restored_toast">Pedido retomado</string>
+    <string name="draft_notice_items_removed">Se quitaron productos que ya no están disponibles: %1$s</string>
+    <string name="draft_notice_prices_changed">Cambiaron precios y se tomó el precio actual: %1$s</string>
+    <string name="draft_notice_date_reset">La fecha de entrega (%1$s) ya pasó; se cambió a hoy (%2$s).</string>
 </resources>

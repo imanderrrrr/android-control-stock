@@ -1421,4 +1421,65 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE orders ADD COLUMN editVersion INTEGER NOT NULL DEFAULT 0")
         }
     }
+
+    /**
+     * 40 → 41 (v4.1.1): borrador del pedido en curso.
+     *
+     * Dos tablas nuevas, ambas PURAMENTE LOCALES (sin `syncStatus`, fuera de todo worker
+     * de sincronización):
+     * 1. `pedido_draft`: cabecera del pedido a medio hacer. La PK es el `vendedorId`, así
+     *    que "un solo borrador por vendedor" queda garantizado por el esquema y el filtrado
+     *    por usuario es directo.
+     * 2. `pedido_draft_items`: los ítems del carrito, con PK compuesta
+     *    (vendedorId, productoId) — el carrito es un mapa por producto — y CASCADE sobre
+     *    la cabecera.
+     *
+     * No toca ninguna tabla existente, así que es puramente aditiva y no puede perder datos.
+     */
+    val MIGRATION_40_41: Migration = object : Migration(40, 41) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `pedido_draft` (
+                    `vendedorId` TEXT NOT NULL,
+                    `routeId` TEXT NOT NULL,
+                    `clienteId` TEXT,
+                    `clienteNombre` TEXT NOT NULL,
+                    `clienteTelefono` TEXT,
+                    `clienteDireccion` TEXT,
+                    `clienteEsTemporal` INTEGER NOT NULL,
+                    `deliveryDate` TEXT NOT NULL,
+                    `ivaEnabled` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL,
+                    PRIMARY KEY(`vendedorId`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `pedido_draft_items` (
+                    `vendedorId` TEXT NOT NULL,
+                    `productoId` TEXT NOT NULL,
+                    `nombre` TEXT NOT NULL,
+                    `precioUnitario` REAL NOT NULL,
+                    `cantidad` INTEGER NOT NULL,
+                    `descuentoAmount` REAL NOT NULL,
+                    `descuentoPercent` REAL NOT NULL,
+                    `descuentoType` TEXT NOT NULL,
+                    `notes` TEXT,
+                    `category` TEXT,
+                    `imageUrl` TEXT,
+                    `barcode` TEXT,
+                    PRIMARY KEY(`vendedorId`, `productoId`),
+                    FOREIGN KEY(`vendedorId`) REFERENCES `pedido_draft`(`vendedorId`)
+                        ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                "CREATE INDEX IF NOT EXISTS `index_pedido_draft_items_vendedorId` " +
+                    "ON `pedido_draft_items` (`vendedorId`)"
+            )
+        }
+    }
 }

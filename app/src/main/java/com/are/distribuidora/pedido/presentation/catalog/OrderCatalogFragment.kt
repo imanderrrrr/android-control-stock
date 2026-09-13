@@ -102,8 +102,27 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
 
         logger.d(tag, "Catalog opened. routeId=$routeId selection=$selection")
 
+        // Atrás desde el catálogo = salir del flujo de creación (debajo ya no queda
+        // nada del pedido: SelectClientFragment se saca a sí mismo del back stack).
+        // Es el punto de ABANDONO EXPLÍCITO, así que aquí se cierra el flujo bien y
+        // se borra el borrador; si hay carrito se pide confirmación porque destruye
+        // trabajo.
         view.findViewById<View>(R.id.btnBackCatalog).setOnClickListener {
-            parentFragmentManager.popBackStack()
+            if (flowViewModel.cartItems.value.isEmpty()) {
+                flowViewModel.clear()
+                parentFragmentManager.popBackStack()
+            } else {
+                MaterialAlertDialogBuilder(requireContext())
+                    .setTitle(R.string.catalog_abandon_title)
+                    .setMessage(R.string.catalog_abandon_message)
+                    .setPositiveButton(R.string.catalog_abandon_confirm) { _, _ ->
+                        logger.d(tag, "Flow abandoned explicitly from catalog")
+                        flowViewModel.clear()
+                        parentFragmentManager.popBackStack()
+                    }
+                    .setNegativeButton(R.string.catalog_abandon_cancel, null)
+                    .show()
+            }
         }
 
         // ── Barra de carrito ─────────────────────────────────────────────────
@@ -194,8 +213,9 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
                 }
 
                 // 1b. Carrito → solo cantidades, por canal separado.
-                //     submitCartQuantities hace notifyItemChanged puntual con
-                //     PAYLOAD_QTY; nunca re-dispara submitData.
+                //     submitCartQuantities NO notifica al RecyclerView: guarda el
+                //     mapa y pinta directo sobre los ViewHolders visibles. Así el
+                //     differ de Paging queda como única fuente de notificaciones.
                 launch {
                     flowViewModel.cartItems.collect { cart ->
                         adapter.submitCartQuantities(

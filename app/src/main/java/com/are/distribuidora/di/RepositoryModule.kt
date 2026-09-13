@@ -16,4 +16,9 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindPedidoRepository(impl: com.are.distribuidora.data.repository.PedidoRepositoryImpl): com.are.distribuidora.domain.pedido.PedidoRepository
+
+    @Binds
+    abstract fun bindPedidoDraftRepository(
+        impl: com.are.distribuidora.data.repository.PedidoDraftRepositoryImpl,
+    ): com.are.distribuidora.domain.pedido.PedidoDraftRepository
 }

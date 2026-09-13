@@ -36,6 +36,9 @@ object DaoModule {
     @Provides
     fun providePedidoItemDao(db: DistribuidoraDatabase): com.are.distribuidora.data.local.dao.PedidoItemDao = db.pedidoItemDao()
 
+    @Provides
+    fun providePedidoDraftDao(db: DistribuidoraDatabase): com.are.distribuidora.data.local.dao.PedidoDraftDao = db.pedidoDraftDao()
+
     // Orders
     @Provides
     fun provideOrderDao(db: DistribuidoraDatabase): OrderDao = db.orderDao()

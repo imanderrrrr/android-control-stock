@@ -18,19 +18,20 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 /**
- * Cadena 38 → 39 → 40 (integración 4.0 + 4.1) sobre una base creada con el schema JSON
- * exportado de la v38. Es el camino real de un teléfono que viene de 3.0.1.
+ * Cadena 38 → 39 → 40 → 41 (integración 4.0 + 4.1 + 4.1.1) sobre una base creada con el
+ * schema JSON exportado de la v38. Es el camino real de un teléfono que viene de 3.0.1.
  *
  *  - 38 → 39 (4.0) agrega `screen_access.role`;
  *  - 39 → 40 (4.1, renumerada al integrar) crea `stock_movements` con sus índices,
  *    quita `products.comprometido` conservando el stock, y agrega `orders.editVersion`.
  *    NO vuelve a crear `role`: ya existe desde la 39.
+ *  - 40 → 41 (4.1.1) crea las tablas del borrador del pedido en curso.
  *  - Room valida el schema resultante contra el generado (si algo no cuadra, `build()`/primer uso lanza).
  */
 @RunWith(RobolectricTestRunner::class)
-class Migration38To40Test {
+class Migration38To41Test {
 
-    private val dbName = "migration-38-40-test.db"
+    private val dbName = "migration-38-41-test.db"
     private lateinit var context: Context
 
     @Before
@@ -45,7 +46,7 @@ class Migration38To40Test {
     }
 
     @Test
-    fun `migra 38 a 40 conservando stock y creando el libro de movimientos`() {
+    fun `migra 38 a 41 conservando stock, creando el libro de movimientos y el borrador`() {
         // 1) Base v38 real, construida con el createSql del schema exportado por Room.
         createV38Database { db ->
             db.execSQL(
@@ -70,17 +71,18 @@ class Migration38To40Test {
             )
         }
 
-        // 2) Abrir con Room v40 + las DOS migraciones: Room valida el schema tras migrar.
+        // 2) Abrir con Room v41 + las TRES migraciones: Room valida el schema tras migrar.
         val room = Room.databaseBuilder(context, DistribuidoraDatabase::class.java, dbName)
             .addMigrations(
                 DistribuidoraMigrations.MIGRATION_38_39,
                 DistribuidoraMigrations.MIGRATION_39_40,
+                DistribuidoraMigrations.MIGRATION_40_41,
             )
             .allowMainThreadQueries()
             .build()
         try {
             val db = room.openHelper.writableDatabase
-            assertEquals(40, db.version)
+            assertEquals(41, db.version)
 
             // products: stock intacto (incluido un negativo), sin comprometido
             db.query("SELECT stock, syncStatus FROM products WHERE id = 'p1'").use { c ->
@@ -111,6 +113,27 @@ class Migration38To40Test {
             // Que la cadena llegue hasta aquí YA prueba que la 39→40 no repite el ALTER de `role`:
             // SQLite lanza "duplicate column name" y la migración abortaría.
             assertTrue("screen_access debe tener role", columns(db, "screen_access").contains("role"))
+
+            // 4.1.1: tablas del borrador, vacías y listas. Que Room haya validado el
+            // schema sin lanzar ya prueba que la 40→41 crea exactamente lo que declaran
+            // las entidades.
+            val draftCols = columns(db, "pedido_draft")
+            listOf("vendedorId", "routeId", "clienteId", "clienteNombre", "clienteEsTemporal",
+                "deliveryDate", "ivaEnabled", "updatedAt").forEach {
+                assertTrue("falta columna $it en pedido_draft", draftCols.contains(it))
+            }
+            val draftItemCols = columns(db, "pedido_draft_items")
+            listOf("vendedorId", "productoId", "nombre", "precioUnitario", "cantidad",
+                "descuentoAmount", "descuentoPercent", "descuentoType", "notes").forEach {
+                assertTrue("falta columna $it en pedido_draft_items", draftItemCols.contains(it))
+            }
+            assertTrue(
+                indexNames(db, "pedido_draft_items").contains("index_pedido_draft_items_vendedorId")
+            )
+            // Un teléfono que actualiza no hereda ningún borrador: nada que ofrecerle.
+            db.query("SELECT COUNT(*) FROM pedido_draft").use { c ->
+                assertTrue(c.moveToFirst()); assertEquals(0, c.getInt(0))
+            }
 
             // El DAO real funciona sobre la base migrada.
             kotlinx.coroutines.runBlocking {
