@@ -14,4 +14,6 @@ class NotImplementedAuthRemoteDataSource : AuthRemoteDataSource {
     override suspend fun login(email: String, password: String): AuthRemoteDataSource.LoginResponse {
         throw UnsupportedOperationException("Auth remoto no implementado en este proyecto")
     }
+
+    override suspend fun signOut() = Unit
 }

@@ -253,6 +253,9 @@ object PrintTicketHelper {
         if (pedido.descuentoGlobal > 0.0) {
             lines += labelValue("Desc. global:", "-${currencyFmt.format(pedido.descuentoGlobal)}")
         }
+        if (pedido.ivaAmount > 0.0) {
+            lines += labelValue("IVA (12%):", currencyFmt.format(pedido.ivaAmount))
+        }
         lines += labelValue("TOTAL:", currencyFmt.format(pedido.total))
         lines += sep
 
@@ -329,6 +332,8 @@ object PrintTicketHelper {
         wLine(labelValue("Subtotal:", currencyFmt.format(pedido.subtotal)))
         if (pedido.descuentoGlobal > 0.0)
             wLine(labelValue("Desc. global:", "-${currencyFmt.format(pedido.descuentoGlobal)}"))
+        if (pedido.ivaAmount > 0.0)
+            wLine(labelValue("IVA (12%):", currencyFmt.format(pedido.ivaAmount)))
 
         w(ESC_BOLD_ON)
         wLine(labelValue("TOTAL:", currencyFmt.format(pedido.total)))

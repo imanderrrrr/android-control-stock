@@ -29,6 +29,7 @@ import kotlinx.coroutines.launch
 import java.text.NumberFormat
 import java.util.Currency
 import java.util.Locale
+import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -260,6 +261,34 @@ class EditPedidoViewModel @Inject constructor(
         rebuildUiState()
     }
 
+    /**
+     * Agrega un ÍTEM PERSONALIZADO (sin producto de catálogo) al carrito de edición.
+     *
+     * Espejo de [com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel.addCustomItem]:
+     * usa un productoId `custom_<UUID>` para no colisionar con productos reales (la tabla
+     * pedido_items no tiene FK a productos y el descuento de stock es no-op para estos ids).
+     * Siempre es un ítem NUEVO (existingItemId = null).
+     */
+    fun addCustomItem(name: String, quantity: Int, price: Double, notes: String?) {
+        if (name.isBlank() || quantity <= 0 || price < 0.0) return
+        val customId = "custom_${UUID.randomUUID()}"
+        val localKey = "NEW-$customId-${System.currentTimeMillis()}"
+        val current  = _editItems.value.toMutableMap()
+        current[localKey] = EditItemUiModel(
+            localKey       = localKey,
+            existingItemId = null,
+            productoId     = customId,
+            nombre         = name.trim(),
+            precioUnitario = price,
+            cantidad       = quantity,
+            descuentoItem  = 0.0,
+            imageUrl       = null,
+            notes          = notes?.takeIf { it.isNotBlank() },
+        )
+        _editItems.value = current
+        rebuildUiState()
+    }
+
     /** Actualiza la cantidad de un ítem. Si qty == 0 → marca para eliminar. */
     fun setQuantity(localKey: String, qty: Int) {
         if (qty <= 0) {
@@ -376,6 +405,7 @@ class EditPedidoViewModel @Inject constructor(
                 is Result.Error -> {
                     val msg = when (val f = result.failure) {
                         is com.are.distribuidora.core.result.Failure.ValidationError -> f.message
+                        com.are.distribuidora.core.result.Failure.Forbidden -> "No tienes permiso para editar este pedido"
                         is com.are.distribuidora.core.result.Failure.OrderLimitExceeded -> {
                             val limitFormatted = f.limitInCents / 100.0
                             val totalFormatted = f.totalInCents / 100.0

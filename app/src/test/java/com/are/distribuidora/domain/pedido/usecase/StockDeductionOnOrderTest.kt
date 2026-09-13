@@ -130,6 +130,8 @@ class StockDeductionOnOrderTest {
         override suspend fun recoverStuckSyncingPedidos() = Unit
         override suspend fun deletePedido(pedidoId: String): Result<Unit> = Result.Success(Unit)
         override suspend fun expireOldPedidos(thresholdDays: Long, graceDays: Long): Result<Unit> = Result.Success(Unit)
+        override suspend fun getReportData(params: com.are.distribuidora.domain.pedido.model.ReportParams): com.are.distribuidora.domain.pedido.model.ReportResult =
+            com.are.distribuidora.domain.pedido.model.ReportResult(0.0, 0, 0.0, 0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
     }
 
     private class FakeClientRepository : ClientRepository {

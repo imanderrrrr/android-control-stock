@@ -11,6 +11,13 @@ import com.are.distribuidora.orders.data.local.entity.OrderItemStagingEntity
 import com.are.distribuidora.orders.data.mapper.toDomain
 import com.are.distribuidora.orders.data.remote.OrderRemoteDataSource
 import com.are.distribuidora.core.money.RoundToQuarterQuetzalUseCase
+import com.are.distribuidora.data.local.SyncStatus
+import com.are.distribuidora.orders.domain.model.EditOrderItemInput
+import com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity
+import com.are.distribuidora.stockmovement.domain.model.MovementReason
+import com.are.distribuidora.stockmovement.domain.model.MovementType
+import com.are.distribuidora.stockmovement.domain.model.StockMovement
+import com.are.distribuidora.stockmovement.domain.model.StockMovementIds
 import com.are.distribuidora.orders.domain.model.Order
 import com.are.distribuidora.orders.domain.model.OrderItem
 import com.are.distribuidora.orders.domain.repository.OrderRepository
@@ -94,6 +101,14 @@ class OfflineFirstOrderRepository(
                 try {
                     val orderId = dto.orderId.trim()
                     if (orderId.isNotBlank()) {
+                        // GUARD: no purgar si hay edición local sin subir. La edición local
+                        // es la fuente de verdad hasta que el worker la confirme en remoto;
+                        // el upload (LWW) decidirá si re-crea el pedido en Firestore.
+                        val existing = try { local.getOrderById(orderId) } catch (_: Exception) { null }
+                        if (existing != null && existing.pendingUpload) {
+                            Log.i(tag, "fetchOrdersHeader: skip purga remota (pendingUpload) orderId=$orderId")
+                            return@forEach
+                        }
                         // Marcar local como eliminado (por si ya existe en Room)
                         local.markOrderDeleted(orderId = orderId, now = now)
                         // Limpiar items locales del pedido eliminado
@@ -139,6 +154,13 @@ class OfflineFirstOrderRepository(
                 // un pedido ya COMPLETED o IN_PROGRESS con datos vacíos.
                 val existing = try { local.getOrderById(orderId) } catch (_: Exception) { null }
 
+                // No pisar una edición local pendiente de subir: mientras pendingUpload=1, la
+                // edición local es la fuente de verdad hasta que el worker la confirme en remoto.
+                if (existing != null && existing.pendingUpload) {
+                    Log.i(tag, "header sync: skip overwrite (pendingUpload) orderId=$orderId")
+                    return@forEach
+                }
+
                 if (existing != null && existing.downloadStatus == "COMPLETED") {
                     // Pedido ya descargado correctamente; solo actualizar metadatos de cabecera
                     // pero NO resetear downloadStatus, itemsDownloaded ni totalAmount.
@@ -149,6 +171,9 @@ class OfflineFirstOrderRepository(
                             sellerName = dto.sellerName,
                             itemsCount = dto.itemsCount,
                             vendedorId = dto.vendedorId,
+                            // 4.0: adoptar la hora de confirmación remota si el doc la trae
+                            // (filas cacheadas por 3.x guardaban la hora de descarga).
+                            createdAt = dto.creadoEn ?: existing.createdAt,
                             updatedAt = now,
                         )
                     )
@@ -173,7 +198,9 @@ class OfflineFirstOrderRepository(
                             failedReasonMessage = existing?.failedReasonMessage,
                             failedAttempts = existing?.failedAttempts ?: 0,
                             lastAttemptAt = existing?.lastAttemptAt,
-                            createdAt = existing?.createdAt ?: now,
+                            // 4.0: hora de confirmación del carrito; si el doc no la trae, se conserva
+                            // la local (o la hora de descarga en la primera bajada).
+                            createdAt = dto.creadoEn ?: existing?.createdAt ?: now,
                             updatedAt = now,
                             vendedorId = dto.vendedorId,
                         )
@@ -235,6 +262,12 @@ class OfflineFirstOrderRepository(
                 try {
                     val orderId = dto.orderId.trim()
                     if (orderId.isNotBlank()) {
+                        // GUARD: no purgar si hay edición local sin subir (ver fetchOrdersHeader).
+                        val existing = try { local.getOrderById(orderId) } catch (_: Exception) { null }
+                        if (existing != null && existing.pendingUpload) {
+                            Log.i(tag, "fetchAllOrdersHeader: skip purga remota (pendingUpload) orderId=$orderId")
+                            return@forEach
+                        }
                         local.markOrderDeleted(orderId = orderId, now = now)
                         local.deleteItemsByOrderId(orderId = orderId)
                     }
@@ -267,6 +300,13 @@ class OfflineFirstOrderRepository(
 
                 val existing = try { local.getOrderById(orderId) } catch (_: Exception) { null }
 
+                // No pisar una edición local pendiente de subir: mientras pendingUpload=1, la
+                // edición local es la fuente de verdad hasta que el worker la confirme en remoto.
+                if (existing != null && existing.pendingUpload) {
+                    Log.i(tag, "header sync: skip overwrite (pendingUpload) orderId=$orderId")
+                    return@forEach
+                }
+
                 if (existing != null && existing.downloadStatus == "COMPLETED") {
                     local.upsertOrderHeader(
                         existing.copy(
@@ -275,6 +315,9 @@ class OfflineFirstOrderRepository(
                             sellerName = dto.sellerName,
                             itemsCount = dto.itemsCount,
                             vendedorId = dto.vendedorId,
+                            // 4.0: adoptar la hora de confirmación remota si el doc la trae
+                            // (filas cacheadas por 3.x guardaban la hora de descarga).
+                            createdAt = dto.creadoEn ?: existing.createdAt,
                             updatedAt = now,
                         )
                     )
@@ -297,7 +340,9 @@ class OfflineFirstOrderRepository(
                             failedReasonMessage = existing?.failedReasonMessage,
                             failedAttempts = existing?.failedAttempts ?: 0,
                             lastAttemptAt = existing?.lastAttemptAt,
-                            createdAt = existing?.createdAt ?: now,
+                            // 4.0: hora de confirmación del carrito; si el doc no la trae, se conserva
+                            // la local (o la hora de descarga en la primera bajada).
+                            createdAt = dto.creadoEn ?: existing?.createdAt ?: now,
                             updatedAt = now,
                             vendedorId = dto.vendedorId,
                         )
@@ -330,6 +375,13 @@ class OfflineFirstOrderRepository(
         if (order.isDeleted) {
             Log.w(tag, "downloadOrderItems: SKIP deleted orderId=$orderId")
             return Result.Error(Failure.ValidationError("ORDER_DELETED"))
+        }
+
+        // ── Guard: no re-descargar (y pisar) un pedido con edición local pendiente ──
+        // Si hay una edición sin subir, los ítems locales son la verdad hasta que se confirmen.
+        if (order.pendingUpload) {
+            Log.i(tag, "downloadOrderItems: SKIP (pendingUpload, edición local) orderId=$orderId")
+            return Result.Success(Unit)
         }
 
         // ── Guard rail Opción B: nunca descargar items de un pedido propio ──
@@ -399,8 +451,9 @@ class OfflineFirstOrderRepository(
             .groupBy { it.productId }
             .map { (productId, group) ->
                 val first = group.first()
-                // Combinar duplicados sumando quantity.
+                // Combinar duplicados sumando quantity (y su descuento por línea).
                 val totalQty = group.sumOf { it.quantity }
+                val totalDiscount = group.sumOf { it.discountAmount }
                 // Conservar el primer notes no-vacío del grupo (todos los duplicados de un
                 // mismo productId deberían traer el mismo detalle desde Firestore).
                 val notes = group.firstNotNullOfOrNull { it.notes?.takeIf { n -> n.isNotBlank() } }
@@ -410,6 +463,7 @@ class OfflineFirstOrderRepository(
                     productName = first.productName,
                     unitPrice = first.unitPrice,
                     quantity = totalQty,
+                    discountAmount = totalDiscount,
                     notes = notes,
                 )
             }
@@ -433,6 +487,7 @@ class OfflineFirstOrderRepository(
                         productName = dto.productName,
                         unitPrice = dto.unitPrice,
                         quantity = dto.quantity,
+                        discountAmount = dto.discountAmount,
                         notes = dto.notes,
                     )
                 }
@@ -489,7 +544,7 @@ class OfflineFirstOrderRepository(
             }
 
             val totalAmount = RoundToQuarterQuetzalUseCase(
-                staging.sumOf { it.unitPrice * it.quantity }
+                staging.sumOf { (it.unitPrice * it.quantity - it.discountAmount).coerceAtLeast(0.0) }
             )
 
             val finalItems = staging.map { st ->
@@ -500,6 +555,7 @@ class OfflineFirstOrderRepository(
                     productName = st.productName,
                     unitPrice = st.unitPrice,
                     quantity = st.quantity,
+                    discountAmount = st.discountAmount,
                     createdAt = now,
                     notes = st.notes,
                 )
@@ -546,17 +602,47 @@ class OfflineFirstOrderRepository(
         val now = System.currentTimeMillis()
         val uid = currentUserIdProvider.get()
 
-        // 1) Soft delete en Firestore (NO borra físicamente)
+        // 4.1: borrar un pedido ajeno también DEVUELVE el stock: ENTRADA/PEDIDO_BORRADO por ítem.
+        // Si los ítems no están descargados (header-only) se leen del remoto para poder compensar.
+        val compensation: List<StockMovement> = try {
+            val localItems = local.getItemsByOrderId(orderId)
+            val itemsForCompensation: List<Triple<String, String, Pair<String, Int>>> =
+                if (localItems.isNotEmpty()) {
+                    localItems.map { Triple(it.itemId, it.productId, it.productName to it.quantity) }
+                } else {
+                    remote.fetchOrderItems(routeId, orderId).map { Triple(it.itemId, it.productId, it.productName to it.quantity) }
+                }
+            itemsForCompensation.mapNotNull { (itemId, productId, nameQty) ->
+                buildMovement(
+                    id = StockMovementIds.forOrderItemDeletion(orderId, itemId),
+                    productId = productId, productName = nameQty.first, delta = +nameQty.second,
+                    reason = MovementReason.PEDIDO_BORRADO, orderId = orderId, uid = uid, now = now,
+                )
+            }
+        } catch (e: Exception) {
+            Log.e(tag, "deleteOrder: no se pudieron calcular los movimientos orderId=$orderId (${e.message})", e)
+            return Result.Error(Failure.NetworkError)
+        }
+        val stillPending = local.getUnsyncedMovements(orderId)
+
+        // 1) Soft delete en Firestore (NO borra físicamente) + movimientos, en una transacción
         try {
-            remote.markOrderDeleted(routeId = routeId, orderId = orderId, deletedByUid = uid)
+            remote.markOrderDeleted(
+                routeId = routeId, orderId = orderId, deletedByUid = uid,
+                movements = stillPending.map { it.toDomain() } + compensation,
+            )
         } catch (e: Exception) {
             Log.e(tag, "deleteOrder: remoto falló orderId=$orderId (${e.message})", e)
             return Result.Error(Failure.NetworkError)
         }
 
-        // 2) Soft delete local: marcar isDeleted=true en Room
+        // 2) Soft delete local + movimientos (ya en el servidor → SYNCED) + stock local, atómico
         try {
-            local.markOrderDeleted(orderId = orderId, now = now)
+            local.markMovementsSynced(stillPending.map { it.id }, now)
+            local.commitOrderDeletion(
+                orderId = orderId, now = now,
+                syncedMovements = compensation.map { StockMovementEntity.fromDomain(it, SyncStatus.SYNCED) },
+            )
         } catch (e: Exception) {
             Log.e(tag, "deleteOrder: markOrderDeleted local falló orderId=$orderId (${e.message})", e)
             return Result.Error(Failure.DatabaseError)
@@ -624,5 +710,187 @@ class OfflineFirstOrderRepository(
             Log.w(tag, "getItemsByOrderId: error orderId=$orderId (${e.message})")
             emptyList()
         }
+    }
+
+    override suspend fun editOrderItems(orderId: String, items: List<EditOrderItemInput>): Result<Unit> {
+        if (orderId.isBlank()) return Result.Error(Failure.ValidationError("orderId requerido"))
+        if (items.isEmpty()) return Result.Error(Failure.ValidationError("El pedido debe tener al menos un ítem"))
+        if (items.any { it.quantity <= 0 }) {
+            return Result.Error(Failure.ValidationError("La cantidad de cada ítem debe ser mayor a 0"))
+        }
+        // Invariante del índice único (orderId, productId): no permitir productId duplicados.
+        if (items.map { it.productId }.toSet().size != items.size) {
+            return Result.Error(Failure.ValidationError("Hay ítems duplicados en el pedido"))
+        }
+
+        val now = System.currentTimeMillis()
+
+        val order = try {
+            local.getOrderById(orderId)
+        } catch (e: Exception) {
+            Log.e(tag, "editOrderItems: leer header local falló orderId=$orderId (${e.message})", e)
+            return Result.Error(Failure.DatabaseError)
+        } ?: return Result.Error(Failure.NotFound)
+
+        if (order.isDeleted) return Result.Error(Failure.ValidationError("ORDER_DELETED"))
+
+        val totalAmount = RoundToQuarterQuetzalUseCase(
+            items.sumOf { (it.unitPrice * it.quantity - it.discountAmount).coerceAtLeast(0.0) }
+        )
+
+        val finalItems = items.map { input ->
+            OrderItemEntity(
+                itemId = input.itemId,
+                orderId = orderId,
+                productId = input.productId,
+                productName = input.productName,
+                unitPrice = input.unitPrice,
+                quantity = input.quantity,
+                discountAmount = input.discountAmount,
+                createdAt = now,
+                notes = input.notes,
+            )
+        }
+
+        // 4.1: movimientos PEDIDO_EDICION por ÍTEM con la diferencia respecto a los ítems locales.
+        val previous = try { local.getItemsByOrderId(orderId) } catch (_: Exception) { emptyList() }
+        val prevById = previous.associateBy { it.itemId }
+        val editVersion = order.editVersion + 1
+        val uid = currentUserIdProvider.get()
+        val movements = buildList {
+            previous.filter { p -> finalItems.none { it.itemId == p.itemId } }.forEach { removed ->
+                buildMovement(
+                    id = StockMovementIds.forOtherOrderEdit(orderId, removed.itemId, editVersion),
+                    productId = removed.productId, productName = removed.productName, delta = +removed.quantity,
+                    reason = MovementReason.PEDIDO_EDICION, orderId = orderId, uid = uid, now = now,
+                )?.let(::add)
+            }
+            finalItems.forEach { item ->
+                val prevQty = prevById[item.itemId]?.quantity ?: 0
+                buildMovement(
+                    id = StockMovementIds.forOtherOrderEdit(orderId, item.itemId, editVersion),
+                    productId = item.productId, productName = item.productName, delta = -(item.quantity - prevQty),
+                    reason = MovementReason.PEDIDO_EDICION, orderId = orderId, uid = uid, now = now,
+                )?.let(::add)
+            }
+        }
+
+        return try {
+            local.commitEditedItems(
+                orderId = orderId,
+                finalItems = finalItems,
+                totalAmount = totalAmount,
+                now = now,
+                movements = movements.map { StockMovementEntity.fromDomain(it, SyncStatus.PENDING_CREATE) },
+            )
+            Log.i(tag, "editOrderItems: local ok orderId=$orderId items=${finalItems.size} movements=${movements.size} total=$totalAmount pendingUpload=1")
+            Result.Success(Unit)
+        } catch (e: Exception) {
+            Log.e(tag, "editOrderItems: commit local falló orderId=$orderId (${e.message})", e)
+            Result.Error(Failure.DatabaseError)
+        }
+    }
+
+    override suspend fun uploadPendingOrders(): Result<Unit> {
+        val pending = try {
+            local.getPendingUploadOrders()
+        } catch (e: Exception) {
+            Log.e(tag, "uploadPendingOrders: leer pendientes falló (${e.message})", e)
+            return Result.Error(Failure.DatabaseError)
+        }
+
+        if (pending.isEmpty()) {
+            Log.d(tag, "uploadPendingOrders: nada pendiente")
+            return Result.Success(Unit)
+        }
+
+        val uid = currentUserIdProvider.get()
+        var anyFailed = false
+
+        pending.forEach { order ->
+            val orderId = order.orderId
+            try {
+                val items = local.getItemsByOrderId(orderId)
+                if (items.isEmpty()) {
+                    // Sin ítems locales no hay nada válido que subir; limpiar el flag para no
+                    // reintentar indefinidamente (un pedido válido nunca queda sin ítems).
+                    Log.w(tag, "uploadPendingOrders: sin ítems locales orderId=$orderId; limpio flag")
+                    local.setPendingUpload(orderId = orderId, pending = false, now = System.currentTimeMillis())
+                    return@forEach
+                }
+
+                val dtos = items.map { e ->
+                    OrderRemoteDataSource.OrderItemDto(
+                        itemId = e.itemId,
+                        productId = e.productId,
+                        productName = e.productName,
+                        unitPrice = e.unitPrice,
+                        quantity = e.quantity,
+                        discountAmount = e.discountAmount,
+                        notes = e.notes,
+                    )
+                }
+                val total = order.totalAmount
+                    ?: RoundToQuarterQuetzalUseCase(
+                        items.sumOf { (it.unitPrice * it.quantity - it.discountAmount).coerceAtLeast(0.0) }
+                    )
+
+                val movements = local.getUnsyncedMovements(orderId)
+                val movementIds = movements.map { it.id }
+                local.markMovementsSyncing(movementIds)
+                try {
+                    remote.uploadOrderEdit(
+                        routeId = order.routeId,
+                        orderId = orderId,
+                        items = dtos,
+                        totalAmount = total,
+                        editedByUid = uid,
+                        movements = movements.map { it.toDomain() },
+                    )
+                } catch (e: Exception) {
+                    local.revertMovementsSyncing(movementIds)
+                    throw e
+                }
+
+                val doneAt = System.currentTimeMillis()
+                local.markMovementsSynced(movementIds, doneAt)
+                local.setPendingUpload(orderId = orderId, pending = false, now = doneAt)
+                Log.i(tag, "uploadPendingOrders: subido orderId=$orderId items=${dtos.size} movements=${movementIds.size} total=$total")
+            } catch (e: Exception) {
+                anyFailed = true
+                // Mantener pendingUpload=1 para reintento del worker.
+                Log.w(tag, "uploadPendingOrders: falló orderId=$orderId (${e.message}); se reintentará")
+            }
+        }
+
+        return if (anyFailed) Result.Error(Failure.NetworkError) else Result.Success(Unit)
+    }
+
+    /** Movimiento de stock del pipeline B (null si no aplica: delta 0 o ítem personalizado). */
+    private fun buildMovement(
+        id: String,
+        productId: String,
+        productName: String,
+        delta: Int,
+        reason: MovementReason,
+        orderId: String,
+        uid: String?,
+        now: Long,
+    ): StockMovement? {
+        if (delta == 0 || !StockMovementIds.isCatalogProduct(productId)) return null
+        val actor = uid ?: "desconocido"
+        return StockMovement(
+            id = id,
+            productId = productId,
+            productName = productName,
+            type = MovementType.fromDelta(delta),
+            quantity = kotlin.math.abs(delta),
+            reason = reason,
+            orderId = orderId,
+            note = null,
+            createdBy = actor,
+            createdByName = currentUserIdProvider.getDisplayName() ?: actor,
+            createdAt = now,
+        )
     }
 }

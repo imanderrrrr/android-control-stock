@@ -18,12 +18,26 @@
     <string name="pdf_progress_subtitle">Por favor espera mientras se prepara el documento…</string>
     <string name="pdf_progress_percent">0%</string>
 
-    <!-- Login UI -->
-    <string name="login_title">Bienvenido</string>
-    <string name="login_subtitle">Inicia sesión para continuar</string>
-    <string name="login_email_hint">Correo</string>
-    <string name="login_password_hint">Contraseña</string>
-    <string name="login_button">Entrar</string>
+    <!-- Marca -->
+    <string name="brand_name">DailyStock</string>
+
+    <!-- Splash -->
+    <string name="splash_tagline">Distribución que no se detiene</string>
+    <!-- splash_version se genera desde versionName vía resValue (build.gradle.kts) -->
+
+
+    <!-- Login UI (rediseño "Bosque Pro") -->
+    <string name="login_title">Bienvenido de vuelta</string>
+    <string name="login_subtitle">Inicia sesión para empezar tu jornada.</string>
+    <string name="login_user_label">Usuario</string>
+    <string name="login_password_label">Contraseña</string>
+    <string name="login_email_hint">Ingresa tu usuario</string>
+    <string name="login_password_hint">Ingresa tu contraseña</string>
+    <string name="login_forgot">¿Olvidaste tu contraseña?</string>
+    <string name="login_button">Iniciar sesión</string>
+    <string name="login_or">O</string>
+    <string name="login_scan_qr">Escanear QR del jefe</string>
+    <!-- login_footer se genera desde versionName vía resValue (build.gradle.kts) -->
 
     <!-- Login errors (humanos) -->
     <string name="login_error_invalid_credentials">Correo o contraseña incorrectos</string>
@@ -42,7 +56,6 @@
     <string name="product_image">Imagen del producto</string>
     <string name="inventory_price">Precio: %1$s</string>
     <string name="inventory_stock">Stock: %1$d</string>
-    <string name="inventory_comprometido">· Comp: %1$d</string>
 
     <!-- Inventory Header (búsqueda + nuevo) -->
     <string name="inventory_search_hint">Buscar producto</string>
@@ -193,6 +206,46 @@
     <string name="pedidos_route_subtitle">%1$d pedido(s)</string>
     <string name="pedidos_item_count">%1$d ítem(s)</string>
     <string name="pedidos_detalle_title">Pedido</string>
+    <string name="pedido_detalle_subtitle">Detalle del pedido</string>
+
+    <!-- Flujo de creación de pedido (Bosque Pro): catálogo · detalle · carrito · confirmado -->
+    <string name="order_pedido_label">PEDIDO</string>
+    <string name="order_catalog_search_hint">Buscar producto…</string>
+    <string name="order_cart_view_cta">Ver carrito</string>
+    <string name="order_products_count">%1$d productos</string>
+    <string name="order_stock_format">Stock %1$d</string>
+    <string name="order_no_stock">Sin stock</string>
+    <string name="order_add">Agregar</string>
+    <string name="order_add_product">Agregar producto</string>
+    <string name="order_detail_quantity">Cantidad</string>
+    <string name="order_detail_notes_label">Notas del pedido</string>
+    <string name="order_detail_notes_hint">Pedir empacado triple…</string>
+    <string name="order_detail_add_cta">Agregar al pedido</string>
+    <string name="order_detail_units">%1$d unidades</string>
+    <string name="order_cart_title">Carrito</string>
+    <string name="order_cart_subtotal">Subtotal</string>
+    <string name="order_cart_discounts">Descuentos</string>
+    <string name="order_cart_total_label">Total a cobrar</string>
+    <string name="order_cart_close_cta">Cerrar pedido</string>
+    <string name="order_cart_iva">IVA (12%)</string>
+    <string name="order_cart_draft_title">Borrador en progreso</string>
+    <string name="order_cart_draft_subtitle">Termina el pedido para guardarlo</string>
+    <string name="order_cart_draft_btn">Borrador</string>
+    <string name="order_confirmed_title">Pedido confirmado</string>
+    <string name="order_confirmed_subtitle">Se guardó offline · sincroniza al volver</string>
+    <string name="order_confirmed_client_label">CLIENTE</string>
+    <string name="order_confirmed_products_label">PRODUCTOS</string>
+    <string name="order_confirmed_total_label">TOTAL</string>
+    <string name="order_confirmed_summary">%1$d ítems · %2$d unidades</string>
+    <string name="order_confirmed_continue">Continuar la ruta</string>
+    <string name="order_confirmed_print">Imprimir</string>
+    <string name="order_confirmed_detail">Detalle del pedido</string>
+    <string name="order_confirmed_share">Compartir</string>
+    <string name="order_confirmed_continue_sub">Sigue con los clientes de tu ruta</string>
+    <string name="order_confirmed_credito">CRÉDITO</string>
+    <string name="order_confirmed_vence">Vence en 30 días</string>
+    <string name="order_confirmed_sync">Esperando red para sincronizar</string>
+    <string name="order_confirmed_ref_label">PEDIDO</string>
     <string name="pedido_menu_delete">Eliminar</string>
     <string name="pedido_delete_dialog_title">Eliminar pedido</string>
     <string name="pedido_delete_dialog_message">¿Estás seguro de que deseas eliminar el pedido de %1$s? Esta acción no se puede deshacer.</string>
@@ -205,11 +258,15 @@
     <string name="pedidos_date_filter_today">Hoy</string>
     <string name="pedidos_date_filter_title">Seleccionar fecha</string>
 
+    <!-- Encabezado Bosque Pro -->
+    <string name="pedidos_header_subtitle">Gestiona y consulta tus pedidos</string>
+
     <!-- Tabs de Pedidos -->
     <string name="pedidos_tab_mis_pedidos">Mis Pedidos</string>
     <string name="pedidos_tab_otros_pedidos">Otros Pedidos</string>
 
     <!-- Sección Otros Pedidos -->
+    <string name="otros_readonly_banner">Solo lectura · pedidos de tu equipo</string>
     <string name="otros_pedidos_empty">No hay pedidos de otros vendedores</string>
     <string name="otros_orders_route_subtitle">%1$d pedido(s) asignado(s)</string>
     <string name="otros_items_count">%1$d ítem(s)</string>
@@ -242,6 +299,17 @@
     <string name="edit_pedido_delete_item_title">Eliminar ítem</string>
     <string name="edit_pedido_delete_item_message">¿Eliminar %1$s del pedido?</string>
     <string name="edit_pedido_delete_confirm">Eliminar</string>
+
+    <!-- Agregar ítem: opciones (catálogo / personalizado) -->
+    <string name="add_item_from_catalog">Del catálogo</string>
+    <string name="add_item_custom">Ítem personalizado</string>
+
+    <!-- Editar pedidos ajenos ("Otros Pedidos") -->
+    <string name="otros_action_edit">Editar</string>
+    <string name="edit_otros_title">Editar pedido</string>
+    <string name="edit_otros_saved">Cambios guardados — pendiente de subir</string>
+    <string name="edit_otros_delete_item_message">¿Quitar %1$s del pedido?</string>
+    <string name="edit_otros_empty">El pedido no tiene ítems. Agrega al menos uno.</string>
     <string name="pedido_menu_edit">Editar</string>
 
     <!-- Menú botón "+" en Inventario -->
@@ -258,11 +326,11 @@
     <string name="scanner_go_back">Volver</string>
 
     <!-- Diálogo Agregar stock -->
-    <string name="add_stock_dialog_title">Agregar stock</string>
+    <string name="add_stock_dialog_title">Vale de entrada</string>
     <string name="add_stock_quantity_hint">Unidades a agregar</string>
-    <string name="add_stock_confirm">Agregar</string>
+    <string name="add_stock_confirm">Registrar</string>
     <string name="add_stock_cancel">Cancelar</string>
-    <string name="add_stock_success">Stock actualizado: +%1$d</string>
+    <string name="add_stock_success">Vale de entrada registrado: +%1$d</string>
     <string name="add_stock_error">Error al actualizar el stock</string>
     <string name="add_stock_invalid_quantity">La cantidad debe ser mayor a 0</string>
 
@@ -287,6 +355,11 @@
     <string name="reports_top_clients">Mejores clientes (semana)</string>
     <string name="reports_product_subtitle">%1$d uds · %2$s</string>
     <string name="reports_client_subtitle">%1$d pedidos · %2$s</string>
+    <string name="reports_subtitle_range">Últimos %1$d días</string>
+    <string name="reports_period_7">7 días</string>
+    <string name="reports_period_14">14 días</string>
+    <string name="reports_product_units">%1$d unidades</string>
+    <string name="reports_avg_caption">Promedio sobre los últimos 14 días</string>
 
     <!-- Cuentas Pendientes -->
     <string name="pending_dialog_title">Nueva cuenta pendiente</string>
@@ -312,4 +385,150 @@
     <string name="pending_error_amount">Ingresa un monto válido</string>
     <string name="pending_error_date">Selecciona una fecha de pago</string>
     <string name="pending_route_label">Ruta: %1$s</string>
+
+    <!-- ===== Cuentas por cobrar (rediseño Bosque Pro) ===== -->
+    <string name="cxc_title">Cuentas por cobrar</string>
+    <string name="cxc_eyebrow">CLIENTES</string>
+    <string name="cxc_entry_title">Cuentas por cobrar</string>
+    <string name="cxc_entry_subtitle">Lo que tus clientes te deben</string>
+    <string name="cxc_total_label">TOTAL POR COBRAR</string>
+    <string name="cxc_summary_count">%1$d cuentas pendientes</string>
+    <string name="cxc_summary_count_one">1 cuenta pendiente</string>
+    <string name="cxc_summary_zero">Sin cuentas pendientes</string>
+    <string name="cxc_overdue_pill">%1$d vencidas</string>
+    <string name="cxc_overdue_pill_one">1 vencida</string>
+    <string name="cxc_chip_all">Todas · %1$d</string>
+    <string name="cxc_chip_overdue">Vencidas · %1$d</string>
+    <string name="cxc_chip_upcoming">Por vencer · %1$d</string>
+    <string name="cxc_section_pending">PENDIENTES</string>
+    <string name="cxc_view_activity">Ver actividad</string>
+    <string name="cxc_empty_title">Sin cuentas por cobrar</string>
+    <string name="cxc_empty_subtitle">Toca + para registrar lo que un cliente te debe.</string>
+    <string name="cxc_empty_filter">No hay cuentas en este filtro.</string>
+    <string name="cxc_debe_label">DEBE</string>
+    <string name="cxc_overdue_banner">VENCIDA · %1$s</string>
+    <string name="cxc_overdue_days_one">HACE 1 DÍA</string>
+    <string name="cxc_overdue_days">HACE %1$d DÍAS</string>
+    <string name="cxc_due_overdue">Venció el %1$s</string>
+    <string name="cxc_due_today">Vence hoy</string>
+    <string name="cxc_due_soon">Vence en %1$d días · %2$s</string>
+    <string name="cxc_due_soon_one">Vence mañana · %1$s</string>
+    <string name="cxc_due_normal">Vence el %1$s</string>
+    <string name="cxc_status_overdue">VENCIDA</string>
+    <string name="cxc_thumb_desc">Foto de factura</string>
+    <string name="cxc_back_desc">Volver</string>
+    <string name="cxc_add_desc">Nueva cuenta</string>
+
+    <!-- Formulario -->
+    <string name="cxc_form_title_new">Nueva cuenta por cobrar</string>
+    <string name="cxc_form_title_edit">Editar cuenta</string>
+    <string name="cxc_form_route">RUTA</string>
+    <string name="cxc_form_client">CLIENTE</string>
+    <string name="cxc_form_amount">MONTO QUE DEBE</string>
+    <string name="cxc_form_due">FECHA LÍMITE DE PAGO</string>
+    <string name="cxc_form_photo">FOTO DE FACTURA (OPCIONAL)</string>
+    <string name="cxc_form_notes">NOTAS (OPCIONAL)</string>
+    <string name="cxc_form_select_route">Selecciona una ruta</string>
+    <string name="cxc_form_select_client">Selecciona un cliente</string>
+    <string name="cxc_form_select_client_first">Elige una ruta primero</string>
+    <string name="cxc_form_due_hint">Elegir fecha</string>
+    <string name="cxc_form_notes_hint">Ej. Pago parcial acordado para el viernes</string>
+    <string name="cxc_form_photo_add">Tomar o elegir foto</string>
+    <string name="cxc_form_photo_change">Cambiar foto de factura</string>
+    <string name="cxc_form_save">Guardar cuenta</string>
+    <string name="cxc_form_save_edit">Guardar cambios</string>
+    <string name="cxc_photo_camera">Tomar foto</string>
+    <string name="cxc_photo_gallery">Elegir de galería</string>
+    <string name="cxc_photo_remove">Quitar foto</string>
+    <string name="cxc_form_err_route">Selecciona una ruta</string>
+    <string name="cxc_form_err_client">Selecciona un cliente</string>
+    <string name="cxc_form_err_amount">Ingresa un monto válido</string>
+    <string name="cxc_form_err_date">Selecciona una fecha de pago</string>
+
+    <!-- Detalle -->
+    <string name="cxc_detail_title">Detalle de cuenta</string>
+    <string name="cxc_detail_amount_label">MONTO PENDIENTE</string>
+    <string name="cxc_detail_invoice">FACTURA</string>
+    <string name="cxc_detail_invoice_hint">Toca para ampliar</string>
+    <string name="cxc_detail_no_invoice">Sin foto de factura</string>
+    <string name="cxc_detail_notes">NOTAS</string>
+    <string name="cxc_detail_meta">Registrada el %1$s</string>
+    <string name="cxc_detail_mark_paid">Marcar como pagada</string>
+    <string name="cxc_detail_edit">Editar</string>
+    <string name="cxc_detail_delete">Eliminar</string>
+
+    <!-- Actividad -->
+    <string name="cxc_activity_title">Actividad reciente</string>
+    <string name="cxc_activity_caption">Cuentas pagadas o eliminadas en los últimos 3 días.</string>
+    <string name="cxc_activity_empty">Sin actividad reciente.</string>
+    <string name="cxc_activity_footer">Las actividades se borran automáticamente después de 3 días.</string>
+    <string name="cxc_activity_group_today">HOY</string>
+    <string name="cxc_activity_group_earlier">ANTERIOR</string>
+    <string name="cxc_someone">Alguien</string>
+    <string name="cxc_activity_paid">%1$s pagó la cuenta de %2$s</string>
+    <string name="cxc_activity_deleted">%1$s eliminó la cuenta de %2$s</string>
+    <string name="cxc_activity_time_amount">%1$s · %2$s</string>
+
+    <!-- Confirmaciones -->
+    <string name="cxc_confirm_paid_title">¿Marcar como pagada?</string>
+    <string name="cxc_confirm_paid_msg">La cuenta de %1$s dejará de aparecer en cuentas por cobrar.</string>
+    <string name="cxc_confirm_paid_yes">Sí, ya pagó</string>
+    <string name="cxc_confirm_delete_title">¿Eliminar esta cuenta?</string>
+    <string name="cxc_confirm_delete_msg">Se eliminará la cuenta de %1$s por %2$s.</string>
+    <string name="cxc_confirm_delete_yes">Sí, eliminar</string>
+    <string name="cxc_confirm_cancel">Cancelar</string>
+
+    <!-- Toasts -->
+    <string name="cxc_toast_created">Cuenta registrada</string>
+    <string name="cxc_toast_updated">Cuenta actualizada</string>
+    <string name="cxc_toast_paid">Cuenta marcada como pagada</string>
+    <string name="cxc_toast_deleted">Cuenta eliminada</string>
+    <string name="cxc_error_generic">Algo salió mal. Inténtalo de nuevo.</string>
+
+    <!-- Control de acceso por pantalla (concuerda con el panel web de administración) -->
+    <string name="screen_access_denied_title">Sección restringida</string>
+    <string name="screen_access_denied_message">No tienes acceso a esta sección. Pídeselo a un administrador.</string>
+    <string name="screen_access_back">Volver</string>
+
+    <!-- Roles 4.0 -->
+    <string name="pedido_created_at_label">Confirmado: %1$s</string>
+    <string name="role_forbidden_action">No tienes permiso para esta acción. Pídeselo a un administrador.</string>
+    <string name="nav_clients_title">Clientes</string>
+    <string name="nav_cobros">Cobros</string>
+    <string name="inicio_card_cobros_title">Cuentas por cobrar</string>
+    <string name="inicio_card_cobros_subtitle">Ver cobros</string>
+
+    <!-- Libro de movimientos de inventario / vales (4.1) -->
+    <string name="menu_new_voucher">Nuevo vale</string>
+    <string name="voucher_title">Nuevo vale</string>
+    <string name="voucher_subtitle">Entrada o salida de producto que no viene de un pedido</string>
+    <string name="voucher_type_in">Entrada</string>
+    <string name="voucher_type_out">Salida</string>
+    <string name="voucher_product_hint">Buscar producto por nombre o código</string>
+    <string name="voucher_scan">Escanear</string>
+    <string name="voucher_no_product">Elige un producto</string>
+    <string name="voucher_quantity_hint">Cantidad</string>
+    <string name="voucher_reason_hint">Motivo</string>
+    <string name="voucher_note_hint">Nota (opcional)</string>
+    <string name="voucher_confirm">Registrar vale</string>
+    <string name="voucher_success_in">Vale de entrada registrado: +%1$d %2$s</string>
+    <string name="voucher_success_out">Vale de salida registrado: −%1$d %2$s</string>
+    <string name="voucher_error_quantity">La cantidad debe ser mayor a 0</string>
+    <string name="voucher_error_product">Selecciona un producto</string>
+    <string name="voucher_error_generic">No se pudo registrar el vale</string>
+    <string name="voucher_no_permission">Solo un administrador puede registrar vales</string>
+    <string name="voucher_current_stock">Stock actual: %1$d</string>
+    <string name="voucher_resulting_stock">Stock resultante: %1$d</string>
+    <string name="reason_COMPRA">Compra</string>
+    <string name="reason_DEVOLUCION">Devolución</string>
+    <string name="reason_AJUSTE">Ajuste</string>
+    <string name="reason_MERMA">Merma</string>
+    <string name="reason_OTRO">Otro</string>
+    <string name="reason_PEDIDO">Pedido</string>
+    <string name="reason_PEDIDO_EDICION">Edición de pedido</string>
+    <string name="reason_PEDIDO_BORRADO">Pedido borrado</string>
+    <string name="section_movements">Movimientos</string>
+    <string name="movements_empty">Sin movimientos registrados en este teléfono</string>
+    <string name="movement_pending">Pendiente de subir</string>
+    <string name="product_stock_negative_hint">Negativo: se entregó antes del vale de entrada</string>
 </resources>

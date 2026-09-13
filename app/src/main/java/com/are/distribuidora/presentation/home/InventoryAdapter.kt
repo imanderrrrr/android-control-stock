@@ -11,6 +11,7 @@ import android.widget.TextView
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
+import androidx.core.content.ContextCompat
 import com.are.distribuidora.R
 import com.are.distribuidora.presentation.home.model.ProductUiModel
 import com.bumptech.glide.Glide
@@ -30,6 +31,15 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
     var onDeleteClick: ((ProductUiModel) -> Unit)? = null
     var onProductClick: ((String) -> Unit)? = null
 
+    /** Roles 4.0: sin EDIT_PRODUCT se oculta el menú de 3 puntos (editar/borrar). */
+    var canEdit: Boolean = true
+        set(value) {
+            if (field != value) {
+                field = value
+                notifyItemRangeChanged(0, itemCount, PAYLOAD_SYNC)
+            }
+        }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ProductVH {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_inventory_product, parent, false)
@@ -37,8 +47,17 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
     }
 
     override fun onBindViewHolder(holder: ProductVH, position: Int) {
-        getItem(position)?.let { item ->
-            holder.bind(item)
+        getItem(position)?.let { item -> holder.bind(item) }
+        holder.setMenuVisible(canEdit)
+    }
+
+    override fun onBindViewHolder(holder: ProductVH, position: Int, payloads: MutableList<Any>) {
+        if (payloads.contains(PAYLOAD_SYNC)) {
+            // Cambió SOLO el estado de sync: bind parcial, sin recargar imagen.
+            getItem(position)?.let { item -> holder.bindSyncOnly(item) }
+            holder.setMenuVisible(canEdit)
+        } else {
+            super.onBindViewHolder(holder, position, payloads)
         }
     }
 
@@ -52,7 +71,6 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
         private val name = itemView.findViewById<TextView>(R.id.productName)
         private val price = itemView.findViewById<TextView>(R.id.productPrice)
         private val stock = itemView.findViewById<TextView>(R.id.productStock)
-        private val comprometido = itemView.findViewById<TextView>(R.id.productComprometido)
         private val menuButton = itemView.findViewById<ImageButton>(R.id.menuButton)
 
         // New Indicators
@@ -60,6 +78,10 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
         private val activeIndicator = itemView.findViewById<TextView>(R.id.activeIndicatorText)
 
         private var currentProduct: ProductUiModel? = null
+
+        fun setMenuVisible(visible: Boolean) {
+            menuButton.visibility = if (visible) View.VISIBLE else View.GONE
+        }
 
         init {
             // Click en tarjeta -> detalle
@@ -87,18 +109,24 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
             val nf = NumberFormat.getCurrencyInstance(gt)
             nf.currency = Currency.getInstance("GTQ")
             val priceText = nf.format(product.price.amount)
-            price.text = itemView.context.getString(R.string.inventory_price, priceText)
+            price.text = priceText
 
-            stock.text = itemView.context.getString(R.string.inventory_stock, product.stock.value)
-
-            if (product.comprometido > 0) {
-                comprometido.visibility = View.VISIBLE
-                comprometido.text = itemView.context.getString(
-                    R.string.inventory_comprometido, product.comprometido
-                )
-            } else {
-                comprometido.visibility = View.GONE
+            val ctx = itemView.context
+            val s = product.stock.value
+            val stockLabel: String
+            val stockBg: Int
+            val stockTx: Int
+            when {
+                // 4.1: el stock puede ser negativo (entregado antes del vale de entrada). Se muestra
+                // en rojo como información, no se oculta ni se normaliza.
+                s < 0 -> { stockLabel = "$s en stock"; stockBg = R.color.danger_bg; stockTx = R.color.danger_text }
+                s == 0 -> { stockLabel = "Sin stock"; stockBg = R.color.danger_bg; stockTx = R.color.danger_text }
+                s <= 5 -> { stockLabel = "$s · bajo"; stockBg = R.color.warning_bg; stockTx = R.color.warning_text }
+                else -> { stockLabel = "$s en stock"; stockBg = R.color.success_bg; stockTx = R.color.success_text }
             }
+            stock.text = stockLabel
+            stock.backgroundTintList = ContextCompat.getColorStateList(ctx, stockBg)
+            stock.setTextColor(ContextCompat.getColor(ctx, stockTx))
 
             // Bind New Statuses
             syncIndicator.text = item.syncIndicatorText
@@ -198,6 +226,15 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
                 .into(image)
         }
 
+        /**
+         * Actualiza únicamente el indicador de sincronización (canal PAYLOAD_SYNC).
+         * No recarga imagen ni re-renderiza el resto de la tarjeta.
+         */
+        fun bindSyncOnly(item: ProductUiModel) {
+            currentProduct = item
+            syncIndicator.text = item.syncIndicatorText
+        }
+
         private fun showPopupMenu(view: View, product: ProductUiModel) {
             val popup = PopupMenu(view.context, view)
             popup.menuInflater.inflate(R.menu.menu_product_item, popup.menu)
@@ -220,12 +257,33 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
     }
 
     companion object {
+        private const val PAYLOAD_SYNC = "payload_sync"
+
+        /**
+         * DiffUtil sobre [ProductUiModel] — el estado de sync viaja FUSIONADO en
+         * el item paginado (una sola fuente de `submitData`, sin canal lateral ni
+         * `notifyItemChanged` manual; ver [InventoryViewModel.products]).
+         *
+         * `getChangePayload` detecta el caso "solo cambió el sync" y emite
+         * [PAYLOAD_SYNC] para hacer un bind parcial (actualiza el indicador sin
+         * recargar la imagen vía Glide); cualquier otro cambio hace rebind completo.
+         */
         private val DIFF = object : DiffUtil.ItemCallback<ProductUiModel>() {
             override fun areItemsTheSame(oldItem: ProductUiModel, newItem: ProductUiModel): Boolean =
                 oldItem.product.id == newItem.product.id
 
             override fun areContentsTheSame(oldItem: ProductUiModel, newItem: ProductUiModel): Boolean =
                 oldItem == newItem
+
+            override fun getChangePayload(oldItem: ProductUiModel, newItem: ProductUiModel): Any? =
+                if (oldItem.product == newItem.product &&
+                    oldItem.activeIndicatorText == newItem.activeIndicatorText &&
+                    oldItem.syncIndicatorText != newItem.syncIndicatorText
+                ) {
+                    PAYLOAD_SYNC
+                } else {
+                    null
+                }
         }
     }
 }

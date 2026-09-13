@@ -17,9 +17,13 @@ import com.are.distribuidora.orders.domain.repository.OrderRepository
 import com.are.distribuidora.orders.domain.usecase.DownloadOrderItemsUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchAllOrdersHeaderUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchOrdersHeaderUseCase
+import com.are.distribuidora.orders.domain.usecase.GetOtrosPedidoDetalleUseCase
+import com.are.distribuidora.domain.product.GetProductImageUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteAndDateUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteUseCase
 import com.are.distribuidora.route.domain.model.Route
+import com.are.distribuidora.route.domain.repository.ActiveRouteReader
+import com.are.distribuidora.screenaccess.domain.model.UserAccess
 import com.are.distribuidora.route.domain.repository.RouteRepository
 import com.are.distribuidora.route.domain.usecase.GetRoutesUseCase
 import kotlinx.coroutines.Dispatchers
@@ -69,6 +73,8 @@ class PedidosViewModelTest {
         override suspend fun recoverStuckSyncingPedidos() = Unit
         override suspend fun deletePedido(pedidoId: String): Result<Unit> = Result.Success(Unit)
         override suspend fun expireOldPedidos(thresholdDays: Long, graceDays: Long): Result<Unit> = Result.Success(Unit)
+        override suspend fun getReportData(params: com.are.distribuidora.domain.pedido.model.ReportParams): com.are.distribuidora.domain.pedido.model.ReportResult =
+            com.are.distribuidora.domain.pedido.model.ReportResult(0.0, 0, 0.0, 0, emptyList(), emptyList(), emptyList(), emptyList(), emptyList())
     }
 
     private class FakeRouteRepository(
@@ -108,6 +114,21 @@ class PedidosViewModelTest {
             kotlinx.coroutines.flow.flowOf(ordersByDate[deliveryDate] ?: emptyList())
         override suspend fun getOrderById(orderId: String): Order? = null
         override suspend fun getItemsByOrderId(orderId: String) = emptyList<com.are.distribuidora.orders.domain.model.OrderItem>()
+        override suspend fun editOrderItems(orderId: String, items: List<com.are.distribuidora.orders.domain.model.EditOrderItemInput>) = Result.Success(Unit)
+        override suspend fun uploadPendingOrders() = Result.Success(Unit)
+    }
+
+    /** Fake mínimo de ProductRepository para el GetProductImageUseCase. */
+    private class FakeProductRepository : com.are.distribuidora.domain.product.ProductRepository {
+        override fun getProductsStream(query: String?): Flow<androidx.paging.PagingData<com.are.distribuidora.domain.model.Product>> = kotlinx.coroutines.flow.emptyFlow()
+        override suspend fun getById(id: com.are.distribuidora.domain.valueobject.ProductId): com.are.distribuidora.domain.model.Product? = null
+        override fun observeById(id: com.are.distribuidora.domain.valueobject.ProductId): Flow<com.are.distribuidora.domain.model.Product?> = kotlinx.coroutines.flow.emptyFlow()
+        override suspend fun save(product: com.are.distribuidora.domain.model.Product) = Unit
+        override suspend fun delete(id: String) = Unit
+        override suspend fun countAll(): Int = 0
+        override fun getSyncStatuses(): Flow<Map<String, com.are.distribuidora.domain.core.SyncState>> = kotlinx.coroutines.flow.emptyFlow()
+        override suspend fun findByBarcode(barcode: String): com.are.distribuidora.domain.model.Product? = null
+        override suspend fun incrementStock(productId: String, delta: Int) = Unit
     }
 
     private fun buildRoute(id: String, name: String) = Route(id, name, 1, 0, true, 0L, 0L)
@@ -178,6 +199,8 @@ class PedidosViewModelTest {
         pedidosThrows: Exception? = null,
         routesThrows: Exception? = null,
         orderRepository: FakeOrderRepository = FakeOrderRepository(),
+        access: UserAccess = UserAccess.admin(),
+        activeRouteId: String? = null,
     ): PedidosViewModel {
         val fakePedidoRepo = FakePedidoRepository(pedidos, pedidosThrows)
         val fakeRouteRepo  = FakeRouteRepository(routes, routesThrows)
@@ -185,13 +208,17 @@ class PedidosViewModelTest {
         return PedidosViewModel(
             observeAllPedidosUseCase                   = ObserveAllPedidosUseCase(fakePedidoRepo),
             getRoutesUseCase                           = GetRoutesUseCase(fakeRouteRepo),
-            deletePedidoUseCase                        = DeletePedidoUseCase(fakePedidoRepo),
+            deletePedidoUseCase                        = DeletePedidoUseCase(fakePedidoRepo, { UserAccess.admin() }, fakeAuthRepo),
             authRepository                             = fakeAuthRepo,
             observeOtherOrdersByRouteUseCase           = ObserveOtherOrdersByRouteUseCase(orderRepository),
             observeOtherOrdersByRouteAndDateUseCase    = ObserveOtherOrdersByRouteAndDateUseCase(orderRepository),
             downloadOrderItemsUseCase                  = DownloadOrderItemsUseCase(orderRepository),
             fetchOrdersHeaderUseCase                   = FetchOrdersHeaderUseCase(orderRepository),
             fetchAllOrdersHeaderUseCase                = FetchAllOrdersHeaderUseCase(orderRepository),
+            getProductImageUseCase                     = GetProductImageUseCase(FakeProductRepository()),
+            getOtrosPedidoDetalleUseCase               = GetOtrosPedidoDetalleUseCase(orderRepository),
+            userAccessProvider                         = { access },
+            activeRouteReader                          = object : ActiveRouteReader { override fun observeActiveRouteId(today: String) = flowOf(activeRouteId) },
         )
     }
 

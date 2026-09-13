@@ -3,6 +3,7 @@ package com.are.distribuidora.pedido.presentation.list
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.are.distribuidora.auth.domain.repository.AuthRepository
+import com.are.distribuidora.core.result.Failure
 import com.are.distribuidora.core.result.Result
 import com.are.distribuidora.domain.pedido.PedidoWithItems
 import com.are.distribuidora.domain.pedido.SyncStatusLabel
@@ -17,8 +18,13 @@ import com.are.distribuidora.orders.domain.usecase.FetchOrdersHeaderUseCase
 import com.are.distribuidora.orders.domain.usecase.GetOtrosPedidoDetalleUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteAndDateUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteUseCase
+import com.are.distribuidora.pedido.presentation.common.PedidoDateTimeFormatter
 import com.are.distribuidora.pedido.presentation.print.buildPedidoWithItemsForPrint
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.route.domain.repository.ActiveRouteReader
 import com.are.distribuidora.route.domain.usecase.GetRoutesUseCase
+import com.are.distribuidora.screenaccess.domain.model.UserAccess
+import com.are.distribuidora.screenaccess.domain.repository.UserAccessProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -56,6 +62,8 @@ class PedidosViewModel @Inject constructor(
     private val fetchAllOrdersHeaderUseCase: FetchAllOrdersHeaderUseCase,
     private val getProductImageUseCase: GetProductImageUseCase,
     private val getOtrosPedidoDetalleUseCase: GetOtrosPedidoDetalleUseCase,
+    private val userAccessProvider: UserAccessProvider,
+    private val activeRouteReader: ActiveRouteReader,
 ) : ViewModel() {
 
     // ── Mis Pedidos ──────────────────────────────────────────────────────────
@@ -115,6 +123,39 @@ class PedidosViewModel @Inject constructor(
     }
     private val dateFormat    = SimpleDateFormat("d MMM yyyy", Locale("es", "GT"))
     private val dbDateFormat  = SimpleDateFormat("yyyy-MM-dd", Locale.US)
+    /** Fecha + hora de confirmación del pedido ("d MMM yyyy · HH:mm"). */
+    private val dateTimeFormat = PedidoDateTimeFormatter()
+
+    // ── Roles 4.0 ─────────────────────────────────────────────────────────────
+
+    /** Acceso del usuario (rol + pantallas), leído de la cache al arrancar. */
+    private var access: UserAccess = UserAccess.leastPrivilege()
+
+    /** UID de la sesión local: decide qué pedidos de "Mis pedidos" son editables. */
+    private var sessionUid: String? = null
+
+    /** Ruta activa del vendedor hoy (Inicio → "Elegir ruta"); null si no fijó ninguna. */
+    private var activeRouteId: String? = null
+
+    /**
+     * ¿Puede ver la suma del día de [routeId] en "Otros pedidos"?
+     * Admin siempre (VIEW_ROUTE_TOTALS); un vendedor solo la de su ruta activa.
+     * Los montos por pedido y la impresión no dependen de esto.
+     */
+    fun canSeeRouteTotal(routeId: String): Boolean =
+        access.can(Permission.VIEW_ROUTE_TOTALS) || (activeRouteId != null && activeRouteId == routeId)
+
+    /** ¿Puede editar/borrar el pedido propio [pw]? (EDIT_ANY_ORDER o EDIT_OWN_ORDER + dueño). */
+    private fun canEditOwn(pw: PedidoWithItems): Boolean =
+        access.can(Permission.EDIT_ANY_ORDER) ||
+            (access.can(Permission.EDIT_OWN_ORDER) && sessionUid != null && pw.pedido.vendedorId == sessionUid)
+
+    private fun rebuildOtros() {
+        if (otrosOrdersByRoute.isNotEmpty() || _otrosUiState.value is OtrosUiState.Success) {
+            _otrosUiState.value = OtrosUiState.Success(buildOtrosRouteSummaries(otrosOrdersByRoute))
+        }
+    }
+
 
     // ── Filtro de fecha — Mis Pedidos ─────────────────────────────────────────
 
@@ -160,6 +201,10 @@ class PedidosViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            // 0. Rol y sesión (cache local): gobiernan qué se muestra y qué es editable.
+            access = runCatching { userAccessProvider.current() }.getOrDefault(UserAccess.leastPrivilege())
+            sessionUid = runCatching { authRepository.getCurrentSession()?.userId }.getOrNull()
+
             // 1. Cargar rutas primero para que resolveRouteName funcione correctamente
             // desde el primer emit de pedidos
             routesMap = when (val r = getRoutesUseCase()) {
@@ -174,6 +219,15 @@ class PedidosViewModel @Inject constructor(
                     allPedidos = pedidos
                     _uiState.value = UiState.Success(buildRouteSummaries(pedidos))
                 }
+        }
+        viewModelScope.launch {
+            // Ruta activa de hoy: habilita la suma de ESA ruta en "Otros pedidos" al vendedor.
+            activeRouteReader.observeActiveRouteId(todayAsDbString()).collect { routeId ->
+                if (routeId != activeRouteId) {
+                    activeRouteId = routeId
+                    rebuildOtros()
+                }
+            }
         }
     }
 
@@ -219,9 +273,14 @@ class PedidosViewModel @Inject constructor(
 
     fun deletePedido(pedidoId: String) {
         viewModelScope.launch {
-            when (deletePedidoUseCase(pedidoId)) {
+            when (val r = deletePedidoUseCase(pedidoId)) {
                 is Result.Success -> _deleteEvent.emit(DeleteEvent.Success)
-                is Result.Error   -> _deleteEvent.emit(DeleteEvent.Error("Error al eliminar el pedido"))
+                is Result.Error   -> _deleteEvent.emit(
+                    DeleteEvent.Error(
+                        if (r.failure == Failure.Forbidden) "No tienes permiso para eliminar este pedido"
+                        else "Error al eliminar el pedido"
+                    )
+                )
             }
         }
     }
@@ -372,7 +431,9 @@ class PedidosViewModel @Inject constructor(
                 val completedTotals = orders
                     .filter { it.totalAmount != null && it.downloadStatus == OrderDownloadStatus.COMPLETED }
                     .mapNotNull { it.totalAmount }
-                val routeTotal = if (completedTotals.isNotEmpty()) {
+                // Privacidad de ventas (4.0): la suma de la ruta solo para admin o el vendedor
+                // de esa ruta; los demás ven solo el número de pedidos.
+                val routeTotal = if (completedTotals.isNotEmpty() && canSeeRouteTotal(routeId)) {
                     currencyFormat.format(completedTotals.sum())
                 } else null
 
@@ -414,7 +475,7 @@ class PedidosViewModel @Inject constructor(
             downloadStatus      = uiStatus,
             totalFormatted      = order.totalAmount?.let { currencyFormat.format(it) },
             deliveryDate        = order.deliveryDate,
-            createdAtFormatted  = dateFormat.format(Date(order.createdAt)),
+            createdAtFormatted  = dateTimeFormat.formatDateTime(order.createdAt),
         )
     }
 
@@ -429,10 +490,14 @@ class PedidosViewModel @Inject constructor(
             SyncStatusLabel.FAILED  -> "✗ Error"
             SyncStatusLabel.UNKNOWN -> ""
         },
-        creadoEnFormatted  = dateFormat.format(Date(pw.pedido.creadoEn)),
-        // isEditable = true para todos los estados visibles.
-        // La query de Room ya excluye PENDING_DELETE / isDeleted, así que todos los
-        // pedidos que llegan aquí son editables por defecto.
-        isEditable         = true,
+        creadoEnFormatted  = dateTimeFormat.formatDateTime(pw.pedido.creadoEn),
+        // La query de Room ya excluye PENDING_DELETE / isDeleted; lo que decide la
+        // edición es el rol (4.0): EDIT_ANY_ORDER, o EDIT_OWN_ORDER si el pedido es mío.
+        isEditable         = canEditOwn(pw),
     )
+
+    /** Fecha y hora de confirmación de un pedido propio, para el detalle. */
+    fun getCreadoEnFormatted(pedidoId: String): String? =
+        allPedidos.firstOrNull { it.pedido.id == pedidoId }
+            ?.pedido?.creadoEn?.let { dateTimeFormat.formatDateTime(it) }
 }

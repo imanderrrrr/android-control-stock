@@ -15,6 +15,9 @@ class RoomOrderLocalDataSource(
     private val orderDao: OrderDao,
     private val orderItemDao: OrderItemDao,
     private val stagingDao: OrderItemStagingDao,
+    /** 4.1: libro de movimientos + contador local de stock (null solo en tests legacy). */
+    private val movementDao: com.are.distribuidora.stockmovement.data.local.dao.StockMovementDao? = null,
+    private val productDao: com.are.distribuidora.data.local.dao.ProductDao? = null,
 ) : OrderLocalDataSource {
 
     private val tag = "OrdersSync"
@@ -134,6 +137,106 @@ class RoomOrderLocalDataSource(
             )
             orderDao.upsert(updated)
         }
+    }
+
+    override suspend fun commitEditedItems(
+        orderId: String,
+        finalItems: List<OrderItemEntity>,
+        totalAmount: Double,
+        now: Long,
+    ) {
+        if (finalItems.isEmpty()) {
+            // Un pedido editado debe conservar al menos un ítem. Para "vaciarlo" se usa el
+            // flujo de eliminación (deleteOrder), no la edición.
+            throw IllegalArgumentException("commitEditedItems: finalItems vacío")
+        }
+
+        db.runInTransaction {
+            // 1) Reemplazo total de ítems (PK estable = itemId; índice único orderId+productId).
+            orderItemDao.deleteByOrderId(orderId)
+            orderItemDao.insertAll(finalItems)
+
+            // 2) Limpiar cualquier staging residual del flujo de descarga.
+            stagingDao.deleteByOrderId(orderId)
+
+            // 3) Actualizar cabecera SIN tocar vendedorId/sellerName (preserva al dueño).
+            val current = orderDao.getById(orderId) ?: throw IllegalStateException("Order not found")
+            val updated = current.copy(
+                itemsCount = finalItems.size,
+                itemsDownloaded = finalItems.size,
+                totalAmount = totalAmount,
+                downloadStatus = "COMPLETED",
+                failedReasonCode = null,
+                failedReasonMessage = null,
+                failedAttempts = 0,
+                pendingUpload = true,
+                updatedAt = now,
+            )
+            orderDao.upsert(updated)
+        }
+    }
+
+    override suspend fun commitEditedItems(
+        orderId: String,
+        finalItems: List<OrderItemEntity>,
+        totalAmount: Double,
+        now: Long,
+        movements: List<com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity>,
+    ) {
+        if (finalItems.isEmpty()) throw IllegalArgumentException("commitEditedItems: finalItems vacío")
+        db.runInTransaction {
+            orderItemDao.deleteByOrderId(orderId)
+            orderItemDao.insertAll(finalItems)
+            stagingDao.deleteByOrderId(orderId)
+            val current = orderDao.getById(orderId) ?: throw IllegalStateException("Order not found")
+            orderDao.upsert(
+                current.copy(
+                    itemsCount = finalItems.size,
+                    itemsDownloaded = finalItems.size,
+                    totalAmount = totalAmount,
+                    downloadStatus = "COMPLETED",
+                    failedReasonCode = null,
+                    failedReasonMessage = null,
+                    failedAttempts = 0,
+                    pendingUpload = true,
+                    editVersion = current.editVersion + 1,
+                    updatedAt = now,
+                )
+            )
+            // Movimientos por diferencia + stock local, en la misma transacción que la edición.
+            recordMovements(movements)
+        }
+    }
+
+    override suspend fun commitOrderDeletion(
+        orderId: String,
+        now: Long,
+        syncedMovements: List<com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity>,
+    ) {
+        db.runInTransaction {
+            orderDao.markDeleted(orderId = orderId, now = now)
+            recordMovements(syncedMovements)
+        }
+    }
+
+    /** Inserta (idempotente por id) y aplica al stock local solo los que realmente se insertaron. */
+    private suspend fun recordMovements(movements: List<com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity>) {
+        val mDao = movementDao ?: return
+        val pDao = productDao ?: return
+        movements.forEach { m ->
+            if (mDao.insert(m) != -1L) pDao.applyMovement(m.productId, m.signedQuantity)
+        }
+    }
+
+    override suspend fun getUnsyncedMovements(orderId: String) = movementDao?.getUnsyncedByOrderId(orderId) ?: emptyList()
+    override suspend fun markMovementsSyncing(ids: List<String>) { if (ids.isNotEmpty()) movementDao?.markSyncing(ids) }
+    override suspend fun markMovementsSynced(ids: List<String>, at: Long) { if (ids.isNotEmpty()) movementDao?.markSynced(ids, at) }
+    override suspend fun revertMovementsSyncing(ids: List<String>) { if (ids.isNotEmpty()) movementDao?.revertSyncingToPending(ids) }
+
+    override suspend fun getPendingUploadOrders(): List<OrderEntity> = orderDao.getPendingUpload()
+
+    override suspend fun setPendingUpload(orderId: String, pending: Boolean, now: Long) {
+        orderDao.setPendingUpload(orderId = orderId, pending = pending, now = now)
     }
 
     override fun observeByRoute(routeId: String): Flow<List<OrderEntity>> =

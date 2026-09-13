@@ -9,8 +9,15 @@ import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import androidx.core.widget.doAfterTextChanged
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
+import com.are.distribuidora.stockmovement.presentation.NewVoucherFragment
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -30,6 +37,20 @@ class InventoryFragment : Fragment() {
 
     private val viewModel: InventoryViewModel by viewModels()
 
+    /**
+     * Rol/permisos del usuario (compartido con HomeActivity).
+     * - 4.0: EDIT_PRODUCT gobierna nuevo producto, editar y borrar.
+     * - 4.1: CREATE_VOUCHER gobierna "Agregar stock" y "Nuevo vale" (mueven inventario).
+     */
+    private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
+
+    private fun canEditProduct(): Boolean =
+        screenAccessViewModel.access.value.can(Permission.EDIT_PRODUCT)
+
+    private fun showForbidden() {
+        Snackbar.make(requireView(), R.string.role_forbidden_action, Snackbar.LENGTH_SHORT).show()
+    }
+
     override fun onCreateView(
         inflater: LayoutInflater,
         container: ViewGroup?,
@@ -41,12 +62,18 @@ class InventoryFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
         val progress = view.findViewById<ProgressBar>(R.id.inventoryProgress)
         val empty = view.findViewById<TextView>(R.id.inventoryEmpty)
         val recycler = view.findViewById<RecyclerView>(R.id.inventoryRecycler)
+        val inventoryCount = view.findViewById<TextView>(R.id.inventoryCount)
 
-        val searchEditText = view.findViewById<TextInputEditText>(R.id.searchEditText)
-        val newProductButton = view.findViewById<MaterialButton>(R.id.newProductButton)
+        val searchEditText = view.findViewById<android.widget.EditText>(R.id.searchEditText)
+        val newProductButton = view.findViewById<View>(R.id.newProductButton)
 
         // UI -> ViewModel: el Fragment NO filtra listas, solo envía el query.
         searchEditText.doAfterTextChanged { text ->
@@ -54,8 +81,15 @@ class InventoryFragment : Fragment() {
         }
 
         newProductButton.setOnClickListener { anchor ->
+            if (!canEditProduct()) { showForbidden(); return@setOnClickListener }
             val popup = PopupMenu(requireContext(), anchor)
             popup.menuInflater.inflate(R.menu.menu_product_plus, popup.menu)
+            // 4.1: "Agregar stock" y "Nuevo vale" mueven inventario → Permission.CREATE_VOUCHER
+            // (por defecto solo admin, RolePolicy). "Agregar producto" → EDIT_PRODUCT.
+            val access = screenAccessViewModel.access.value
+            popup.menu.findItem(R.id.action_add_product).isVisible = access.can(Permission.EDIT_PRODUCT)
+            popup.menu.findItem(R.id.action_add_stock).isVisible = access.can(Permission.CREATE_VOUCHER)
+            popup.menu.findItem(R.id.action_new_voucher).isVisible = access.can(Permission.CREATE_VOUCHER)
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     R.id.action_add_product -> {
@@ -63,7 +97,11 @@ class InventoryFragment : Fragment() {
                         true
                     }
                     R.id.action_add_stock -> {
-                        navigateToAddStock()
+                        if (requireVoucherPermission()) navigateToAddStock()
+                        true
+                    }
+                    R.id.action_new_voucher -> {
+                        if (requireVoucherPermission()) navigateToNewVoucher()
                         true
                     }
                     else -> false
@@ -72,7 +110,25 @@ class InventoryFragment : Fragment() {
             popup.show()
         }
 
+        // Mensaje de confirmación al volver de "Nuevo vale".
+        parentFragmentManager.setFragmentResultListener(NewVoucherFragment.RESULT_KEY, viewLifecycleOwner) { _, bundle ->
+            bundle.getString(NewVoucherFragment.RESULT_MESSAGE)?.let { msg ->
+                Snackbar.make(view, msg, Snackbar.LENGTH_LONG).show()
+            }
+        }
+
         val adapter = InventoryAdapter()
+
+        // Vendedor: catálogo en modo consulta (sin botón "+" ni menú de editar/borrar).
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                screenAccessViewModel.access.collect { access ->
+                    val canEdit = access.can(Permission.EDIT_PRODUCT)
+                    newProductButton.visibility = if (canEdit) View.VISIBLE else View.GONE
+                    adapter.canEdit = canEdit
+                }
+            }
+        }
 
         adapter.onProductClick = { productId ->
             parentFragmentManager.beginTransaction()
@@ -88,7 +144,7 @@ class InventoryFragment : Fragment() {
 
         // Conectar el callback de editar
         adapter.onEditClick = { uiModel ->
-            parentFragmentManager.beginTransaction()
+            if (!canEditProduct()) showForbidden() else parentFragmentManager.beginTransaction()
                 .replace(
                     R.id.fragmentContainer,
                     com.are.distribuidora.presentation.product.EditProductFragment.newInstance(
@@ -103,7 +159,7 @@ class InventoryFragment : Fragment() {
         // en cada tarjeta, no desde el click en toda la tarjeta
         
         adapter.onDeleteClick = { uiModel ->
-            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+            if (!canEditProduct()) showForbidden() else androidx.appcompat.app.AlertDialog.Builder(requireContext())
                 .setTitle("Eliminar Producto")
                 .setMessage("¿Estás seguro de que deseas eliminar '${uiModel.product.name}'? Esta acción no se puede deshacer.")
                 .setPositiveButton("Eliminar") { _, _ ->
@@ -118,7 +174,19 @@ class InventoryFragment : Fragment() {
 
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                // 1. Collect Paging Data
+                launch {
+                    viewModel.productCount.collect { count ->
+                        inventoryCount.text = if (count != null) "$count productos" else "Gestiona tus productos"
+                    }
+                }
+
+                // 1. Datos paginados → ÚNICA fuente de submitData.
+                //    El estado de sync ya viaja fusionado en cada ProductUiModel
+                //    (ver InventoryViewModel.products), así que no hay un segundo
+                //    canal con notifyItemChanged manual compitiendo con el differ.
+                //    Eso elimina la race "Inconsistency detected. Invalid view
+                //    holder adapter position" que crasheaba el inventoryRecycler
+                //    cuando un sync invalidaba la tabla products a mitad del refresh.
                 launch {
                     viewModel.products.collectLatest { pagingData ->
                         adapter.submitData(pagingData)
@@ -174,5 +242,22 @@ class InventoryFragment : Fragment() {
             .replace(R.id.fragmentContainer, AddStockScannerFragment.newInstance())
             .addToBackStack(null)
             .commit()
+    }
+
+    private fun navigateToNewVoucher() {
+        parentFragmentManager.beginTransaction()
+            .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+            .replace(R.id.fragmentContainer, NewVoucherFragment.newInstance())
+            .addToBackStack(null)
+            .commit()
+    }
+
+    /** Segunda barrera del gate (el menú ya oculta la opción): evita el acceso por carrera de estado. */
+    private fun requireVoucherPermission(): Boolean {
+        val allowed = screenAccessViewModel.access.value.can(Permission.CREATE_VOUCHER)
+        if (!allowed) {
+            Snackbar.make(requireView(), getString(R.string.voucher_no_permission), Snackbar.LENGTH_LONG).show()
+        }
+        return allowed
     }
 }

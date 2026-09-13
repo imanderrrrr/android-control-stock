@@ -91,6 +91,7 @@ class LoginViewModel @Inject constructor(
             is Failure.ValidationError -> this.message.ifBlank { "Credenciales inválidas" }
             is Failure.DuplicateOrder -> "Error inesperado"
             is Failure.OrderLimitExceeded -> "Error inesperado"
+            Failure.Forbidden -> "Sin permiso"
             Failure.UnknownError -> "Error inesperado"
         }
     }

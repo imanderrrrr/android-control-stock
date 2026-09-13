@@ -2,6 +2,7 @@ package com.are.distribuidora.route.presentation
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.are.distribuidora.route.data.local.ActiveRouteStore
 import com.are.distribuidora.route.domain.model.Route
 import com.are.distribuidora.route.domain.usecase.GetRoutesUseCase
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -9,6 +10,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import javax.inject.Inject
 
 sealed interface SelectRouteUiState {
@@ -20,7 +22,8 @@ sealed interface SelectRouteUiState {
 
 @HiltViewModel
 class SelectRouteViewModel @Inject constructor(
-    private val getRoutesUseCase: GetRoutesUseCase
+    private val getRoutesUseCase: GetRoutesUseCase,
+    private val activeRouteStore: ActiveRouteStore,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<SelectRouteUiState>(SelectRouteUiState.Loading)
@@ -44,6 +47,13 @@ class SelectRouteViewModel @Inject constructor(
                 .onError {
                     _uiState.value = SelectRouteUiState.Error
                 }
+        }
+    }
+
+    /** Fija la ruta activa de hoy (modo "elegir/cambiar ruta" desde el dashboard). */
+    fun setActiveRoute(routeId: String) {
+        viewModelScope.launch {
+            activeRouteStore.setActiveRoute(routeId, LocalDate.now().toString())
         }
     }
 }

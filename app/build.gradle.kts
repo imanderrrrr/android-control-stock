@@ -24,6 +24,7 @@ android {
 
     buildFeatures {
         viewBinding = true
+        buildConfig = true
     }
 
     signingConfigs {
@@ -39,8 +40,15 @@ android {
         applicationId = "com.are.distribuidora"
         minSdk = 30
         targetSdk = 36
-        versionCode = 1
-        versionName = "1.0"
+        val appVersionName = "4.1.0"
+        versionCode = 40100
+        versionName = appVersionName
+
+        // Etiquetas de versión visibles (splash + footer de login) generadas desde
+        // versionName para que reflejen la versión real y nunca se desfasen.
+        // Reemplazan los <string> hardcodeados que antes decían "v1.0.0".
+        resValue("string", "splash_version", "v$appVersionName")
+        resValue("string", "login_footer", "DailyStock v$appVersionName · OFFLINE LISTA")
 
         // Runner para Hilt en instrumented tests
         testInstrumentationRunner = "com.are.distribuidora.HiltTestRunner"
@@ -48,7 +56,17 @@ android {
         testInstrumentationRunnerArguments.remove("runnerBuilder")
     }
 
+    // Emuladores de Firebase para pruebas locales SIN tocar producción:
+    //   ./gradlew :app:installDebug -PuseFirebaseEmulator=true [-PfirebaseEmulatorHost=10.0.2.2]
+    // Solo aplica al buildType debug; release siempre apunta al proyecto real.
+    val useFirebaseEmulator = (project.findProperty("useFirebaseEmulator")?.toString() == "true")
+    val firebaseEmulatorHost = project.findProperty("firebaseEmulatorHost")?.toString() ?: "10.0.2.2"
+
     buildTypes {
+        debug {
+            buildConfigField("boolean", "USE_FIREBASE_EMULATOR", useFirebaseEmulator.toString())
+            buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"$firebaseEmulatorHost\"")
+        }
         release {
             // Activar R8/Proguard en release para reducir tamaño y ofuscar código
             isMinifyEnabled = true
@@ -63,6 +81,9 @@ android {
 
             // Firmar release con keystore de producción
             signingConfig = signingConfigs.getByName("release")
+
+            buildConfigField("boolean", "USE_FIREBASE_EMULATOR", "false")
+            buildConfigField("String", "FIREBASE_EMULATOR_HOST", "\"\"")
         }
     }
     compileOptions {
@@ -176,7 +197,4 @@ dependencies {
 
     // ML Kit Barcode Scanning
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
-
-    // MPAndroidChart (gráficas en pantalla de reportes)
-    implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
 }

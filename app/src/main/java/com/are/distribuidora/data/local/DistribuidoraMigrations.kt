@@ -1256,4 +1256,169 @@ object DistribuidoraMigrations {
             db.execSQL("ALTER TABLE order_items_staging ADD COLUMN notes TEXT")
         }
     }
+
+    /**
+     * v34 -> v35
+     * - Agrega columna `pendingUpload` (INTEGER NOT NULL DEFAULT 0) a la tabla `orders`.
+     *
+     * Motivo: habilita la edición de pedidos AJENOS (sistema `orders`, antes solo-lectura).
+     * Al agregar/quitar ítems en un pedido ajeno, la edición se persiste local y se marca
+     * pendingUpload=1; un worker la sube a Firestore preservando vendedorId/sellerName (el
+     * pedido sigue siendo ajeno). Mientras pendingUpload=1, el downsync no pisa la edición.
+     * Patrón idéntico a isDeleted (MIGRATION_30_31): boolean como INTEGER NOT NULL DEFAULT 0.
+     */
+    val MIGRATION_34_35: Migration = object : Migration(34, 35) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE orders ADD COLUMN pendingUpload INTEGER NOT NULL DEFAULT 0")
+        }
+    }
+
+    /**
+     * v35 -> v36
+     * - Nueva tabla `screen_access`: cache local del control de acceso por pantalla
+     *   (`userScreenAccess/{uid}` en Firestore). Banderas NULLABLE = default-allow.
+     */
+    val MIGRATION_35_36: Migration = object : Migration(35, 36) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS `screen_access` (" +
+                    "`uid` TEXT NOT NULL, " +
+                    "`inicio` INTEGER, " +
+                    "`inventario` INTEGER, " +
+                    "`pedidos` INTEGER, " +
+                    "`clientes` INTEGER, " +
+                    "`reportes` INTEGER, " +
+                    "`cuentasPendientes` INTEGER, " +
+                    "`updatedAtMillis` INTEGER, " +
+                    "`updatedBy` TEXT, " +
+                    "PRIMARY KEY(`uid`))"
+            )
+        }
+    }
+
+    /** Pedidos: agrega columna ivaAmount (monto de IVA 12% opcional, 0 = sin IVA). */
+    val MIGRATION_36_37: Migration = object : Migration(36, 37) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE pedidos ADD COLUMN ivaAmount REAL NOT NULL DEFAULT 0")
+        }
+    }
+
+    /**
+     * v37 -> v38
+     * - Agrega columna `discountAmount` (REAL NOT NULL DEFAULT 0) a `order_items` y
+     *   `order_items_staging`.
+     *
+     * Motivo: el vendedor creador escribe `items.discountAmount` en Firestore (desde
+     * `pedido_items.descuentoItem`), pero la descarga de "Otros Pedidos" lo descartaba:
+     * el descuento no llegaba a otros dispositivos y la re-subida de una edición lo
+     * borraba del documento remoto. Mismo patrón que MIGRATION_33_34 (notes).
+     */
+    val MIGRATION_37_38: Migration = object : Migration(37, 38) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE order_items ADD COLUMN discountAmount REAL NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE order_items_staging ADD COLUMN discountAmount REAL NOT NULL DEFAULT 0")
+        }
+    }
+
+    /**
+     * v38 -> v39
+     * - Agrega columna `role` (TEXT NULL) a `screen_access`.
+     *
+     * Motivo (DailyStock 4.0, roles): el panel web escribe `role: "admin"|"vendedor"`
+     * en `userScreenAccess/{uid}`; la app lo cachea junto a las banderas de pantalla.
+     * NULL = todavía no llegó ⇒ se resuelve a vendedor (mínimo privilegio).
+     */
+    val MIGRATION_38_39: Migration = object : Migration(38, 39) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE screen_access ADD COLUMN role TEXT")
+        }
+    }
+
+    /**
+     * v39 -> v40 — DailyStock 4.1 "Movimientos, vales y reinicio".
+     *
+     * (Era la 38→39 en la rama `feature/v4.1-stock-movements`; se renumeró al integrar con 4.0,
+     * que ya usó la 38→39 para `screen_access.role`. Por eso el paso 4 original de 4.1
+     * —agregar `role` a `screen_access`— NO se repite aquí: la columna ya existe.)
+     *
+     * 1. Nueva tabla `stock_movements`: libro de movimientos de inventario (espejo de la colección
+     *    Firestore `stock_movements`). Inmutable, con syncStatus local.
+     * 2. `products` pierde la columna `comprometido`: mezclaba reservas con existencias y nadie la
+     *    entendía. Se recrea la tabla (SQLite < 3.35 no soporta DROP COLUMN; mismo patrón que
+     *    MIGRATION_31_32). El stock se conserva tal cual; el reinicio a cero lo hace el script
+     *    del panel, no esta migración.
+     * 3. `orders` (pipeline B, pedidos ajenos) gana `editVersion INTEGER NOT NULL DEFAULT 0`: contador
+     *    local de ediciones para derivar el id determinístico de los movimientos PEDIDO_EDICION.
+     */
+    val MIGRATION_39_40: Migration = object : Migration(39, 40) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            // 1) Libro de movimientos
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `stock_movements` (
+                    `id` TEXT NOT NULL,
+                    `productId` TEXT NOT NULL,
+                    `productName` TEXT NOT NULL,
+                    `type` TEXT NOT NULL,
+                    `quantity` INTEGER NOT NULL,
+                    `reason` TEXT NOT NULL,
+                    `orderId` TEXT,
+                    `note` TEXT,
+                    `createdBy` TEXT NOT NULL,
+                    `createdByName` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `syncStatus` TEXT NOT NULL,
+                    `lastSyncedAt` INTEGER,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_movements_productId` ON `stock_movements` (`productId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_movements_orderId` ON `stock_movements` (`orderId`)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_stock_movements_syncStatus` ON `stock_movements` (`syncStatus`)")
+
+            // 2) products sin `comprometido`
+            db.execSQL("PRAGMA foreign_keys=OFF")
+            db.execSQL(
+                """
+                CREATE TABLE IF NOT EXISTS `products_new` (
+                    `id` TEXT NOT NULL,
+                    `name` TEXT NOT NULL,
+                    `description` TEXT,
+                    `category` TEXT,
+                    `price` REAL NOT NULL,
+                    `imageUrl` TEXT,
+                    `imageLocalUri` TEXT,
+                    `barcode` TEXT,
+                    `stock` INTEGER NOT NULL,
+                    `isActive` INTEGER NOT NULL,
+                    `isDeleted` INTEGER NOT NULL,
+                    `syncStatus` TEXT NOT NULL,
+                    `createdAt` INTEGER NOT NULL,
+                    `updatedAt` INTEGER NOT NULL,
+                    `lastSyncedAt` INTEGER,
+                    PRIMARY KEY(`id`)
+                )
+                """.trimIndent()
+            )
+            db.execSQL(
+                """
+                INSERT INTO products_new
+                    (id, name, description, category, price, imageUrl, imageLocalUri,
+                     barcode, stock, isActive, isDeleted, syncStatus, createdAt, updatedAt, lastSyncedAt)
+                SELECT
+                    id, name, description, category, price, imageUrl, imageLocalUri,
+                    barcode, stock, isActive, isDeleted, syncStatus, createdAt, updatedAt, lastSyncedAt
+                FROM products
+                """.trimIndent()
+            )
+            db.execSQL("DROP TABLE products")
+            db.execSQL("ALTER TABLE products_new RENAME TO products")
+            db.execSQL("CREATE INDEX IF NOT EXISTS `index_products_name` ON `products` (`name`)")
+            db.execSQL("PRAGMA foreign_keys=ON")
+
+            // 3) orders.editVersion
+            db.execSQL("ALTER TABLE orders ADD COLUMN editVersion INTEGER NOT NULL DEFAULT 0")
+        }
+    }
 }

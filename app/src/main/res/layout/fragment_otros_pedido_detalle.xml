@@ -66,6 +66,22 @@
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintTop_toTopOf="parent" />
 
+        <!-- Fecha y hora de confirmación del pedido (4.0) -->
+        <TextView
+            android:id="@+id/textOtrosDetalleCreatedAt"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginHorizontal="16dp"
+            android:layout_marginTop="2dp"
+            android:textAppearance="@style/TextAppearance.Material3.BodySmall"
+            android:alpha="0.7"
+            android:maxLines="1"
+            android:ellipsize="end"
+            android:visibility="gone"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintTop_toBottomOf="@id/textOtrosDetalleSeller" />
+
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerOtrosDetalle"
             android:layout_width="0dp"
@@ -75,7 +91,7 @@
             android:paddingBottom="16dp"
             android:clipToPadding="false"
             android:scrollbars="none"
-            app:layout_constraintTop_toBottomOf="@id/textOtrosDetalleSeller"
+            app:layout_constraintTop_toBottomOf="@id/textOtrosDetalleCreatedAt"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
             app:layout_constraintBottom_toTopOf="@id/cardOtrosDetalleTotal" />

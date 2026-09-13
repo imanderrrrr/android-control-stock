@@ -2,6 +2,8 @@ package com.are.distribuidora.data.remote.firestore
 
 import android.util.Log
 import com.are.distribuidora.data.remote.pedido.PedidoRemoteDataSource
+import com.are.distribuidora.stockmovement.data.remote.firestore.StockMovementFirestoreOps
+import com.are.distribuidora.stockmovement.domain.model.StockMovement
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -46,7 +48,8 @@ class FirestorePedidoDataSource @Inject constructor(
     override suspend fun uploadPedido(
         pedidoId: String,
         payload: PedidoRemoteDataSource.PedidoPayload,
-        items: List<PedidoRemoteDataSource.PedidoItemPayload>
+        items: List<PedidoRemoteDataSource.PedidoItemPayload>,
+        movements: List<StockMovement>,
     ) {
         val routeId = payload.routeId
         require(routeId.isNotBlank()) { "routeId no puede estar vacío al subir pedido" }
@@ -76,6 +79,7 @@ class FirestorePedidoDataSource @Inject constructor(
             "subtotal"        to payload.subtotal,
             "descuentoGlobal" to payload.descuentoGlobal,
             "total"           to payload.total,
+            "ivaAmount"       to payload.ivaAmount,
             "itemsCount"      to items.size,
             "version"         to payload.version,
             "actualizadoPor"  to payload.actualizadoPor,
@@ -84,7 +88,7 @@ class FirestorePedidoDataSource @Inject constructor(
         )
         payload.orderKey?.let { orderData["orderKey"] = it }
 
-        Log.d(tag, "uploadPedido: start pedidoId=$pedidoId routeId=$routeId items=${items.size} orderKey=${payload.orderKey}")
+        Log.d(tag, "uploadPedido: start pedidoId=$pedidoId routeId=$routeId items=${items.size} movements=${movements.size} orderKey=${payload.orderKey}")
 
         try {
             val itemsCollection = orderRef.collection("items")
@@ -113,6 +117,7 @@ class FirestorePedidoDataSource @Inject constructor(
                     finalVendedorId = finalVendedorId,
                     orderData       = orderData,
                     items           = items,
+                    movements       = movements,
                 )
             } else {
                 uploadAsUpdate(
@@ -121,6 +126,7 @@ class FirestorePedidoDataSource @Inject constructor(
                     itemsCollection = itemsCollection,
                     orderData       = orderData,
                     items           = items,
+                    movements       = movements,
                 )
             }
 
@@ -150,6 +156,7 @@ class FirestorePedidoDataSource @Inject constructor(
         finalVendedorId: String,
         orderData: Map<String, Any?>,
         items: List<PedidoRemoteDataSource.PedidoItemPayload>,
+        movements: List<StockMovement>,
     ) {
         val now = System.currentTimeMillis()
         firestore.runTransaction { transaction ->
@@ -160,6 +167,8 @@ class FirestorePedidoDataSource @Inject constructor(
                 Log.w(tag, "uploadAsCreate: doc apareció durante la transacción; skip pedidoId=$pedidoId")
                 return@runTransaction
             }
+            // Todas las LECTURAS de la transacción antes de cualquier escritura.
+            val existingMovements = StockMovementFirestoreOps.readExisting(transaction, firestore, movements)
 
             // ── Lock anti-duplicado ───────────────────────────────────────
             if (orderKey != null) {
@@ -210,20 +219,25 @@ class FirestorePedidoDataSource @Inject constructor(
                 item.notes?.let { itemData["notes"] = it }
                 transaction.set(itemsCollection.document(item.id), itemData)
             }
-            Log.d(tag, "uploadAsCreate: written pedidoId=$pedidoId items=${items.size}")
+            // Movimientos de stock del pedido + incremento atómico del contador, en la misma
+            // transacción: o sube todo o no sube nada. Idempotente por id determinístico.
+            val written = StockMovementFirestoreOps.writeMissing(transaction, firestore, movements, existingMovements)
+            Log.d(tag, "uploadAsCreate: written pedidoId=$pedidoId items=${items.size} movements=${written.size}/${movements.size}")
         }.await()
     }
 
     /**
      * Rama UPDATE: aplica los cambios del editor a un pedido que ya existe en Firestore.
      *
-     * Estrategia (WriteBatch atómico):
+     * Estrategia (transacción atómica; antes era WriteBatch, cambió en 4.1 para poder LEER los
+     * movimientos existentes y garantizar idempotencia):
      *  1) Lee la subcolección `items/` actual.
      *  2) Borra los itemIds que ya NO están en el payload (el usuario los eliminó al editar).
      *  3) Crea/reemplaza los items del payload con `set`.
      *  4) Actualiza el header con `set + SetOptions.merge()` para preservar campos auxiliares.
+     *  5) Escribe los movimientos PEDIDO_EDICION que no existan + increment() del stock.
      *
-     * El WriteBatch garantiza atomicidad: o todo el cambio se aplica o nada.
+     * La transacción garantiza atomicidad: o todo el cambio se aplica o nada.
      * Sin esto, otros vendedores veían la versión original del pedido aunque el editor
      * confirmara cambios → bug visible "el pedido se revuelve al editarlo".
      */
@@ -233,42 +247,48 @@ class FirestorePedidoDataSource @Inject constructor(
         itemsCollection: com.google.firebase.firestore.CollectionReference,
         orderData: Map<String, Any?>,
         items: List<PedidoRemoteDataSource.PedidoItemPayload>,
+        movements: List<StockMovement>,
     ) {
+        // La consulta de la subcolección no puede ir dentro de la transacción (el SDK Android solo
+        // permite get() de documentos), así que se lee antes; las escrituras van juntas.
         val currentItemsSnap = itemsCollection.get().await()
         val incomingItemIds  = items.map { it.id }.toSet()
+        val staleItemRefs = currentItemsSnap.documents.filter { it.id !in incomingItemIds }.map { it.reference }
 
-        val batch = firestore.batch()
-
-        // 1) Borrar items que ya no están en el payload (el usuario los eliminó al editar).
         var deletedCount = 0
-        currentItemsSnap.documents.forEach { doc ->
-            if (doc.id !in incomingItemIds) {
-                batch.delete(doc.reference)
+        var movementsWritten = 0
+        firestore.runTransaction { batch ->
+            val existingMovements = StockMovementFirestoreOps.readExisting(batch, firestore, movements)
+
+            // 1) Borrar items que ya no están en el payload (el usuario los eliminó al editar).
+            staleItemRefs.forEach { ref ->
+                batch.delete(ref)
                 deletedCount++
             }
-        }
 
-        // 2) Set para cada item del payload (crea nuevos o reemplaza existentes).
-        items.forEach { item ->
-            val itemData = mutableMapOf<String, Any?>(
-                "itemId"         to item.id,
-                "orderId"        to pedidoId,
-                "productId"      to item.productoId,
-                "productName"    to item.nombre,
-                "unitPrice"      to item.precioUnitario,
-                "quantity"       to item.cantidad,
-                "discountAmount" to item.descuentoItem,
-                "totalItem"      to item.totalItem,
-            )
-            item.notes?.let { itemData["notes"] = it }
-            batch.set(itemsCollection.document(item.id), itemData)
-        }
+            // 2) Set para cada item del payload (crea nuevos o reemplaza existentes).
+            items.forEach { item ->
+                val itemData = mutableMapOf<String, Any?>(
+                    "itemId"         to item.id,
+                    "orderId"        to pedidoId,
+                    "productId"      to item.productoId,
+                    "productName"    to item.nombre,
+                    "unitPrice"      to item.precioUnitario,
+                    "quantity"       to item.cantidad,
+                    "discountAmount" to item.descuentoItem,
+                    "totalItem"      to item.totalItem,
+                )
+                item.notes?.let { itemData["notes"] = it }
+                batch.set(itemsCollection.document(item.id), itemData)
+            }
 
-        // 3) Merge del header (preserva campos auxiliares como deletedAt, lockMeta, etc.).
-        batch.set(orderRef, orderData, SetOptions.merge())
+            // 3) Merge del header (preserva campos auxiliares como deletedAt, lockMeta, etc.).
+            batch.set(orderRef, orderData, SetOptions.merge())
 
-        batch.commit().await()
-        Log.i(tag, "uploadAsUpdate: applied pedidoId=$pedidoId items=${items.size} deleted=$deletedCount")
+            // 4) Movimientos por diferencia (PEDIDO_EDICION) + incremento atómico del stock.
+            movementsWritten = StockMovementFirestoreOps.writeMissing(batch, firestore, movements, existingMovements).size
+        }.await()
+        Log.i(tag, "uploadAsUpdate: applied pedidoId=$pedidoId items=${items.size} deleted=$deletedCount movements=$movementsWritten/${movements.size}")
     }
 
     /**
@@ -296,6 +316,7 @@ class FirestorePedidoDataSource @Inject constructor(
         pedidoId: String,
         orderKey: String?,
         deletedByUid: String?,
+        movements: List<StockMovement>,
     ) {
         require(routeId.isNotBlank()) { "routeId no puede estar vacío al eliminar pedido" }
         require(pedidoId.isNotBlank()) { "pedidoId no puede estar vacío al eliminar pedido" }
@@ -317,8 +338,14 @@ class FirestorePedidoDataSource @Inject constructor(
         }
 
         try {
-            orderRef.update(updateData).await()
-            Log.i(tag, "softDeletePedido: isDeleted=true pedidoId=$pedidoId routeId=$routeId uid=$deletedByUid")
+            // Soft delete + movimientos compensatorios (ENTRADA/PEDIDO_BORRADO) en UNA transacción:
+            // es el arreglo del bug "borrar un pedido no devuelve el stock".
+            val written = firestore.runTransaction { tx ->
+                val existing = StockMovementFirestoreOps.readExisting(tx, firestore, movements)
+                tx.update(orderRef, updateData)
+                StockMovementFirestoreOps.writeMissing(tx, firestore, movements, existing)
+            }.await()
+            Log.i(tag, "softDeletePedido: isDeleted=true pedidoId=$pedidoId routeId=$routeId uid=$deletedByUid movements=${written.size}/${movements.size}")
         } catch (e: FirebaseFirestoreException) {
             Log.e(tag, "softDeletePedido: Firestore error pedidoId=$pedidoId (${e.message})", e)
             throw e

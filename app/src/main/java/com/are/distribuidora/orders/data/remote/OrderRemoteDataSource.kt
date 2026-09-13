@@ -27,6 +27,12 @@ interface OrderRemoteDataSource {
          * Default false para compatibilidad con pedidos legacy sin el campo.
          */
         val isDeleted: Boolean = false,
+        /**
+         * Instante (epoch ms) en que el vendedor CONFIRMÓ el carrito (Firestore `creadoEn`).
+         * Null en documentos legacy sin el campo; el repositorio conserva entonces el valor
+         * local o usa la hora de descarga.
+         */
+        val creadoEn: Long? = null,
     )
 
     data class OrderItemDto(
@@ -36,6 +42,13 @@ interface OrderRemoteDataSource {
         val productName: String,
         val unitPrice: Double,
         val quantity: Int,
+        /**
+         * Descuento absoluto del ítem (Q). Mismo campo que escribe la app del vendedor
+         * creador (PedidoItemPayload.descuentoItem →
+         * routes/{routeId}/orders/{orderId}/items/{itemId}.discountAmount en Firestore).
+         * 0.0 si el documento no incluye el campo (pedidos legacy o sin descuento).
+         */
+        val discountAmount: Double = 0.0,
         /**
          * Detalle / instrucción especial del cliente para este ítem.
          * Mismo campo que escribe la app del vendedor creador (PedidoItemPayload.notes →
@@ -70,4 +83,49 @@ interface OrderRemoteDataSource {
      * @param deletedByUid  UID del usuario que realiza la eliminación (puede ser null si no hay sesión).
      */
     suspend fun markOrderDeleted(routeId: String, orderId: String, deletedByUid: String?)
+
+    /**
+     * 4.1: soft delete + movimientos compensatorios (ENTRADA/PEDIDO_BORRADO por ítem) en la misma
+     * transacción, con incremento atómico del stock. Idempotente por id de movimiento.
+     */
+    suspend fun markOrderDeleted(
+        routeId: String,
+        orderId: String,
+        deletedByUid: String?,
+        movements: List<com.are.distribuidora.stockmovement.domain.model.StockMovement>,
+    ) = markOrderDeleted(routeId, orderId, deletedByUid)
+
+    /**
+     * Sube una EDICIÓN de ítems de un pedido (posiblemente AJENO) a Firestore.
+     *
+     * Hace un diff de la subcolección items: borra los docs que ya no están en [items]
+     * y hace set (crea/sobrescribe) de los demás con el contrato COMPLETO de campos que
+     * escribe el creador (incluye discountAmount y totalItem: el set reemplaza el doc
+     * entero, omitirlos los borraría del remoto). Actualiza SOLO los campos mutables del
+     * header (itemsCount, totalAmount, updatedAt, lastModifiedBy) con .update(): NO escribe
+     * vendedorId ni sellerName, de modo que el pedido conserva a su dueño original y sigue
+     * clasificándose como "ajeno" para el resto de vendedores.
+     *
+     * @param editedByUid UID de quien edita (auditoría en lastModifiedBy). Puede ser null.
+     */
+    suspend fun uploadOrderEdit(
+        routeId: String,
+        orderId: String,
+        items: List<OrderItemDto>,
+        totalAmount: Double,
+        editedByUid: String?,
+    )
+
+    /**
+     * 4.1: igual que [uploadOrderEdit] llevando en la MISMA transacción los movimientos de stock
+     * por diferencia (PEDIDO_EDICION) con incremento atómico del contador. Idempotente por id.
+     */
+    suspend fun uploadOrderEdit(
+        routeId: String,
+        orderId: String,
+        items: List<OrderItemDto>,
+        totalAmount: Double,
+        editedByUid: String?,
+        movements: List<com.are.distribuidora.stockmovement.domain.model.StockMovement>,
+    ) = uploadOrderEdit(routeId, orderId, items, totalAmount, editedByUid)
 }

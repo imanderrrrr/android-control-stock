@@ -49,7 +49,10 @@ class ProductSyncIntegrationTest {
             remote = remote,
             local = dao,
             database = db,
-            imageStorage = mockk(relaxed = true)
+            imageStorage = mockk(relaxed = true),
+            pendingUploadDao = db.pendingUploadDao(),
+            movementDao = db.stockMovementDao(),
+            cursorStore = com.are.distribuidora.data.local.prefs.InMemoryProductSyncCursorStore(),
         )
     }
 
@@ -70,7 +73,6 @@ class ProductSyncIntegrationTest {
             imageUrl = null,
             barcode = "123",
             stock = 100,
-            comprometido = 0,
             isActive = true,
             isDeleted = false,
             createdRemoteAt = 1000L,
@@ -121,7 +123,6 @@ class ProductSyncIntegrationTest {
             imageUrl = null,
             barcode = null,
             stock = 10,
-            comprometido = 0,
             isActive = true,
             isDeleted = false,
             createdRemoteAt = 100L,
@@ -171,7 +172,6 @@ class ProductSyncIntegrationTest {
             imageUrl = null,
             barcode = null,
             stock = 10,
-            comprometido = 0,
             isActive = true,
             isDeleted = false,
             createdRemoteAt = 100L,

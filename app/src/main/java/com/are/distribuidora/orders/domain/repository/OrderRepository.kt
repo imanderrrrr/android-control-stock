@@ -1,6 +1,7 @@
 package com.are.distribuidora.orders.domain.repository
 
 import com.are.distribuidora.core.result.Result
+import com.are.distribuidora.orders.domain.model.EditOrderItemInput
 import com.are.distribuidora.orders.domain.model.Order
 import com.are.distribuidora.orders.domain.model.OrderItem
 import kotlinx.coroutines.flow.Flow
@@ -68,4 +69,24 @@ interface OrderRepository {
      * Devuelve lista vacía si no hay ítems o el pedido no existe.
      */
     suspend fun getItemsByOrderId(orderId: String): List<OrderItem>
+
+    /**
+     * Persiste una EDICIÓN de ítems de un pedido (propio o ajeno) en Room y la marca como
+     * pendiente de subir (pendingUpload=1). Reemplaza el set de ítems, recalcula el total y
+     * deja el header COMPLETED. NO cambia el dueño (vendedorId/sellerName).
+     *
+     * Acepta ítems personalizados (productId `custom_<UUID>` sin producto en catálogo).
+     * Requiere al menos un ítem y cantidades > 0.
+     *
+     * La subida remota la dispara el llamador encolando el worker de subida.
+     */
+    suspend fun editOrderItems(orderId: String, items: List<EditOrderItemInput>): Result<Unit>
+
+    /**
+     * Sube a Firestore todas las ediciones locales pendientes (pendingUpload=1) y limpia el
+     * flag al confirmar cada una. Preserva vendedorId/sellerName. Idempotente y reintentable
+     * (lo invoca el worker de subida de pedidos). Devuelve error si alguna subida falló para
+     * que el worker reintente.
+     */
+    suspend fun uploadPendingOrders(): Result<Unit>
 }

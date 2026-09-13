@@ -5,9 +5,9 @@
     android:id="@+id/scrollRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/home_background"
+    android:background="@color/bg_page"
     android:clipToPadding="false"
-    android:paddingBottom="120dp">
+    android:paddingBottom="96dp">
 
     <LinearLayout
         android:layout_width="match_parent"
@@ -18,40 +18,82 @@
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:background="@color/app_primary"
             android:gravity="center_vertical"
             android:orientation="horizontal"
-            android:paddingHorizontal="20dp"
-            android:paddingTop="16dp"
-            android:paddingBottom="20dp">
+            android:paddingStart="24dp"
+            android:paddingTop="20dp"
+            android:paddingEnd="24dp"
+            android:paddingBottom="8dp">
 
-            <TextView
+            <LinearLayout
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
                 android:layout_weight="1"
-                android:text="@string/reports_title"
-                android:textColor="@color/app_on_primary"
-                android:textSize="22sp"
-                android:textStyle="bold" />
+                android:orientation="vertical">
 
-            <ImageButton
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:letterSpacing="-0.01"
+                    android:text="@string/reports_title"
+                    android:textColor="@color/text_primary"
+                    android:textSize="24sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/textReportsSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="13sp"
+                    tools:text="Últimos 7 días" />
+            </LinearLayout>
+
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnCrashReports"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginEnd="4dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/crash_reports_open_entry"
-                android:src="@android:drawable/ic_dialog_alert"
-                app:tint="@color/app_on_primary" />
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:layout_marginEnd="10dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/bg_card"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:rippleColor="@color/brand_soft"
+                app:strokeColor="@color/border_subtle"
+                app:strokeWidth="1dp">
 
-            <ImageButton
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/crash_reports_open_entry"
+                    android:src="@android:drawable/ic_dialog_alert"
+                    app:tint="@color/text_secondary" />
+            </com.google.android.material.card.MaterialCardView>
+
+            <com.google.android.material.card.MaterialCardView
                 android:id="@+id/btnRefresh"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:contentDescription="@string/reports_refresh"
-                android:src="@android:drawable/stat_notify_sync"
-                app:tint="@color/app_on_primary" />
+                android:layout_width="44dp"
+                android:layout_height="44dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/bg_card"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="0dp"
+                app:rippleColor="@color/brand_soft"
+                app:strokeColor="@color/border_subtle"
+                app:strokeWidth="1dp">
+
+                <ImageView
+                    android:layout_width="18dp"
+                    android:layout_height="18dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="@string/reports_refresh"
+                    android:src="@drawable/ic_refresh"
+                    app:tint="@color/brand_primary" />
+            </com.google.android.material.card.MaterialCardView>
         </LinearLayout>
 
         <!-- ── Loading ────────────────────────────────────────────── -->
@@ -61,6 +103,7 @@
             android:layout_height="wrap_content"
             android:layout_gravity="center"
             android:layout_marginTop="80dp"
+            android:indeterminateTint="@color/brand_primary"
             android:visibility="gone" />
 
         <!-- ── Empty State ────────────────────────────────────────── -->
@@ -72,8 +115,8 @@
             android:gravity="center"
             android:paddingHorizontal="32dp"
             android:text="@string/reports_empty"
-            android:textColor="@color/palette_600"
-            android:textSize="16sp"
+            android:textColor="@color/text_secondary"
+            android:textSize="15sp"
             android:visibility="gone" />
 
         <!-- ── Content ────────────────────────────────────────────── -->
@@ -82,306 +125,359 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:paddingHorizontal="16dp"
-            android:paddingTop="16dp"
+            android:paddingHorizontal="24dp"
+            android:paddingTop="4dp"
             android:visibility="gone">
+
+            <!-- ── Toggle de periodo ──────────────────────────────── -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:id="@+id/chipPeriod7"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_pill"
+                    android:backgroundTint="@color/brand_primary"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="sans-serif-medium"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="8dp"
+                    android:text="@string/reports_period_7"
+                    android:textColor="@color/text_on_inverse"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/chipPeriod14"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="8dp"
+                    android:background="@drawable/bg_pill_outline"
+                    android:clickable="true"
+                    android:focusable="true"
+                    android:fontFamily="sans-serif-medium"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="8dp"
+                    android:text="@string/reports_period_14"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="12sp" />
+            </LinearLayout>
 
             <!-- ── KPI Cards Row ──────────────────────────────────── -->
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:baselineAligned="false">
+                android:layout_marginTop="20dp"
+                android:baselineAligned="false"
+                android:orientation="horizontal">
 
-                <!-- Ventas 7 días -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginEnd="6dp"
                     android:layout_weight="1"
-                    app:cardBackgroundColor="@color/app_card_surface"
-                    app:cardCornerRadius="14dp"
-                    app:cardElevation="1dp"
-                    app:strokeWidth="0dp">
+                    app:cardBackgroundColor="@color/bg_card"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/border_subtle"
+                    app:strokeWidth="1dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="14dp">
+                        android:padding="16dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:letterSpacing="0.1"
                             android:text="@string/reports_kpi_week"
-                            android:textColor="@color/palette_600"
-                            android:textSize="12sp" />
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/textVentas7"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:textColor="@color/app_on_surface"
-                            android:textSize="20sp"
+                            android:layout_marginTop="6dp"
+                            android:textColor="@color/text_primary"
+                            android:textSize="22sp"
                             android:textStyle="bold"
-                            tools:text="Q 5,200.00" />
+                            tools:text="Q8,450" />
 
                         <TextView
                             android:id="@+id/textPedidos7"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:textColor="@color/palette_600"
+                            android:textColor="@color/text_secondary"
                             android:textSize="12sp"
-                            tools:text="28 pedidos" />
+                            tools:text="23 pedidos" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
 
-                <!-- Ventas 14 días -->
                 <com.google.android.material.card.MaterialCardView
                     android:layout_width="0dp"
                     android:layout_height="wrap_content"
                     android:layout_marginStart="6dp"
                     android:layout_weight="1"
-                    app:cardBackgroundColor="@color/app_card_surface"
-                    app:cardCornerRadius="14dp"
-                    app:cardElevation="1dp"
-                    app:strokeWidth="0dp">
+                    app:cardBackgroundColor="@color/bg_card"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/border_subtle"
+                    app:strokeWidth="1dp">
 
                     <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:orientation="vertical"
-                        android:padding="14dp">
+                        android:padding="16dp">
 
                         <TextView
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
+                            android:letterSpacing="0.1"
                             android:text="@string/reports_kpi_14days"
-                            android:textColor="@color/palette_600"
-                            android:textSize="12sp" />
+                            android:textAllCaps="true"
+                            android:textColor="@color/text_secondary"
+                            android:textSize="10sp"
+                            android:textStyle="bold" />
 
                         <TextView
                             android:id="@+id/textVentas14"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
-                            android:layout_marginTop="4dp"
-                            android:textColor="@color/app_on_surface"
-                            android:textSize="20sp"
+                            android:layout_marginTop="6dp"
+                            android:textColor="@color/text_primary"
+                            android:textSize="22sp"
                             android:textStyle="bold"
-                            tools:text="Q 12,800.00" />
+                            tools:text="Q16,720" />
 
                         <TextView
                             android:id="@+id/textPedidos14"
                             android:layout_width="wrap_content"
                             android:layout_height="wrap_content"
                             android:layout_marginTop="2dp"
-                            android:textColor="@color/palette_600"
+                            android:textColor="@color/text_secondary"
                             android:textSize="12sp"
-                            tools:text="56 pedidos" />
+                            tools:text="47 pedidos" />
                     </LinearLayout>
                 </com.google.android.material.card.MaterialCardView>
             </LinearLayout>
 
-            <!-- Promedio diario -->
+            <!-- ── Promedio diario ────────────────────────────────── -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                app:cardBackgroundColor="@color/app_primary"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="1dp"
+                android:layout_marginTop="20dp"
+                app:cardBackgroundColor="@color/brand_primary"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="0dp"
                 app:strokeWidth="0dp">
 
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:gravity="center_vertical"
-                    android:orientation="horizontal"
-                    android:padding="14dp">
+                    android:orientation="vertical"
+                    android:paddingHorizontal="20dp"
+                    android:paddingVertical="18dp">
 
                     <TextView
-                        android:layout_width="0dp"
+                        android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:layout_weight="1"
+                        android:letterSpacing="0.14"
                         android:text="@string/reports_kpi_avg_daily"
-                        android:textColor="@color/app_on_primary"
-                        android:textSize="14sp" />
+                        android:textAllCaps="true"
+                        android:textColor="@color/text_on_inverse_muted"
+                        android:textSize="10sp"
+                        android:textStyle="bold" />
 
                     <TextView
                         android:id="@+id/textAvgDaily"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:textColor="@color/app_on_primary"
-                        android:textSize="18sp"
+                        android:layout_marginTop="4dp"
+                        android:textColor="@color/text_on_inverse"
+                        android:textSize="24sp"
                         android:textStyle="bold"
-                        tools:text="Q 914.29" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
-
-            <!-- ── Gráfica: Ventas por día ────────────────────────── -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="18dp"
-                app:cardBackgroundColor="@color/app_card_surface"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="1dp"
-                app:strokeWidth="0dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
+                        tools:text="Q1,194.29" />
 
                     <TextView
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
-                        android:text="@string/reports_chart_daily"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <com.github.mikephil.charting.charts.BarChart
-                        android:id="@+id/chartDailySales"
-                        android:layout_width="match_parent"
-                        android:layout_height="200dp"
-                        android:layout_marginTop="8dp" />
+                        android:layout_marginTop="2dp"
+                        android:text="@string/reports_avg_caption"
+                        android:textColor="@color/brand_soft"
+                        android:textSize="12sp" />
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- ── Gráfica: Ventas por ruta ───────────────────────── -->
+            <!-- ── Ventas por día ─────────────────────────────────── -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:letterSpacing="0.14"
+                android:text="@string/reports_chart_daily"
+                android:textAllCaps="true"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
             <com.google.android.material.card.MaterialCardView
-                android:id="@+id/cardRouteChart"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="@color/app_card_surface"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="1dp"
-                app:strokeWidth="0dp">
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="@color/bg_card"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/border_subtle"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
+                    android:id="@+id/layoutDailyBars"
                     android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/reports_chart_routes"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <com.github.mikephil.charting.charts.HorizontalBarChart
-                        android:id="@+id/chartRouteSales"
-                        android:layout_width="match_parent"
-                        android:layout_height="200dp"
-                        android:layout_marginTop="8dp" />
-                </LinearLayout>
+                    android:layout_height="150dp"
+                    android:gravity="bottom"
+                    android:orientation="horizontal"
+                    android:padding="16dp" />
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- ── Top Productos ──────────────────────────────────── -->
-            <com.google.android.material.card.MaterialCardView
+            <!-- ── Ventas por ruta ────────────────────────────────── -->
+            <LinearLayout
+                android:id="@+id/sectionRoutes"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="@color/app_card_surface"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="1dp"
-                app:strokeWidth="0dp">
+                android:orientation="vertical">
 
-                <LinearLayout
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="20dp"
+                    android:letterSpacing="0.14"
+                    android:text="@string/reports_chart_routes"
+                    android:textAllCaps="true"
+                    android:textColor="@color/text_secondary"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+
+                <com.google.android.material.card.MaterialCardView
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/reports_top_products"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+                    android:layout_marginTop="10dp"
+                    app:cardBackgroundColor="@color/bg_card"
+                    app:cardCornerRadius="16dp"
+                    app:cardElevation="0dp"
+                    app:strokeColor="@color/border_subtle"
+                    app:strokeWidth="1dp">
 
                     <LinearLayout
-                        android:id="@+id/layoutTopProducts"
+                        android:id="@+id/layoutRouteBars"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical" />
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
+                        android:orientation="vertical"
+                        android:padding="16dp" />
+                </com.google.android.material.card.MaterialCardView>
+            </LinearLayout>
 
-            <!-- ── Productos menos solicitados ────────────────────── -->
+            <!-- ── Más solicitados ────────────────────────────────── -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:letterSpacing="0.14"
+                android:text="@string/reports_top_products"
+                android:textAllCaps="true"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="@color/app_card_surface"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="1dp"
-                app:strokeWidth="0dp">
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="@color/bg_card"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/border_subtle"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
+                    android:id="@+id/layoutTopProducts"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="14dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/reports_bottom_products"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
-
-                    <LinearLayout
-                        android:id="@+id/layoutBottomProducts"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical" />
-                </LinearLayout>
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="6dp" />
             </com.google.android.material.card.MaterialCardView>
 
-            <!-- ── Top Clientes ───────────────────────────────────── -->
+            <!-- ── Menos solicitados ──────────────────────────────── -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:letterSpacing="0.14"
+                android:text="@string/reports_bottom_products"
+                android:textAllCaps="true"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                app:cardBackgroundColor="@color/app_card_surface"
-                app:cardCornerRadius="14dp"
-                app:cardElevation="1dp"
-                app:strokeWidth="0dp">
+                android:layout_marginTop="10dp"
+                app:cardBackgroundColor="@color/bg_card"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/border_subtle"
+                app:strokeWidth="1dp">
 
                 <LinearLayout
+                    android:id="@+id/layoutBottomProducts"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:orientation="vertical"
-                    android:padding="14dp">
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="6dp" />
+            </com.google.android.material.card.MaterialCardView>
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="@string/reports_top_clients"
-                        android:textColor="@color/app_on_surface"
-                        android:textSize="16sp"
-                        android:textStyle="bold" />
+            <!-- ── Mejores clientes ───────────────────────────────── -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="20dp"
+                android:letterSpacing="0.14"
+                android:text="@string/reports_top_clients"
+                android:textAllCaps="true"
+                android:textColor="@color/text_secondary"
+                android:textSize="10sp"
+                android:textStyle="bold" />
 
-                    <LinearLayout
-                        android:id="@+id/layoutTopClients"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="8dp"
-                        android:orientation="vertical" />
-                </LinearLayout>
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="10dp"
+                android:layout_marginBottom="8dp"
+                app:cardBackgroundColor="@color/bg_card"
+                app:cardCornerRadius="16dp"
+                app:cardElevation="0dp"
+                app:strokeColor="@color/border_subtle"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:id="@+id/layoutTopClients"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:paddingHorizontal="16dp"
+                    android:paddingVertical="6dp" />
             </com.google.android.material.card.MaterialCardView>
 
         </LinearLayout>
@@ -389,4 +485,3 @@
     </LinearLayout>
 
 </androidx.core.widget.NestedScrollView>
-

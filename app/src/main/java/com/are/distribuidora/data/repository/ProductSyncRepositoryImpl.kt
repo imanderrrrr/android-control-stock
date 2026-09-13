@@ -40,7 +40,24 @@ class ProductSyncRepositoryImpl @Inject constructor(
     private val database: DistribuidoraDatabase,
     private val imageStorage: ProductImageStorage,
     private val pendingUploadDao: com.are.distribuidora.data.local.dao.PendingUploadDao,
+    private val movementDao: com.are.distribuidora.stockmovement.data.local.dao.StockMovementDao,
+    private val cursorStore: com.are.distribuidora.data.local.prefs.ProductSyncCursorStore,
 ) : ProductSyncRepository {
+
+    /**
+     * 4.1 — Stock local reconstruido en cada bajada:
+     *   stock local = stock remoto + Σ movimientos locales aún NO subidos (con signo)
+     *
+     * El servidor solo conoce los movimientos que ya llegaron (cada uno aplicó su incremento
+     * atómico). Los que siguen pendientes en este teléfono todavía no están en ese contador, así
+     * que se suman aquí para que una venta sin subir no "desaparezca" cuando baja el catálogo.
+     * Cuando esos movimientos se suben, el delta pendiente vuelve a 0 y el remoto ya los incluye:
+     * converge sin escritura absoluta del contador. Si el remoto omite `stock`, se conserva el local.
+     */
+    private suspend fun reconcileStock(productId: String, remoteStock: Int?, existingLocalStock: Int?): Int {
+        if (remoteStock == null) return existingLocalStock ?: 0
+        return remoteStock + movementDao.sumPendingDelta(productId)
+    }
 
     override suspend fun fetchRemoteProducts(): List<Product> = withContext(Dispatchers.IO) {
         // Delta Sync: Get max local timestamp
@@ -64,6 +81,10 @@ class ProductSyncRepositoryImpl @Inject constructor(
             try {
                 // Map Remote -> Domain
                 val remoteImageUrl = r.imageUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+                // CRITERION C: a missing remote field must never zero-out local data.
+                // Preserve the current local stock when the remote doc omits it
+                // (e.g. a partial/merge write by another process).
+                val existing = local.getById(r.id)
                 Product(
                     id = ProductId.of(r.id),
                     name = r.name,
@@ -73,8 +94,7 @@ class ProductSyncRepositoryImpl @Inject constructor(
                     imageUrl = remoteImageUrl,
                     imageLocalUri = null,
                     barcode = r.barcode,
-                    stock = Quantity.of(r.stock ?: 0),
-                    comprometido = r.comprometido ?: 0,
+                    stock = Quantity.of(reconcileStock(r.id, r.stock, existing?.stock)),
                     isActive = r.isActive ?: true,
                     isDeleted = r.isDeleted ?: false,
                     createdAt = r.createdRemoteAt ?: 0L,
@@ -119,10 +139,19 @@ class ProductSyncRepositoryImpl @Inject constructor(
                                 local.insert(entity)
                             }
                         } else {
+                            // CRITERION A: never overwrite a not-yet-durably-synced local row.
+                            // Only a durably SYNCED local row may be replaced by remote data.
+                            // Any other state (PENDING_*/SYNCING/CONFLICT/legacy) carries
+                            // un-uploaded local intent and must survive the downsync.
+                            if (existing.syncStatus != SyncStatus.SYNCED) {
+                                Log.d(TAG, "saveLocalProducts: PROTECT local ${product.id.value} (syncStatus=${existing.syncStatus}); skipping remote overwrite")
+                                return@forEach
+                            }
+
                             // STRICT LWW CHECK
                             // Authority: Server via product.updatedAt
                             Log.d(TAG, "saveLocalProducts: Comparing remote(${product.updatedAt}) vs local(${existing.updatedAt}) for ${product.id.value}")
-                            
+
                             // HARD DELETE ON DOWNSTREAM SYNC
                             // If remote says it is deleted, we NUKE it locally.
                             if (product.isDeleted) {
@@ -230,8 +259,9 @@ class ProductSyncRepositoryImpl @Inject constructor(
                         price = domain.price.amount.toDouble(),
                         imageUrl = effectiveImageUrl,
                         barcode = domain.barcode,
-                        stock = domain.stock.value,
-                        comprometido = domain.comprometido,
+                        // 4.1: el stock NO se sube como valor absoluto (null = omitido). El
+                        // contador remoto solo lo mueven los movimientos con increment().
+                        stock = null,
                         isActive = entity.isActive,
                         isDeleted = entity.isDeleted,
                         createdRemoteAt = domain.createdAt,
@@ -241,7 +271,7 @@ class ProductSyncRepositoryImpl @Inject constructor(
                     // Payload Summary Log
                     Log.d(
                         TAG,
-                        "[Pipeline] Payload for ${entity.id}: isActive=${remoteProduct.isActive}, isDeleted=${remoteProduct.isDeleted}, stock=${remoteProduct.stock}"
+                        "[Pipeline] Payload for ${entity.id}: isActive=${remoteProduct.isActive}, isDeleted=${remoteProduct.isDeleted} (stock omitido: solo movimientos)"
                     )
 
                     if (entity.syncStatus == SyncStatus.PENDING_DELETE) {
@@ -267,13 +297,26 @@ class ProductSyncRepositoryImpl @Inject constructor(
 
                     Log.d(TAG, "[Pipeline] Remote upload success for ${entity.id}")
 
-                    // Mark as Synced
+                    // Mark as Synced adoptando el updatedAt (y el stock) del SERVIDOR.
+                    // Sin esto el cursor de bajada (MAX(updatedAt) de los SYNCED) podía quedar
+                    // por delante del reloj del servidor y el teléfono dejaba de recibir cambios
+                    // de stock sin ningún error (auditoría 2026-09-03, hallazgo 1).
                     val now = System.currentTimeMillis()
-                    Log.d(TAG, "[Pipeline] ${entity.id} -> Marking SYNCED with lastSyncedAt=$now")
+                    val snapshot = try {
+                        remote.fetchProductById(entity.id)
+                    } catch (e: Exception) {
+                        Log.w(TAG, "[Pipeline] ${entity.id} snapshot remoto no disponible (${e.message}); se conserva updatedAt local")
+                        null
+                    }
+                    val serverUpdatedAt = snapshot?.updatedRemoteAt?.takeIf { it > 0L }
+                    val reconciledStock = snapshot?.let { reconcileStock(entity.id, it.stock, entity.stock) }
+                    Log.d(TAG, "[Pipeline] ${entity.id} -> Marking SYNCED lastSyncedAt=$now serverUpdatedAt=$serverUpdatedAt stock=$reconciledStock")
 
                     local.markSynced(
                         id = entity.id,
-                        lastSyncedAt = now
+                        lastSyncedAt = now,
+                        serverUpdatedAt = serverUpdatedAt,
+                        stock = reconciledStock,
                     )
                     synced = true
                     Log.d(TAG, "uploadPendingProducts: Successfully synced ${entity.id}")
@@ -303,14 +346,21 @@ class ProductSyncRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncDownstream() = withContext(Dispatchers.IO) {
-        val lastSyncedProduct = local.getLastSyncedProduct()
-        val maxUpdatedAt = lastSyncedProduct?.updatedAt ?: 0L
-        val lastId = lastSyncedProduct?.id
+        // ── El watermark de bajada NO puede salir de la tabla `products` ──────────────
+        // `MAX(updatedAt)` de las filas SYNCED responde "cuál es el sello más nuevo que tengo",
+        // no "hasta dónde bajé". Al subir un producto adoptamos el `updatedAt` que le asigna el
+        // servidor, así que ese máximo SALTA: cualquier documento que otro teléfono escribió en
+        // medio (el vale que mueve `stock` con increment) queda por debajo del cursor y no se
+        // descarga NUNCA — el stock nuevo no llega y el watermark deja de moverse. Ver
+        // ProductSyncCursorStore.
+        val maxUpdatedAt = cursorStore.get() ?: 0L
+        val lastId = local.getLastSyncedProduct()?.id
 
         Log.d(TAG, "syncDownstream: Starting downstream sync from timestamp=$maxUpdatedAt, lastId=$lastId")
 
         var totalUpdated = 0
-        var totalConflicts = 0
+        var totalProtected = 0
+        var totalStale = 0
         var totalBatches = 0
         val startTime = System.currentTimeMillis()
 
@@ -329,42 +379,36 @@ class ProductSyncRepositoryImpl @Inject constructor(
                         database.runInTransaction {
                             val now = System.currentTimeMillis()
                             var batchDocsUpdated = 0
-                            var batchConflicts = 0
+                            var batchProtected = 0
+                            var batchStale = 0
 
                             batch.forEach { r ->
                                 try {
                                     val existing = local.getById(r.id)
 
-                                    // Conflict Detection
-                                    if (existing != null && existing.syncStatus == SyncStatus.PENDING_UPDATE) {
-                                        val localUpdatedAt = existing.updatedAt
-                                        val remoteUpdatedAt = r.updatedRemoteAt ?: 0L
-
-                                        if (remoteUpdatedAt > localUpdatedAt) {
-                                            Log.w(TAG, "CONFLICT detected for ${r.id}. Remote($remoteUpdatedAt) > Local($localUpdatedAt)")
-
-                                            // Create Conflict Entity
-                                            val conflictEntity = com.are.distribuidora.data.local.entity.ProductConflictEntity(
-                                                productId = r.id,
-                                                remoteJson = serializeRemoteProduct(r),
-                                                remoteUpdatedAt = remoteUpdatedAt,
-                                                conflictDetectedAt = now
-                                            )
-
-                                            // Update Local to CONFLICT status
-                                            local.handleConflict(r.id, conflictEntity)
-                                            batchConflicts++
-                                            return@forEach // Skip overwrite
-                                        }
+                                    // ── CRITERION A: PROTECT NOT-YET-DURABLY-SYNCED LOCAL ROWS ──
+                                    // A local row may be overwritten by remote data ONLY if it is
+                                    // brand-new (existing == null) or durably SYNCED. Any other
+                                    // state — PENDING_CREATE / PENDING_UPDATE / PENDING_DELETE /
+                                    // SYNCING / CONFLICT / legacy — carries un-uploaded local intent
+                                    // and MUST NOT be reverted by a downsync, regardless of
+                                    // timestamps (this closes the equal-timestamp tie that used to
+                                    // let stale remote data win and silently revert the user's edit).
+                                    //
+                                    // We deliberately do NOT transition these rows to CONFLICT:
+                                    // nothing in the app resolves a CONFLICT row and getPending()
+                                    // never uploads it, so doing so would trap the user's edit
+                                    // forever and break convergence. Keeping the row in its PENDING
+                                    // state lets uploadPendingProducts() push it; it then converges
+                                    // to SYNCED with a fresh server timestamp (Last-Write-Wins).
+                                    if (existing != null && existing.syncStatus != SyncStatus.SYNCED) {
+                                        Log.d(TAG, "syncDownstream: PROTECT local ${r.id} (syncStatus=${existing.syncStatus}); skipping remote overwrite")
+                                        batchProtected++
+                                        return@forEach
                                     }
 
-                                    // Normal LWW / New Insert Logic
-                                    // HARD DELETE check inside saveRemoteProductToLocal is acceptable,
-                                    // but we can also do it here for clarity or use the helper.
-                                    // Current helper `saveRemoteProductToLocal` blindly inserts/updates.
-                                    // We need to upgrade it or handle delete here.
-
-                                    // Let's handle it here to correspond with `saveLocalProducts` logic explicitly.
+                                    // From here: existing is null (new) or durably SYNCED (clean).
+                                    // HARD DELETE: if remote says deleted and is newer/equal, nuke local.
                                     if (r.isDeleted == true) {
                                          // Check timestamps if existing
                                          val remoteUpdatedAt = r.updatedRemoteAt ?: 0L
@@ -373,7 +417,7 @@ class ProductSyncRepositoryImpl @Inject constructor(
                                          if (existing != null && remoteUpdatedAt >= localUpdatedAt) {
                                               Log.d(TAG, "syncDownstream: Remote is DELETED and newer. Performing HARD DELETE on ${r.id}")
                                               local.deleteInternal(r.id)
-                                              batchDocsUpdated // Count as update/change
+                                              batchDocsUpdated++ // Count as a change
                                          } else if (existing == null) {
                                               Log.d(TAG, "syncDownstream: Remote is DELETED and not local. Skipping.")
                                          } else {
@@ -382,8 +426,16 @@ class ProductSyncRepositoryImpl @Inject constructor(
                                          return@forEach
                                     }
 
-                                    saveRemoteProductToLocal(r, existing, now)
-                                    batchDocsUpdated++
+                                    // El contador solo cuenta ESCRITURAS REALES. Antes se
+                                    // incrementaba siempre, incluso cuando saveRemoteProductToLocal
+                                    // descartaba el write por LWW, así que el log `Updated=N` no era
+                                    // evidencia de que se hubiera escrito nada y despistaba el
+                                    // diagnóstico del downsync.
+                                    if (saveRemoteProductToLocal(r, existing, now)) {
+                                        batchDocsUpdated++
+                                    } else {
+                                        batchStale++
+                                    }
 
                                 } catch (e: Exception) {
                                     Log.e(TAG, "Error processing item ${r.id} in batch", e)
@@ -391,25 +443,38 @@ class ProductSyncRepositoryImpl @Inject constructor(
                                 }
                             }
                             totalUpdated += batchDocsUpdated
-                            totalConflicts += batchConflicts
-                            Log.d(TAG, "syncDownstream: Batch committed. Updated=$batchDocsUpdated, Conflicts=$batchConflicts")
+                            totalProtected += batchProtected
+                            totalStale += batchStale
+                            Log.d(TAG, "syncDownstream: Batch committed. Updated=$batchDocsUpdated, Protected=$batchProtected, StaleIgnored=$batchStale")
                         }
                     } catch (e: Exception) {
                          Log.e(TAG, "Batch transaction failed", e)
                          throw e
                     }
+
+                    // Solo una bajada REALMENTE aplicada mueve el watermark, y solo hasta el sello
+                    // más alto del lote ya commiteado (los lotes llegan en orden ascendente). Si el
+                    // proceso muere antes de esta línea, el siguiente ciclo vuelve a bajar el lote:
+                    // es idempotente (LWW) y nunca deja un hueco.
+                    batch.mapNotNull { it.updatedRemoteAt }.maxOrNull()?.let { cursorStore.advanceTo(it) }
                 }
         } finally {
             val duration = System.currentTimeMillis() - startTime
-            Log.i(TAG, "syncDownstream: Completed. Duration=${duration}ms, Batches=$totalBatches, Updated=$totalUpdated, Conflicts=$totalConflicts")
+            Log.i(TAG, "syncDownstream: Completed. Duration=${duration}ms, Batches=$totalBatches, Updated=$totalUpdated, Protected=$totalProtected, StaleIgnored=$totalStale")
         }
     }
 
-    private suspend fun saveRemoteProductToLocal(r: RemoteProduct, existing: com.are.distribuidora.data.local.entity.ProductEntity?, now: Long) {
+    /**
+     * @return true si REALMENTE se escribió la fila (insert o update); false si el write se
+     * descartó (LWW: el remoto es más viejo que lo local, o llamada defensiva con isDeleted).
+     * El contador `Updated=` del log depende de este booleano: contar intentos en vez de
+     * escrituras hacía que un downsync que no aplicaba nada se reportara como exitoso.
+     */
+    private suspend fun saveRemoteProductToLocal(r: RemoteProduct, existing: com.are.distribuidora.data.local.entity.ProductEntity?, now: Long): Boolean {
         if (r.isDeleted == true) {
             // Should have been handled by caller, but safety check.
             Log.w(TAG, "saveRemoteProductToLocal called with isDeleted=true. Ignoring to prevent resurrection.")
-            return
+            return false
         }
 
         // Remote imageUrl is always the authoritative remote URL (https://...)
@@ -437,7 +502,10 @@ class ProductSyncRepositoryImpl @Inject constructor(
             imageUrl = finalImageUrl,
             imageLocalUri = existing?.imageLocalUri, // Preserve local URI if exists
             barcode = r.barcode,
-            stock = r.stock ?: 0,
+            // CRITERION C: never zero stock just because the remote doc omits the field
+            // (e.g. a partial/merge write by another process). Preserve the local value.
+            // 4.1: stock local = remoto + movimientos pendientes (ver reconcileStock).
+            stock = reconcileStock(r.id, r.stock, existing?.stock),
             isActive = r.isActive ?: true,
             isDeleted = r.isDeleted ?: false,
             syncStatus = SyncStatus.SYNCED,
@@ -448,24 +516,16 @@ class ProductSyncRepositoryImpl @Inject constructor(
 
         if (existing == null) {
             local.insert(entity)
-        } else {
-             // Strict LWW: Remote always wins (unless conflict detected above)
-             if (entity.updatedAt >= existing.updatedAt) {
-                 local.update(entity)
-             } else {
-                 Log.d(TAG, "Msg: Ignored stale remote update for ${r.id}")
-             }
+            return true
         }
-    }
-
-    private fun serializeRemoteProduct(r: RemoteProduct): String {
-        return org.json.JSONObject().apply {
-            put("id", r.id)
-            put("name", r.name)
-            put("price", r.price)
-            put("stock", r.stock)
-            put("updatedRemoteAt", r.updatedRemoteAt)
-            // Add other fields as needed
-        }.toString()
+        // Caller guarantees `existing` is durably SYNCED here (dirty rows are protected
+        // upstream). Strict LWW: newest server timestamp wins; ties resolve to remote.
+        return if (entity.updatedAt >= existing.updatedAt) {
+            local.update(entity)
+            true
+        } else {
+            Log.d(TAG, "Msg: Ignored stale remote update for ${r.id} (remote=${entity.updatedAt} < local=${existing.updatedAt})")
+            false
+        }
     }
 }

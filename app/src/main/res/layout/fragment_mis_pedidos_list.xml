@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Tab "Mis Pedidos": filtro de fecha + lista de rutas con pedidos propios -->
+<!-- Tab "Mis Pedidos" — rediseño "Bosque Pro": filtro de fecha + lista de rutas.
+     Conserva ids: layoutDateFilter, chipFechaFiltro, btnFechaHoy,
+     recyclerMisPedidos, progressMisPedidos, textMisPedidosEmpty. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
-    android:background="?attr/colorSurface">
+    android:background="@color/bg_page">
 
     <!-- ── Selector de fecha ─────────────────────────────────────────────── -->
     <LinearLayout
@@ -14,22 +16,24 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:paddingHorizontal="16dp"
-        android:paddingTop="20dp"
-        android:paddingBottom="12dp"
+        android:paddingHorizontal="20dp"
+        android:paddingTop="14dp"
+        android:paddingBottom="10dp"
         android:gravity="center_vertical">
 
         <com.google.android.material.chip.Chip
             android:id="@+id/chipFechaFiltro"
+            style="@style/Widget.MaterialComponents.Chip.Action"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            style="@style/Widget.MaterialComponents.Chip.Action"
+            android:textColor="@color/brand_soft_text"
+            android:textSize="13sp"
+            android:checkable="false"
+            app:chipBackgroundColor="@color/brand_soft"
             app:chipIcon="@drawable/ic_calendar_month"
-            app:chipIconTint="?attr/colorPrimary"
             app:chipIconSize="18dp"
-            app:chipBackgroundColor="?attr/colorPrimaryVariant"
-            android:textColor="?attr/colorOnPrimary"
-            android:checkable="false" />
+            app:chipIconTint="@color/brand_accent"
+            app:chipStrokeWidth="0dp" />
 
         <!-- Botón "Hoy" para resetear el filtro -->
         <com.google.android.material.button.MaterialButton
@@ -37,8 +41,9 @@
             style="@style/Widget.MaterialComponents.Button.TextButton"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginStart="16dp"
-            android:text="@string/pedidos_date_filter_today" />
+            android:layout_marginStart="8dp"
+            android:text="@string/pedidos_date_filter_today"
+            android:textColor="@color/brand_accent" />
 
     </LinearLayout>
 
@@ -52,17 +57,20 @@
             android:id="@+id/recyclerMisPedidos"
             android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:paddingHorizontal="16dp"
+            android:paddingHorizontal="20dp"
             android:paddingTop="4dp"
-            android:paddingBottom="80dp"
+            android:paddingBottom="24dp"
             android:clipToPadding="false"
-            android:scrollbars="none" />
+            android:scrollbars="none"
+            tools:listitem="@layout/item_pedido_route"
+            xmlns:tools="http://schemas.android.com/tools" />
 
         <ProgressBar
             android:id="@+id/progressMisPedidos"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_gravity="center"
+            android:indeterminateTint="@color/brand_accent"
             android:visibility="gone" />
 
         <TextView
@@ -70,12 +78,12 @@
             android:layout_width="match_parent"
             android:layout_height="match_parent"
             android:gravity="center"
+            android:fontFamily="sans-serif"
             android:text="@string/pedidos_empty"
-            android:textAppearance="?attr/textAppearanceBody1"
-            android:alpha="0.5"
+            android:textColor="@color/text_secondary"
+            android:textSize="14sp"
             android:visibility="gone" />
 
     </FrameLayout>
 
 </LinearLayout>
-

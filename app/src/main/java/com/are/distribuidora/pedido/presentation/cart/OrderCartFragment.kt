@@ -1,14 +1,19 @@
 package com.are.distribuidora.pedido.presentation.cart
 
+import android.animation.ValueAnimator
 import android.app.AlertDialog
 import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.View
+import android.view.animation.AnimationUtils
 import android.widget.PopupMenu
 import android.widget.ProgressBar
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
@@ -21,10 +26,11 @@ import com.are.distribuidora.R
 import com.are.distribuidora.domain.pedido.DiscountType
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountByAmountUseCase
 import com.are.distribuidora.domain.pedido.usecase.ApplyItemDiscountUseCase
+import com.are.distribuidora.pedido.presentation.common.FlowAnimations
+import com.are.distribuidora.pedido.presentation.confirmed.OrderConfirmedFragment
 import com.are.distribuidora.pedido.presentation.create.CartItem
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
 import com.are.distribuidora.pedido.presentation.list.PedidosFragment
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.button.MaterialButtonToggleGroup
 import com.google.android.material.snackbar.Snackbar
@@ -42,17 +48,39 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
     private val orderCartViewModel: OrderCartViewModel by viewModels()
     @Inject lateinit var applyItemDiscountUseCase: ApplyItemDiscountUseCase
     @Inject lateinit var applyItemDiscountByAmountUseCase: ApplyItemDiscountByAmountUseCase
+
+    /** Total "rodante": animamos del valor anterior al nuevo. Cancelable. */
+    private var totalAnimator: ValueAnimator? = null
+    private var lastTotal: Double? = null
+    /** La cascada de entrada de la lista se ejecuta una sola vez. */
+    private var listCascaded = false
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
-        val toolbar           = view.findViewById<MaterialToolbar>(R.id.toolbarCart)
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
         val recyclerView      = view.findViewById<RecyclerView>(R.id.recyclerViewCart)
         val textEmpty         = view.findViewById<TextView>(R.id.textCartEmpty)
         val textTotal         = view.findViewById<TextView>(R.id.textCartTotal)
-        val buttonContinue    = view.findViewById<MaterialButton>(R.id.buttonContinue)
+        val textCliente       = view.findViewById<TextView>(R.id.textCartCliente)
+        val textCount         = view.findViewById<TextView>(R.id.textCartCount)
+        val textSubtotal      = view.findViewById<TextView>(R.id.textCartSubtotal)
+        val textDiscounts     = view.findViewById<TextView>(R.id.textCartDiscounts)
+        val rowDiscounts      = view.findViewById<View>(R.id.rowCartDiscounts)
+        val buttonContinue    = view.findViewById<View>(R.id.buttonContinue)
         val buttonOtherOptions = view.findViewById<MaterialButton>(R.id.buttonOtherOptions)
         val progressBar       = view.findViewById<ProgressBar>(R.id.progressBarCart)
         val textOrderLimit    = view.findViewById<TextView>(R.id.textOrderLimit)
-        toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
+        val textIva           = view.findViewById<TextView>(R.id.textCartIva)
+        val textCobrar        = view.findViewById<TextView>(R.id.textCartCobrar)
+        val switchIva         = view.findViewById<com.google.android.material.switchmaterial.SwitchMaterial>(R.id.switchIva)
+        switchIva.isChecked = flowViewModel.ivaEnabled.value
+        switchIva.setOnCheckedChangeListener { _, checked -> flowViewModel.setIvaEnabled(checked) }
+        view.findViewById<View>(R.id.btnBackCart).setOnClickListener { parentFragmentManager.popBackStack() }
+        view.findViewById<View>(R.id.buttonDraft).setOnClickListener { parentFragmentManager.popBackStack() }
         val adapter = OrderCartAdapter(
             onEditQuantity = { item -> showEditQuantityDialog(item) },
             onEditDiscount = { item -> showEditDiscountDialog(item) },
@@ -65,17 +93,84 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 flowViewModel.cartItems.collect { cartMap ->
                     val items = cartMap.values.toList().sortedBy { it.name }
-                    adapter.submitList(items)
+                    val playCascade = !listCascaded && items.isNotEmpty()
+                    adapter.submitList(items) {
+                        // commitCallback: la lista ya está aplicada → la cascada de
+                        // entrada cae limpia sobre los ítems reales (una sola vez).
+                        if (playCascade && isAdded) {
+                            listCascaded = true
+                            recyclerView.layoutAnimation =
+                                AnimationUtils.loadLayoutAnimation(requireContext(), R.anim.layout_anim_fall_down)
+                            recyclerView.scheduleLayoutAnimation()
+                        }
+                    }
                     textEmpty.visibility     = if (items.isEmpty()) View.VISIBLE else View.GONE
                     recyclerView.visibility  = if (items.isEmpty()) View.GONE    else View.VISIBLE
                     buttonContinue.isEnabled = items.isNotEmpty()
+                    buttonContinue.alpha = if (items.isNotEmpty()) 1f else 0.5f
+
+                    val nf = buildCurrencyFormat()
+                    textCount.text = getString(R.string.order_products_count, items.size)
+                        .uppercase(Locale("es", "GT"))
+                    val subtotalBase = items.sumOf { it.subtotalBase }
+                    val discounts    = items.sumOf { it.discountAmount }
+                    textSubtotal.text = nf.format(subtotalBase)
+                    if (discounts > 0.0) {
+                        textDiscounts.text = "-${nf.format(discounts)}"
+                        rowDiscounts.visibility = View.VISIBLE
+                    } else {
+                        rowDiscounts.visibility = View.GONE
+                    }
                 }
             }
         }
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 flowViewModel.cartTotal.collect { total ->
-                    textTotal.text = buildCurrencyFormat().format(total)
+                    val nf = buildCurrencyFormat()
+                    // El total "rueda" del valor previo al nuevo (entrada: 0 → total;
+                    // al activar IVA o editar ítems, rueda a la nueva cifra).
+                    val from = lastTotal ?: 0.0
+                    lastTotal = total
+                    totalAnimator?.cancel()
+                    totalAnimator = FlowAnimations.animateValue(from, total, duration = 480L) { v ->
+                        val formatted = nf.format(v)
+                        textTotal.text  = formatted
+                        textCobrar.text = "COBRAR · $formatted"
+                    }
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                flowViewModel.cartIva.collect { iva ->
+                    textIva.text = buildCurrencyFormat().format(iva)
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                flowViewModel.ivaEnabled.collect { on ->
+                    if (switchIva.isChecked != on) switchIva.isChecked = on
+                    if (on) {
+                        // Solo animamos al pasar a visible (no en re-emisiones).
+                        if (textIva.visibility != View.VISIBLE || textIva.alpha < 1f) {
+                            textIva.visibility = View.VISIBLE
+                            FlowAnimations.revealUp(textIva, duration = 300L, distanceDp = 9f)
+                        }
+                    } else {
+                        textIva.animate().cancel()
+                        textIva.alpha = 1f
+                        textIva.translationY = 0f
+                        textIva.visibility = View.INVISIBLE
+                    }
+                }
+            }
+        }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                flowViewModel.clienteNombre.collect { name ->
+                    textCliente.text = name ?: ""
                 }
             }
         }
@@ -124,15 +219,25 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
                         }
                         is OrderCartViewModel.UiState.Success -> {
                             progressBar?.visibility = View.GONE
-                            Toast.makeText(requireContext(), "Pedido creado correctamente", Toast.LENGTH_SHORT).show()
-                            flowViewModel.clear()
+                            val pedidoId   = state.pedidoId
+                            val clientName = flowViewModel.clienteNombre.value ?: ""
                             orderCartViewModel.resetState()
+                            flowViewModel.clear()
                             // Notificar a PedidosFragment para que recargue la lista
                             parentFragmentManager.setFragmentResult(
                                 PedidosFragment.RESULT_PEDIDO_CREATED,
                                 Bundle.EMPTY
                             )
-                            parentFragmentManager.popBackStack(null, androidx.fragment.app.FragmentManager.POP_BACK_STACK_INCLUSIVE)
+                            // Mostrar la pantalla de confirmación (carga el pedido por id).
+                            parentFragmentManager.beginTransaction()
+                                .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+                                .replace(
+                                    R.id.fragmentContainer,
+                                    OrderConfirmedFragment.newInstance(pedidoId, clientName),
+                                    "ORDER_CONFIRMED",
+                                )
+                                .addToBackStack("ORDER_CONFIRMED")
+                                .commit()
                         }
                         is OrderCartViewModel.UiState.Error -> {
                             progressBar?.visibility  = View.GONE
@@ -192,9 +297,17 @@ class OrderCartFragment : Fragment(R.layout.fragment_order_cart) {
                 cliente         = cliente,
                 deliveryDate    = deliveryDate,
                 descuentoGlobal = 0.0,
+                applyIva        = flowViewModel.ivaEnabled.value,
             )
         }
     }
+
+    override fun onDestroyView() {
+        totalAnimator?.cancel()
+        totalAnimator = null
+        super.onDestroyView()
+    }
+
     private fun showEditQuantityDialog(item: CartItem) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_cart_edit_quantity, null)
         dialogView.findViewById<TextView>(R.id.dialogEditQtyProductName).text = item.name

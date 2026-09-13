@@ -12,6 +12,7 @@ import androidx.lifecycle.repeatOnLifecycle
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.pedido.presentation.editotros.EditOtrosPedidoFragment
 import com.google.android.material.appbar.MaterialToolbar
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
@@ -42,10 +43,34 @@ class OtrosPedidoDetalleFragment : Fragment(R.layout.fragment_otros_pedido_detal
         val layoutContent = view.findViewById<View>(R.id.layoutOtrosDetalleContent)
         val recycler      = view.findViewById<RecyclerView>(R.id.recyclerOtrosDetalle)
         val textSeller    = view.findViewById<TextView>(R.id.textOtrosDetalleSeller)
+        val textCreatedAt = view.findViewById<TextView>(R.id.textOtrosDetalleCreatedAt)
         val textTotal     = view.findViewById<TextView>(R.id.textOtrosDetalleTotal)
 
         toolbar.title = clientName.ifBlank { getString(R.string.pedidos_detalle_title) }
         toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
+
+        // Acción "Editar": abre el editor de pedido ajeno (agregar/quitar ítems).
+        // Roles 4.0: el ítem se muestra solo si el ViewModel confirma que puede editar
+        // (admin, o vendedor dueño del pedido). El caso de uso vuelve a comprobarlo.
+        toolbar.inflateMenu(R.menu.menu_otros_detalle)
+        toolbar.menu.findItem(R.id.action_edit_otros)?.isVisible = false
+        toolbar.setOnMenuItemClickListener { mi ->
+            when (mi.itemId) {
+                R.id.action_edit_otros -> {
+                    requireActivity().supportFragmentManager.beginTransaction()
+                        .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
+                        .replace(
+                            R.id.fragmentContainer,
+                            EditOtrosPedidoFragment.newInstance(orderId = orderId, clientName = clientName),
+                            TAG_EDIT_OTROS,
+                        )
+                        .addToBackStack(TAG_EDIT_OTROS)
+                        .commit()
+                    true
+                }
+                else -> false
+            }
+        }
 
         val adapter = OtrosDetalleAdapter()
         recycler.layoutManager = LinearLayoutManager(requireContext())
@@ -87,6 +112,9 @@ class OtrosPedidoDetalleFragment : Fragment(R.layout.fragment_otros_pedido_detal
 
                             adapter.submitList(state.items)
                             textTotal.text = state.totalFormatted
+                            textCreatedAt.text = getString(R.string.pedido_created_at_label, state.createdAtFormatted)
+                            textCreatedAt.visibility = View.VISIBLE
+                            toolbar.menu.findItem(R.id.action_edit_otros)?.isVisible = state.canEdit
                         }
                         is OtrosPedidoDetalleViewModel.UiState.Error -> {
                             progress.visibility      = View.GONE
@@ -106,6 +134,7 @@ class OtrosPedidoDetalleFragment : Fragment(R.layout.fragment_otros_pedido_detal
     companion object {
         private const val ARG_ORDER_ID    = "orderId"
         private const val ARG_CLIENT_NAME = "clientName"
+        private const val TAG_EDIT_OTROS  = "EDIT_OTROS"
 
         fun newInstance(orderId: String, clientName: String) =
             OtrosPedidoDetalleFragment().apply {

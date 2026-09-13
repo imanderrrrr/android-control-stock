@@ -6,11 +6,15 @@ import androidx.paging.PagingData
 import androidx.paging.cachedIn
 import androidx.paging.map
 import com.are.distribuidora.domain.model.Product
+import com.are.distribuidora.domain.product.GetProductCountUseCase
 import com.are.distribuidora.domain.product.ObserveProductSyncStatusesUseCase
 import com.are.distribuidora.domain.product.ObserveProductsUseCase
 import com.are.distribuidora.domain.sale.SellProductUseCase
 import com.are.distribuidora.presentation.home.mapper.toUiModel
 import com.are.distribuidora.presentation.home.model.ProductUiModel
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.domain.repository.UserAccessProvider
+import com.are.distribuidora.workers.ProductSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -42,20 +46,45 @@ sealed interface InventoryEvent {
 @HiltViewModel
 class InventoryViewModel @Inject constructor(
     private val observeProductsUseCase: ObserveProductsUseCase,
+    private val getProductCountUseCase: GetProductCountUseCase,
     observeProductSyncStatusesUseCase: ObserveProductSyncStatusesUseCase,
     private val sellProductUseCase: SellProductUseCase,
     private val deleteProductUseCase: com.are.distribuidora.domain.product.DeleteProductUseCase,
+    private val productSyncScheduler: ProductSyncScheduler,
+    private val userAccessProvider: UserAccessProvider,
 ) : ViewModel() {
+
+    init {
+        // Carga proactiva del catálogo al abrir Inventario.
+        //
+        // La descarga de productos (downstream) NO estaba acoplada a la apertura
+        // de la pantalla: sólo corría con el worker periódico (6h) o cuando el
+        // ProductSyncCoordinator detectaba cambios locales PENDIENTES de subir
+        // (exige countPending > 0). En un dispositivo recién instalado —sin
+        // productos ni pendientes— nada disparaba la PRIMERA descarga, y el
+        // inventario quedaba vacío hasta que el usuario creaba/editaba un producto
+        // (lo que daba un pendiente y, de rebote, traía todo el catálogo).
+        //
+        // Encolamos un sync puntual al entrar para bajar el catálogo de Firestore
+        // de inmediato. Seguro de repetir en cada apertura: el worker valida
+        // red/sesión, corre con mutex (descarta si ya hay uno activo) y deduplica
+        // por uniqueName (REPLACE).
+        productSyncScheduler.scheduleOneTimeNow("INVENTORY_OPEN")
+    }
 
     // Query de búsqueda
     private val _searchQuery = MutableStateFlow("")
     val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
 
     /**
-     * Stream paginado de productos (Raw Domain).
-     * Se mantiene cachedIn aquí para preservar el estado del Pager de Room.
+     * Stream paginado base (dominio puro), cacheado en el scope del ViewModel.
+     *
+     * `cachedIn` va ANTES del `combine` de [products] a propósito: así las
+     * emisiones del flujo de estados de sync re-mapean las páginas YA cargadas
+     * sin volver a consultar el PagingSource ni recrear la generación del Pager
+     * (y preserva la posición de scroll entre recreaciones de vista).
      */
-    private val productPaging: Flow<PagingData<Product>> = _searchQuery
+    private val pagedProducts: Flow<PagingData<Product>> = _searchQuery
         .debounce(300)
         .flatMapLatest { query ->
             observeProductsUseCase(query)
@@ -63,17 +92,30 @@ class InventoryViewModel @Inject constructor(
         .cachedIn(viewModelScope)
 
     /**
-     * Stream combinado: PagingData + SyncStatus (Side-channel).
-     * Se actualiza en tiempo real cuando cambia el estado de sincronización.
+     * ÚNICA fuente de `submitData()` de la UI: el producto paginado YA lleva su
+     * estado de sincronización fusionado vía [combine] + [PagingData.map].
+     *
+     * Antes el estado de sync viajaba por un canal lateral que hacía
+     * `notifyItemChanged` manual sobre el PagingDataAdapter. Como el PagingSource
+     * de productos y el flujo de sync observan la MISMA tabla `products`, cada
+     * sincronización los invalidaba a la vez: el `submitData` (refresh
+     * estructural del differ) y el `notifyItemChanged` manual corrían
+     * concurrentes y corrompían el bookkeeping del RecyclerView →
+     * "Inconsistency detected. Invalid view holder adapter position".
+     *
+     * Al fusionar el sync DENTRO del único stream paginado, el differ gestiona
+     * todo por un solo canal y la race desaparece. Los cambios de solo-sync se
+     * aplican como bind parcial (PAYLOAD_SYNC) vía `getChangePayload` del
+     * DiffUtil del adapter, sin recargar la imagen.
+     *
+     * (En OrderCatalog el canal lateral SÍ es seguro porque lo dispara el
+     * usuario —cantidades del carrito— y nunca coincide con un sync.)
      */
     val products: Flow<PagingData<ProductUiModel>> = combine(
-        productPaging,
+        pagedProducts,
         observeProductSyncStatusesUseCase(),
-    ) { pagingData, syncStatuses ->
-        pagingData.map { product ->
-            val state = syncStatuses[product.id.value]
-            product.toUiModel(state)
-        }
+    ) { paging, statuses ->
+        paging.map { product -> product.toUiModel(statuses[product.id.value]) }
     }
 
     // UI State para otros estados (si fuera necesario)
@@ -82,6 +124,15 @@ class InventoryViewModel @Inject constructor(
     private val _events = MutableSharedFlow<InventoryEvent>()
     val events = _events.asSharedFlow()
 
+    private val _productCount = MutableStateFlow<Int?>(null)
+    val productCount: StateFlow<Int?> = _productCount.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            _productCount.value = runCatching { getProductCountUseCase() }.getOrNull()
+        }
+    }
+
     /**
      * Acción (placeholder) para ejecutar una venta desde UI.
      *
@@ -89,6 +140,11 @@ class InventoryViewModel @Inject constructor(
      */
     fun confirmSale(productId: String, quantity: Int) {
         viewModelScope.launch {
+            // Roles 4.0: la venta directa desde Inventario mueve stock ⇒ EDIT_PRODUCT.
+            if (!userAccessProvider.current().can(Permission.EDIT_PRODUCT)) {
+                _events.emit(InventoryEvent.SaleError(productId = productId, message = "Sin permiso (rol vendedor)"))
+                return@launch
+            }
             try {
                 // TODO: Update sell logic to handle ID correctly if needed, but here we just pass ID.
                 // Note: The UI now binds ProductUiModel, but the click listener might still pass Product or we just use ID.
@@ -107,6 +163,10 @@ class InventoryViewModel @Inject constructor(
 
     fun deleteProduct(productId: String) {
         viewModelScope.launch {
+            if (!userAccessProvider.current().can(Permission.EDIT_PRODUCT)) {
+                android.util.Log.w("InventoryViewModel", "deleteProduct denegado por rol: $productId")
+                return@launch
+            }
             try {
                 // Delegation to UseCase -> Repository -> DAO (soft delete)
                 // The repository handles marking logic: isDeleted=1, syncStatus=PENDING_DELETE

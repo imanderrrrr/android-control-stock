@@ -217,6 +217,16 @@ class OrdersOfflineIntegrationTest {
             // No-op for fake
         }
 
+        override suspend fun uploadOrderEdit(
+            routeId: String,
+            orderId: String,
+            items: List<OrderRemoteDataSource.OrderItemDto>,
+            totalAmount: Double,
+            editedByUid: String?,
+        ) {
+            // No-op for fake
+        }
+
         fun expectedTotalForOrder(orderId: String): Double {
             val items = itemsByOrderId[orderId].orEmpty()
             return items.sumOf { it.unitPrice * it.quantity }

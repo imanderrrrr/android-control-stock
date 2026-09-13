@@ -1,31 +1,35 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Ítem del carrito de solo lectura (pantalla 3) -->
+<!-- Ítem del detalle (carrito de solo lectura) — rediseño "Bosque Pro".
+     Conserva ids: imageDetalleProduct, textDetalleNombre, textDetalleTotalItem,
+     textDetallePrecioQty, textDetalleDescuento, textDetalleNotes. -->
 <com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:layout_marginBottom="8dp"
-    app:cardCornerRadius="12dp"
+    app:cardBackgroundColor="@color/bg_card"
+    app:cardCornerRadius="14dp"
     app:cardElevation="0dp"
-    app:strokeColor="@color/palette_300"
+    app:strokeColor="@color/border_subtle"
     app:strokeWidth="1dp">
 
     <androidx.constraintlayout.widget.ConstraintLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:padding="14dp">
+        android:padding="12dp">
 
         <!-- Imagen del producto -->
         <com.google.android.material.imageview.ShapeableImageView
             android:id="@+id/imageDetalleProduct"
-            android:layout_width="56dp"
-            android:layout_height="56dp"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:background="@color/bg_muted"
             android:scaleType="centerCrop"
-            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.RoundedCorner8"
             app:layout_constraintStart_toStartOf="parent"
             app:layout_constraintTop_toTopOf="parent"
-            app:layout_constraintBottom_toBottomOf="parent" />
+            app:shapeAppearanceOverlay="@style/ShapeAppearance.App.RoundedCorner8" />
 
         <!-- Nombre del producto -->
         <TextView
@@ -33,37 +37,43 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_marginStart="12dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2"
-            android:textStyle="bold"
-            android:maxLines="2"
             android:ellipsize="end"
-            app:layout_constraintStart_toEndOf="@id/imageDetalleProduct"
+            android:fontFamily="sans-serif-medium"
+            android:maxLines="2"
+            android:textColor="@color/text_primary"
+            android:textSize="14sp"
             app:layout_constraintEnd_toStartOf="@id/textDetalleTotalItem"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintStart_toEndOf="@id/imageDetalleProduct"
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Agua Pura 600ml ×24" />
 
         <!-- Total del ítem (derecha) -->
         <TextView
             android:id="@+id/textDetalleTotalItem"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Subtitle2"
+            android:fontFamily="sans-serif"
+            android:textColor="@color/brand_accent"
+            android:textSize="15sp"
             android:textStyle="bold"
-            android:textColor="?attr/colorPrimary"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
+            app:layout_constraintTop_toTopOf="parent"
+            tools:text="Q72.00" />
 
         <!-- Precio unitario × cantidad -->
         <TextView
             android:id="@+id/textDetallePrecioQty"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
             android:layout_marginStart="12dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:alpha="0.7"
-            app:layout_constraintStart_toEndOf="@id/imageDetalleProduct"
+            android:layout_marginTop="4dp"
+            android:fontFamily="sans-serif"
+            android:textColor="@color/text_secondary"
+            android:textSize="12sp"
             app:layout_constraintEnd_toStartOf="@id/textDetalleDescuento"
-            app:layout_constraintTop_toBottomOf="@id/textDetalleNombre" />
+            app:layout_constraintStart_toEndOf="@id/imageDetalleProduct"
+            app:layout_constraintTop_toBottomOf="@id/textDetalleNombre"
+            tools:text="Q36.00 × 2" />
 
         <!-- Descuento (opcional) -->
         <TextView
@@ -71,26 +81,37 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="4dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Caption"
-            android:textColor="@android:color/holo_orange_dark"
+            android:background="@drawable/bg_pill"
+            android:backgroundTint="@color/warning_bg"
+            android:fontFamily="sans-serif"
+            android:paddingHorizontal="8dp"
+            android:paddingVertical="2dp"
+            android:textColor="@color/warning_text"
+            android:textSize="10sp"
+            android:textStyle="bold"
             android:visibility="gone"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/textDetalleTotalItem" />
+            app:layout_constraintTop_toBottomOf="@id/textDetalleTotalItem"
+            tools:text="-10%"
+            tools:visibility="visible" />
 
         <!-- Detalles / instrucciones especiales (opcional) -->
         <TextView
             android:id="@+id/textDetalleNotes"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:layout_marginTop="4dp"
             android:layout_marginStart="12dp"
-            android:textAppearance="@style/TextAppearance.MaterialComponents.Body2"
-            android:textColor="@color/palette_600"
+            android:layout_marginTop="6dp"
+            android:fontFamily="sans-serif"
+            android:textColor="@color/text_secondary"
             android:textStyle="italic"
+            android:textSize="12sp"
             android:visibility="gone"
             app:layout_constraintStart_toEndOf="@id/imageDetalleProduct"
             app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toBottomOf="@id/textDetallePrecioQty" />
+            app:layout_constraintTop_toBottomOf="@id/textDetallePrecioQty"
+            tools:text="Det: entregar antes de las 10am"
+            tools:visibility="visible" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
 

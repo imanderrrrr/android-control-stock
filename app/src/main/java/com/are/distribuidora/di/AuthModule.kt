@@ -15,6 +15,7 @@ import com.are.distribuidora.auth.domain.repository.AuthRepository
 import com.are.distribuidora.auth.domain.repository.SessionRepository
 import com.are.distribuidora.auth.domain.usecase.CanRunSyncUseCase
 import com.are.distribuidora.auth.domain.usecase.ObserveSessionUseCase
+import com.are.distribuidora.screenaccess.domain.repository.ScreenAccessRepository
 import com.google.firebase.auth.FirebaseAuth
 import dagger.Module
 import dagger.Provides
@@ -41,7 +42,7 @@ object AuthModule {
 
     @Provides
     @Singleton
-    fun provideFirebaseAuth(): FirebaseAuth = FirebaseAuth.getInstance()
+    fun provideFirebaseAuth(): FirebaseAuth = com.are.distribuidora.core.firebase.FirebaseEmulators.auth()
 
     @Provides
     @Singleton
@@ -53,7 +54,12 @@ object AuthModule {
     fun provideAuthRepository(
         local: AuthLocalDataSource,
         remote: AuthRemoteDataSource,
-    ): AuthRepository = OfflineFirstAuthRepository(local = local, remote = remote)
+        screenAccessRepository: ScreenAccessRepository,
+    ): AuthRepository = OfflineFirstAuthRepository(
+        local = local,
+        remote = remote,
+        screenAccessRepository = screenAccessRepository,
+    )
 
     @Provides
     @Singleton

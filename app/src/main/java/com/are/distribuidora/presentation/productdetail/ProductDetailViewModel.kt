@@ -17,18 +17,20 @@ import kotlinx.coroutines.flow.stateIn
 class ProductDetailViewModel @AssistedInject constructor(
     private val observeProductByIdUseCase: ObserveProductByIdUseCase,
     private val observeProductSyncStatusesUseCase: ObserveProductSyncStatusesUseCase,
+    private val observeProductMovementsUseCase: com.are.distribuidora.stockmovement.domain.usecase.ObserveProductMovementsUseCase,
     @Assisted private val productId: String,
 ) : ViewModel() {
 
     val uiState: StateFlow<ProductDetailUiState> = combine(
         observeProductByIdUseCase(ProductId.of(productId)),
         observeProductSyncStatusesUseCase(),
-    ) { product, statuses ->
+        observeProductMovementsUseCase(productId, limit = 50),
+    ) { product, statuses, movements ->
         if (product == null) {
             ProductDetailUiState.Error(ProductDetailUiState.ErrorKind.NOT_FOUND)
         } else {
             val state: SyncState? = statuses[product.id.value]
-            ProductDetailUiState.Success(product = product, syncState = state)
+            ProductDetailUiState.Success(product = product, syncState = state, movements = movements)
         }
     }.stateIn(
         scope = viewModelScope,

@@ -21,7 +21,6 @@ class FakeFirestoreProductDataSource : ProductRemoteDataSource {
             imageUrl = "https://picsum.photos/seed/$i/200/200",
             barcode = "COD_$i",
             stock = i,
-            comprometido = i % 7,
             isActive = true,
             isDeleted = false,
             createdRemoteAt = 1700000000L + i,
@@ -43,14 +42,16 @@ class FakeFirestoreProductDataSource : ProductRemoteDataSource {
     }
 
     override suspend fun uploadProduct(product: RemoteProduct) {
-        // Simple mock implementation
+        // Simple mock implementation. El stock NO viaja en la subida: se conserva el remoto.
         val index = products.indexOfFirst { it.id == product.id }
         if (index >= 0) {
-            products[index] = product
+            products[index] = product.copy(stock = products[index].stock)
         } else {
             products.add(product)
         }
     }
+
+    override suspend fun fetchProductById(id: String): RemoteProduct? = products.firstOrNull { it.id == id }
 
     override suspend fun softDeleteProduct(id: String, timestamp: Long) {
         val index = products.indexOfFirst { it.id == id }

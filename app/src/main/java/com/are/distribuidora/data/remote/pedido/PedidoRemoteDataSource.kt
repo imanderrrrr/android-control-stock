@@ -17,6 +17,19 @@ interface PedidoRemoteDataSource {
         pedidoId: String,
         payload: PedidoPayload,
         items: List<PedidoItemPayload>
+    ) = uploadPedido(pedidoId, payload, items, emptyList())
+
+    /**
+     * Igual que [uploadPedido] pero llevando en la MISMA transacción los movimientos de stock del
+     * pedido (SALIDA/PEDIDO al crear, ±PEDIDO_EDICION al editar). Cada movimiento se escribe solo si
+     * no existe (id determinístico) y mueve `productos/{id}.stock` con FieldValue.increment. Un
+     * reintento del worker nunca descuenta dos veces.
+     */
+    suspend fun uploadPedido(
+        pedidoId: String,
+        payload: PedidoPayload,
+        items: List<PedidoItemPayload>,
+        movements: List<com.are.distribuidora.stockmovement.domain.model.StockMovement>,
     )
 
     /**
@@ -33,6 +46,18 @@ interface PedidoRemoteDataSource {
         pedidoId: String,
         orderKey: String?,
         deletedByUid: String?,
+    ) = softDeletePedido(routeId, pedidoId, orderKey, deletedByUid, emptyList())
+
+    /**
+     * Soft delete + movimientos compensatorios (ENTRADA/PEDIDO_BORRADO por ítem) en la misma
+     * transacción, con el mismo contrato de idempotencia que [uploadPedido].
+     */
+    suspend fun softDeletePedido(
+        routeId: String,
+        pedidoId: String,
+        orderKey: String?,
+        deletedByUid: String?,
+        movements: List<com.are.distribuidora.stockmovement.domain.model.StockMovement>,
     )
 
     /**
@@ -83,6 +108,7 @@ interface PedidoRemoteDataSource {
         val subtotal: Double,
         val descuentoGlobal: Double,
         val total: Double,
+        val ivaAmount: Double = 0.0,
         val version: Int,
         val actualizadoPor: String,
         val creadoEn: Long,

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Menú del detalle de "Otros Pedidos": acción Editar (agregar/quitar ítems). -->
+<menu xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+    <item
+        android:id="@+id/action_edit_otros"
+        android:title="@string/otros_action_edit"
+        app:showAsAction="ifRoom|withText" />
+</menu>

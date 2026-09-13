@@ -11,4 +11,9 @@ data class ClientUiModel(
     val syncState: SyncState,
     val syncIndicatorText: String,
     val activeIndicatorText: String,
+    // Deuda (cuentas por cobrar). null = no debe.
+    val debtCents: Long? = null,
+    val debtText: String? = null,        // "DEBE Q820"
+    val debtOverdue: Boolean = false,    // vencida → rojo; si no, ámbar
+    val attended: Boolean = false,       // ya tiene un pedido hoy
 )

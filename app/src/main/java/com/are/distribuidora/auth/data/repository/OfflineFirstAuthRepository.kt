@@ -7,6 +7,7 @@ import com.are.distribuidora.auth.domain.model.Session
 import com.are.distribuidora.auth.domain.repository.AuthRepository
 import com.are.distribuidora.core.result.Failure
 import com.are.distribuidora.core.result.Result
+import com.are.distribuidora.screenaccess.domain.repository.ScreenAccessRepository
 
 /**
  * Repositorio de auth con reglas offline-first:
@@ -14,10 +15,13 @@ import com.are.distribuidora.core.result.Result
  * - Login guarda Session local cuando el remoto responde OK.
  * - getCurrentSession / isSessionActive nunca llaman remoto.
  * - No hay logout automático.
+ * - logout() cierra también la sesión de Firebase y borra la cache de rol/acceso,
+ *   para que el siguiente usuario del mismo teléfono no herede el rol del anterior.
  */
 class OfflineFirstAuthRepository(
     private val local: AuthLocalDataSource,
     private val remote: AuthRemoteDataSource,
+    private val screenAccessRepository: ScreenAccessRepository? = null,
 ) : AuthRepository {
 
     private val tag = "Auth"
@@ -50,6 +54,21 @@ class OfflineFirstAuthRepository(
     }
 
     override suspend fun logout(): Result<Unit> {
+        val uid = try { local.getSession()?.userId } catch (_: Exception) { null }
+
+        // 1) Cache de rol/acceso del usuario que se va (best-effort).
+        try {
+            screenAccessRepository?.clearCache(uid)
+        } catch (e: Exception) {
+            Log.w(tag, "logout: clearCache falló (${e.message})")
+        }
+        // 2) Sesión de Firebase (best-effort: sin red también funciona, es local).
+        try {
+            remote.signOut()
+        } catch (e: Exception) {
+            Log.w(tag, "logout: signOut remoto falló (${e.message})")
+        }
+        // 3) Sesión local: es la que decide si hay sesión activa.
         return try {
             local.clearSession()
             Result.Success(Unit)

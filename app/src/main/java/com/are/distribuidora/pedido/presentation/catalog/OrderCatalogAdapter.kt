@@ -6,6 +6,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.content.ContextCompat
 import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
@@ -140,7 +141,9 @@ class OrderCatalogAdapter(
         private val image            = itemView.findViewById<ShapeableImageView>(R.id.imageProduct)
         private val placeholder      = itemView.findViewById<ImageView>(R.id.imagePlaceholder)
         private val name             = itemView.findViewById<TextView>(R.id.textName)
+        private val subtitle         = itemView.findViewById<TextView>(R.id.textSubtitle)
         private val price            = itemView.findViewById<TextView>(R.id.textPrice)
+        private val textStock        = itemView.findViewById<TextView>(R.id.textStock)
         private val buttonAdd        = itemView.findViewById<MaterialButton>(R.id.buttonAdd)
         private val stepperContainer = itemView.findViewById<View>(R.id.stepperContainer)
         private val buttonDecrement  = itemView.findViewById<MaterialButton>(R.id.buttonDecrement)
@@ -170,12 +173,41 @@ class OrderCatalogAdapter(
             }
             price.text = nf.format(product.price.amount)
 
+            // Subtítulo: categoría · código
+            val ctx = itemView.context
+            val subtitleParts = listOfNotNull(
+                product.category?.trim()?.takeIf { it.isNotBlank() },
+                product.barcode?.trim()?.takeIf { it.isNotBlank() },
+            )
+            subtitle.text = subtitleParts.joinToString(" · ")
+            subtitle.visibility = if (subtitleParts.isEmpty()) View.GONE else View.VISIBLE
+
+            // 4.1: el stock es INFORMACIÓN, no un bloqueo. Se muestra siempre el número; en rojo
+            // si es cero o negativo (un negativo significa "entregado antes del vale de entrada").
+            // Nunca se impide vender: la venta real manda y el libro de movimientos la explica.
+            val stock = product.stock.value
+            textStock.text = "STOCK $stock"
+            if (stock > 0) {
+                textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.brand_soft)
+                textStock.setTextColor(ContextCompat.getColor(ctx, R.color.success_text))
+            } else {
+                textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.danger_bg)
+                textStock.setTextColor(ContextCompat.getColor(ctx, R.color.danger_text))
+            }
+
             bindImage(product)
             updateQuantity(qty, animate)
         }
 
         fun updateQuantity(qty: Int, animate: Boolean) {
             textQuantity.text = qty.toString()
+            // Borde verde de marca cuando el producto está en el carrito (como en Pencil).
+            card.setStrokeColor(
+                ContextCompat.getColor(
+                    itemView.context,
+                    if (qty > 0) R.color.brand_primary else R.color.border_subtle,
+                )
+            )
             if (qty > 0) showStepper(animate) else showAddButton(animate)
         }
 

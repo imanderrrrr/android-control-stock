@@ -46,6 +46,22 @@ data class OrderEntity(
      * Consistente con el patrón de ProductEntity y ClientEntity.
      */
     val isDeleted: Boolean = false,
+    /**
+     * true = el pedido tiene ediciones locales (ítems agregados/quitados al editar un pedido
+     * AJENO) pendientes de subir a Firestore. El worker de subida lo procesa y lo vuelve a
+     * false al confirmar la escritura remota.
+     *
+     * Mientras es true, el downsync NO sobreescribe el header ni re-descarga los ítems: la
+     * edición local es la fuente de verdad hasta que se sube. Preserva vendedorId/sellerName
+     * (no se tocan en la subida), de modo que el pedido sigue siendo "ajeno".
+     */
+    val pendingUpload: Boolean = false,
+    /**
+     * 4.1: contador local de ediciones de este pedido ajeno. Base del id determinístico de los
+     * movimientos PEDIDO_EDICION (`oth_{orderId}_{itemId}_e{editVersion}`): un reintento del
+     * worker de subida reutiliza el mismo id y el servidor no vuelve a incrementar el stock.
+     */
+    val editVersion: Int = 0,
 )
 
 @Entity(
@@ -66,6 +82,12 @@ data class OrderItemEntity(
     val productName: String,
     val unitPrice: Double,
     val quantity: Int,
+    /**
+     * Descuento absoluto del ítem (Q), descargado desde Firestore (items.discountAmount).
+     * Mismo campo que el vendedor creador escribe desde `pedido_items.descuentoItem`.
+     * 0.0 para pedidos legacy o ítems sin descuento.
+     */
+    val discountAmount: Double = 0.0,
     val createdAt: Long,
     /**
      * Detalle / instrucción especial para este ítem, descargado desde Firestore.
@@ -94,5 +116,6 @@ data class OrderItemStagingEntity(
     val productName: String,
     val unitPrice: Double,
     val quantity: Int,
+    val discountAmount: Double = 0.0,
     val notes: String? = null,
 )

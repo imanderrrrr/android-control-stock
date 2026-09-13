@@ -54,7 +54,8 @@ class EditProductViewModelTest {
         val saveProductUseCase = mockk<SaveProductUseCase>(relaxed = true)
         val pendingUploadDao = mockk<PendingUploadDao>(relaxed = true)
         val imageUploadSyncScheduler = mockk<ImageUploadSyncScheduler>(relaxed = true)
-        viewModel = EditProductViewModel(productRepository, saveProductUseCase, pendingUploadDao, imageUploadSyncScheduler)
+        val createStockVoucher = mockk<com.are.distribuidora.stockmovement.domain.usecase.CreateStockVoucherUseCase>(relaxed = true)
+        viewModel = EditProductViewModel(productRepository, saveProductUseCase, pendingUploadDao, imageUploadSyncScheduler, createStockVoucher)
     }
 
     @After

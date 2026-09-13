@@ -74,7 +74,14 @@ class AddStockViewModel @Inject constructor(
     /**
      * Confirma el agregado de stock tras la validación en el diálogo.
      */
-    fun addStock(productId: String, productName: String, delta: Int) {
+    fun addStock(
+        productId: String,
+        productName: String,
+        delta: Int,
+        reason: com.are.distribuidora.stockmovement.domain.model.MovementReason =
+            com.are.distribuidora.stockmovement.domain.model.MovementReason.COMPRA,
+        note: String? = null,
+    ) {
         if (delta <= 0) {
             viewModelScope.launch {
                 _events.emit(AddStockEvent.ShowError("La cantidad debe ser mayor a 0"))
@@ -84,7 +91,7 @@ class AddStockViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.value = AddStockUiState.Loading
             try {
-                addStockToProductUseCase(productId, delta)
+                addStockToProductUseCase(productId, delta, reason, note)
                 _uiState.value = AddStockUiState.StockUpdated
                 _events.emit(AddStockEvent.StockAddedSuccess(productName, delta))
             } catch (e: Exception) {

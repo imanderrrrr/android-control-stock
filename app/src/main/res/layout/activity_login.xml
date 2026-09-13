@@ -1,105 +1,239 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- PANTALLA 2 · LOGIN — paleta "Bosque Pro".
+     Solo capa visual: se conservan IDs y tipos que usa LoginActivity/LoginViewModel
+     (loginForm, emailLayout, passwordLayout, emailInput, passwordInput, loginButton,
+      loginProgress, errorText). La lógica de auth no cambia. -->
 <androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/loginRoot"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/login_background"
+    android:background="@color/bg_page"
     android:paddingHorizontal="24dp"
     android:paddingVertical="28dp">
 
+    <!-- Marca arriba-izquierda: sello + wordmark -->
     <LinearLayout
-        android:id="@+id/loginForm"
+        android:id="@+id/brandRow"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <ImageView
+            android:id="@+id/brandMark"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_login_brand_mark"
+            android:contentDescription="@string/brand_name"
+            android:padding="7dp"
+            android:src="@drawable/ic_brand_box"
+            android:tint="@color/text_on_inverse" />
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="10dp"
+            android:text="@string/brand_name"
+            android:textAppearance="@style/TextAppearance.Distribuidora.Login.BrandName" />
+    </LinearLayout>
+
+    <!-- Formulario (scrollable para pantallas pequeñas) -->
+    <ScrollView
+        android:id="@+id/loginScroll"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:layout_marginTop="28dp"
+        android:fillViewport="true"
+        android:overScrollMode="never"
+        app:layout_constraintBottom_toTopOf="@id/loginFooter"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/brandRow">
+
+        <LinearLayout
+            android:id="@+id/loginForm"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/loginTitle"
+                style="@style/TextAppearance.Distribuidora.LoginTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/login_title" />
+
+            <TextView
+                android:id="@+id/loginSubtitle"
+                style="@style/TextAppearance.Distribuidora.LoginSubtitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="6dp"
+                android:text="@string/login_subtitle" />
+
+            <!-- Campo USUARIO -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="28dp"
+                android:text="@string/login_user_label"
+                android:textAppearance="@style/TextAppearance.Distribuidora.Login.FieldLabel" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/emailLayout"
+                style="@style/Widget.Distribuidora.Login.Input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                app:endIconMode="none"
+                app:startIconContentDescription="@string/login_user_label"
+                app:startIconDrawable="@drawable/ic_person">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/emailInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:autofillHints="username"
+                    android:hint="@string/login_email_hint"
+                    android:imeOptions="actionNext"
+                    android:inputType="text|textNoSuggestions"
+                    android:maxLines="1"
+                    android:minHeight="52dp"
+                    android:paddingVertical="14dp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_tertiary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Campo CONTRASEÑA -->
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="@string/login_password_label"
+                android:textAppearance="@style/TextAppearance.Distribuidora.Login.FieldLabel" />
+
+            <com.google.android.material.textfield.TextInputLayout
+                android:id="@+id/passwordLayout"
+                style="@style/Widget.Distribuidora.Login.Input"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="7dp"
+                app:endIconMode="password_toggle"
+                app:startIconContentDescription="@string/login_password_label"
+                app:startIconDrawable="@drawable/ic_lock">
+
+                <com.google.android.material.textfield.TextInputEditText
+                    android:id="@+id/passwordInput"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:autofillHints="password"
+                    android:hint="@string/login_password_hint"
+                    android:imeOptions="actionDone"
+                    android:inputType="textPassword"
+                    android:maxLines="1"
+                    android:minHeight="52dp"
+                    android:paddingVertical="14dp"
+                    android:textColor="@color/text_primary"
+                    android:textColorHint="@color/text_tertiary"
+                    android:textSize="15sp" />
+            </com.google.android.material.textfield.TextInputLayout>
+
+            <!-- Olvidaste tu contraseña (visual) -->
+            <TextView
+                android:id="@+id/forgotLink"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginTop="12dp"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:paddingHorizontal="4dp"
+                android:paddingVertical="4dp"
+                android:text="@string/login_forgot"
+                android:textAppearance="@style/TextAppearance.Distribuidora.Login.Forgot" />
+
+            <!-- Botón primario -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/loginButton"
+                style="@style/Widget.Distribuidora.Login.PrimaryButton"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:layout_marginTop="20dp"
+                android:hapticFeedbackEnabled="true"
+                android:text="@string/login_button" />
+
+            <!-- Loading + botón hacen crossfade (manejados desde Activity) -->
+            <ProgressBar
+                android:id="@+id/loginProgress"
+                style="@style/Widget.Distribuidora.Progress"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="center_horizontal"
+                android:layout_marginTop="16dp"
+                android:visibility="gone" />
+
+            <TextView
+                android:id="@+id/errorText"
+                style="@style/TextAppearance.Distribuidora.Error"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:text=""
+                android:visibility="gone" />
+
+            <!-- Divisor: línea — O — línea -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="22dp"
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1"
+                    android:background="@color/border_subtle" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="12dp"
+                    android:text="@string/login_or"
+                    android:textAppearance="@style/TextAppearance.Distribuidora.Login.Divider" />
+
+                <View
+                    android:layout_width="0dp"
+                    android:layout_height="1dp"
+                    android:layout_weight="1"
+                    android:background="@color/border_subtle" />
+            </LinearLayout>
+
+            <!-- Botón secundario: Escanear QR del jefe (visual) -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/scanQrButton"
+                style="@style/Widget.Distribuidora.Login.SecondaryButton"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:layout_marginTop="18dp"
+                android:text="@string/login_scan_qr"
+                app:icon="@drawable/ic_qr_scan" />
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Footer -->
+    <TextView
+        android:id="@+id/loginFooter"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:gravity="center_vertical"
-        app:layout_constraintTop_toTopOf="parent"
+        android:gravity="center_horizontal"
+        android:text="@string/login_footer"
+        android:textAppearance="@style/TextAppearance.Distribuidora.Login.Footer"
         app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
-
-        <TextView
-            android:id="@+id/loginTitle"
-            style="@style/TextAppearance.Distribuidora.LoginTitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="@string/login_title" />
-
-        <TextView
-            android:id="@+id/loginSubtitle"
-            style="@style/TextAppearance.Distribuidora.LoginSubtitle"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="@string/login_subtitle" />
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/emailLayout"
-            style="@style/Widget.Distribuidora.TextInputLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="28dp"
-            app:endIconMode="clear_text">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/emailInput"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/login_email_hint"
-                android:inputType="textEmailAddress"
-                android:autofillHints="emailAddress"
-                android:imeOptions="actionNext"
-                android:maxLines="1" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.textfield.TextInputLayout
-            android:id="@+id/passwordLayout"
-            style="@style/Widget.Distribuidora.TextInputLayout"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            app:endIconMode="password_toggle">
-
-            <com.google.android.material.textfield.TextInputEditText
-                android:id="@+id/passwordInput"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="@string/login_password_hint"
-                android:inputType="textPassword"
-                android:autofillHints="password"
-                android:imeOptions="actionDone"
-                android:maxLines="1" />
-        </com.google.android.material.textfield.TextInputLayout>
-
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/loginButton"
-            style="@style/Widget.Distribuidora.LoginButton"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="22dp"
-            android:text="@string/login_button"
-            android:hapticFeedbackEnabled="true" />
-
-        <!-- Loading + botón hacen crossfade (manejados desde Activity) -->
-        <ProgressBar
-            android:id="@+id/loginProgress"
-            style="@style/Widget.Distribuidora.Progress"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginTop="16dp"
-            android:visibility="gone" />
-
-        <TextView
-            android:id="@+id/errorText"
-            style="@style/TextAppearance.Distribuidora.Error"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:text=""
-            android:visibility="gone" />
-
-    </LinearLayout>
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
 </androidx.constraintlayout.widget.ConstraintLayout>

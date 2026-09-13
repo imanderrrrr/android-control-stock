@@ -13,13 +13,15 @@ import com.are.distribuidora.orders.domain.model.OrderItem
  *
  * Razón: los helpers de impresión y compartido de PDF están construidos sobre
  * [PedidoWithItems] (modelo de "Mis Pedidos"). En el flujo de "Otros" tenemos
- * solo [Order] + [List<OrderItem>] (snapshot remoto, sin descuentos). Para
- * mantener consistencia visual del ticket sin duplicar el helper, mapeamos
- * los datos disponibles y rellenamos con valores neutros lo que no aplica.
+ * solo [Order] + [List<OrderItem>] (snapshot remoto). Para mantener consistencia
+ * visual del ticket sin duplicar el helper, mapeamos los datos disponibles y
+ * rellenamos con valores neutros lo que no aplica.
+ *
+ * El descuento por ítem SÍ existe: [PedidoItem.descuentoItem] = [OrderItem.discountAmount]
+ * (descargado de Firestore) y [PedidoItem.totalItem] = [OrderItem.lineTotal] (neto).
  *
  * Campos que NO existen en Otros Pedidos y se neutralizan:
- *   - [PedidoItem.descuentoItem] = 0.0 (los items remotos vienen sin descuento expuesto).
- *   - [Pedido.descuentoGlobal] = 0.0.
+ *   - [Pedido.descuentoGlobal] = 0.0 (sin UI que lo asigne; siempre 0 hoy).
  *   - [PedidoItem.id] = productoId (único dentro del pedido; el helper no usa este campo
  *     para impresión, solo para DiffUtil de listas, que aquí no aplica).
  *   - Teléfono del cliente: null (no se descarga en el header).
@@ -35,7 +37,7 @@ internal fun buildPedidoWithItemsForPrint(
             nombre         = item.productName,
             precioUnitario = item.unitPrice,
             cantidad       = item.quantity,
-            descuentoItem  = 0.0,
+            descuentoItem  = item.discountAmount,
             totalItem      = item.lineTotal,
             notes          = item.notes?.takeIf { it.isNotBlank() },
         )

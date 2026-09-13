@@ -1,6 +1,6 @@
 package com.are.distribuidora.data
 
-import androidx.room.migration.testing.MigrationTestHelper
+import androidx.room.testing.MigrationTestHelper
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
@@ -116,6 +116,62 @@ class DistribuidoraMigrationTest {
             """.trimIndent())
         } catch (e: Exception) {
             throw AssertionError("Failed to insert into product_conflicts table. Table might not exist or schema is wrong. Error: ${e.message}")
+        }
+    }
+
+    /**
+     * Integración 4.0 + 4.1: la cadena 38 → 39 → 40 que ejecuta un teléfono que viene de 3.0.1.
+     *
+     * - 38 → 39 (4.0) agrega `screen_access.role`.
+     * - 39 → 40 (4.1, renumerada al integrar) crea `stock_movements`, quita `products.comprometido`
+     *   y agrega `orders.editVersion`. NO vuelve a crear `role`: ya existe desde la 39.
+     *
+     * Comprueba además que el stock y los pedidos existentes sobreviven al recreado de `products`.
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate38To40() {
+        helper.createDatabase(TEST_DB, 38).apply {
+            execSQL(
+                "INSERT INTO products (id, name, price, stock, comprometido, isActive, isDeleted, " +
+                    "syncStatus, createdAt, updatedAt) " +
+                    "VALUES ('p1', 'Coca Cola', 15.0, 42, 7, 1, 0, 'SYNCED', 1000, 2000)"
+            )
+            close()
+        }
+
+        val db = helper.runMigrationsAndValidate(
+            TEST_DB,
+            40,
+            true,
+            DistribuidoraMigrations.MIGRATION_38_39,
+            DistribuidoraMigrations.MIGRATION_39_40,
+        )
+
+        // El stock sobrevive al recreado de la tabla; `comprometido` desapareció.
+        db.query("SELECT stock FROM products WHERE id = 'p1'").use { c ->
+            check(c.moveToFirst()) { "el producto p1 se perdió en la migración" }
+            check(c.getInt(0) == 42) { "stock esperado 42, real ${c.getInt(0)}" }
+        }
+        db.query("PRAGMA table_info(products)").use { c ->
+            val cols = buildList { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("name"))) }
+            check("comprometido" !in cols) { "products aún tiene la columna comprometido" }
+        }
+
+        // `role` existe UNA sola vez (la 39→40 no debe volver a crearla).
+        db.query("PRAGMA table_info(screen_access)").use { c ->
+            val roles = buildList { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("name"))) }
+                .count { it == "role" }
+            check(roles == 1) { "screen_access.role aparece $roles veces" }
+        }
+
+        // Tabla nueva de 4.1 y columna nueva del pipeline B.
+        db.query("SELECT COUNT(*) FROM stock_movements").use { c ->
+            check(c.moveToFirst()) { "stock_movements no existe" }
+        }
+        db.query("PRAGMA table_info(orders)").use { c ->
+            val cols = buildList { while (c.moveToNext()) add(c.getString(c.getColumnIndexOrThrow("name"))) }
+            check("editVersion" in cols) { "orders no tiene editVersion" }
         }
     }
 }

@@ -2,8 +2,13 @@ package com.are.distribuidora.pedido.presentation.catalog
 
 import android.os.Bundle
 import android.view.View
+import android.view.animation.AnimationUtils
+import android.widget.EditText
 import android.widget.TextView
 import android.widget.Toast
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
@@ -12,22 +17,22 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import androidx.paging.LoadState
-import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.pedido.presentation.cart.OrderCartFragment
+import com.are.distribuidora.pedido.presentation.common.FlowAnimations
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
-import com.are.distribuidora.pedido.presentation.catalog.ui.GridSpacingItemDecoration
 import com.are.distribuidora.pedido.presentation.detail.ProductDetailOrderFragment
 import com.are.distribuidora.presentation.product.EditProductFragment
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.chip.Chip
 import com.google.android.material.chip.ChipGroup
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
-import com.google.android.material.floatingactionbutton.FloatingActionButton
-import com.google.android.material.textfield.TextInputEditText
 import dagger.hilt.android.AndroidEntryPoint
+import java.text.NumberFormat
+import java.util.Currency
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
@@ -48,15 +53,32 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
 
     private val tag = "ORDER_CATALOG"
 
+    /** La cascada de entrada de la grilla se ejecuta una sola vez (al primer load). */
+    private var listCascaded = false
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val toolbar          = view.findViewById<MaterialToolbar>(R.id.toolbar)
-        val editSearch       = view.findViewById<TextInputEditText>(R.id.editSearch)
-        val recyclerView     = view.findViewById<RecyclerView>(R.id.recyclerViewCatalog)
-        val chipGroup        = view.findViewById<ChipGroup>(R.id.chipGroupCategories)
-        val textEmptyState   = view.findViewById<TextView>(R.id.textEmptyState)
-        val fabCart          = view.findViewById<FloatingActionButton>(R.id.fabCart)
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
+        val editSearch         = view.findViewById<EditText>(R.id.editSearch)
+        val recyclerView       = view.findViewById<RecyclerView>(R.id.recyclerViewCatalog)
+        val chipGroup          = view.findViewById<ChipGroup>(R.id.chipGroupCategories)
+        val textEmptyState     = view.findViewById<TextView>(R.id.textEmptyState)
+        val cartBar            = view.findViewById<View>(R.id.cartBar)
+        val textCatalogCliente = view.findViewById<TextView>(R.id.textCatalogCliente)
+        val textCartBarCount   = view.findViewById<TextView>(R.id.textCartBarCount)
+        val textCartBarTotal   = view.findViewById<TextView>(R.id.textCartBarTotal)
+        val textCatalogCartPill = view.findViewById<TextView>(R.id.textCatalogCartPill)
+
+        val currencyFormat = NumberFormat.getCurrencyInstance(Locale("es", "GT")).also {
+            it.currency = Currency.getInstance("GTQ")
+        }
+
+        view.findViewById<View>(R.id.btnScanCatalog).setOnClickListener { editSearch.requestFocus() }
 
         // ── Chips → map chip id to CategoryFilter ───────────────────────────
         val chipCategoryMap: Map<Int, CategoryFilter> = mapOf(
@@ -80,13 +102,14 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
 
         logger.d(tag, "Catalog opened. routeId=$routeId selection=$selection")
 
-        toolbar.setNavigationOnClickListener {
+        view.findViewById<View>(R.id.btnBackCatalog).setOnClickListener {
             parentFragmentManager.popBackStack()
         }
 
-        // ── FAB carrito ──────────────────────────────────────────────────────
-        fabCart.setOnClickListener {
+        // ── Barra de carrito ─────────────────────────────────────────────────
+        cartBar.setOnClickListener {
             parentFragmentManager.beginTransaction()
+                .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
                 .replace(R.id.fragmentContainer, OrderCartFragment(), "ORDER_CART")
                 .addToBackStack("FLOW_CATALOG")
                 .commit()
@@ -116,6 +139,7 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
         adapter.onProductClicked = { product ->
             logger.d(tag, "Product clicked: id=${product.id.value} name=${product.name}")
             parentFragmentManager.beginTransaction()
+                .setCustomAnimations(R.anim.nav_enter, R.anim.nav_exit, R.anim.nav_pop_enter, R.anim.nav_pop_exit)
                 .replace(R.id.fragmentContainer, ProductDetailOrderFragment.newInstance(product), "PRODUCT_DETAIL")
                 .addToBackStack("FLOW_CATALOG")
                 .commit()
@@ -150,20 +174,8 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
             flowViewModel.decrement(productId)
         }
 
-        val spanCount = 2
-        recyclerView.layoutManager = GridLayoutManager(requireContext(), spanCount)
+        recyclerView.layoutManager = LinearLayoutManager(requireContext())
         recyclerView.adapter = adapter
-
-        val spacingPx = (resources.displayMetrics.density * 12).toInt()
-        if (recyclerView.itemDecorationCount == 0) {
-            recyclerView.addItemDecoration(
-                GridSpacingItemDecoration(
-                    spanCount    = spanCount,
-                    spacingPx    = spacingPx,
-                    includeEdge  = false,
-                )
-            )
-        }
 
         // ── Observadores ────────────────────────────────────────────────────
         viewLifecycleOwner.lifecycleScope.launch {
@@ -189,6 +201,42 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
                         adapter.submitCartQuantities(
                             cart.mapValues { (_, item) -> item.quantity }
                         )
+                        val count = cart.size
+                        textCartBarCount.text = "$count PRODUCTOS"
+                        textCatalogCartPill.text = "$count · ${currencyFormat.format(flowViewModel.cartTotal.value)}"
+                        // La barra de carrito entra deslizándose desde abajo cuando
+                        // aparece el primer producto, y se desliza fuera al vaciarse.
+                        val shouldShow = count > 0
+                        if (shouldShow && cartBar.visibility != View.VISIBLE) {
+                            cartBar.visibility = View.VISIBLE
+                            FlowAnimations.revealUp(cartBar, duration = 320L, distanceDp = 44f)
+                        } else if (!shouldShow && cartBar.visibility == View.VISIBLE) {
+                            cartBar.animate().cancel()
+                            cartBar.animate()
+                                .alpha(0f)
+                                .translationY(cartBar.height.toFloat().coerceAtLeast(44f))
+                                .setDuration(240L)
+                                .withEndAction {
+                                    cartBar.visibility = View.GONE
+                                    cartBar.alpha = 1f
+                                    cartBar.translationY = 0f
+                                }
+                                .start()
+                        }
+                    }
+                }
+
+                // 1c. Total del carrito → barra inferior
+                launch {
+                    flowViewModel.cartTotal.collect { total ->
+                        textCartBarTotal.text = currencyFormat.format(total)
+                    }
+                }
+
+                // 1d. Nombre del cliente → encabezado
+                launch {
+                    flowViewModel.clienteNombre.collect { name ->
+                        textCatalogCliente.text = name ?: ""
                     }
                 }
 
@@ -213,6 +261,19 @@ class OrderCatalogFragment : Fragment(R.layout.fragment_order_catalog) {
                             else -> {
                                 textEmptyState.visibility = View.GONE
                                 recyclerView.visibility   = View.VISIBLE
+                                // Cascada de entrada solo al primer load con datos.
+                                if (!listCascaded &&
+                                    refresh is LoadState.NotLoading &&
+                                    adapter.itemCount > 0
+                                ) {
+                                    listCascaded = true
+                                    recyclerView.layoutAnimation =
+                                        AnimationUtils.loadLayoutAnimation(
+                                            requireContext(),
+                                            R.anim.layout_anim_fall_down,
+                                        )
+                                    recyclerView.scheduleLayoutAnimation()
+                                }
                             }
                         }
                     }

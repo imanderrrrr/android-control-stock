@@ -2,7 +2,11 @@ package com.are.distribuidora.pedido.presentation.detail
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.are.distribuidora.core.auth.CurrentUserIdProvider
 import com.are.distribuidora.orders.domain.usecase.GetOtrosPedidoDetalleUseCase
+import com.are.distribuidora.pedido.presentation.common.PedidoDateTimeFormatter
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.domain.repository.UserAccessProvider
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +26,11 @@ import javax.inject.Inject
 @HiltViewModel
 class OtrosPedidoDetalleViewModel @Inject constructor(
     private val getDetalle: GetOtrosPedidoDetalleUseCase,
+    private val userAccessProvider: UserAccessProvider,
+    private val currentUserIdProvider: CurrentUserIdProvider,
 ) : ViewModel() {
+
+    private val dateTimeFormat = PedidoDateTimeFormatter()
 
     sealed class UiState {
         object Loading : UiState()
@@ -32,6 +40,10 @@ class OtrosPedidoDetalleViewModel @Inject constructor(
             val sellerName: String?,
             val totalFormatted: String,
             val items: List<OtrosDetalleItemUiModel>,
+            /** "8 sept 2026 · 14:05": instante en que el vendedor confirmó el carrito. */
+            val createdAtFormatted: String,
+            /** Roles 4.0: EDIT_ANY_ORDER, o EDIT_OWN_ORDER si el pedido es del usuario. */
+            val canEdit: Boolean,
         ) : UiState()
         data class Error(val message: String) : UiState()
     }
@@ -64,17 +76,26 @@ class OtrosPedidoDetalleViewModel @Inject constructor(
                                 unitPriceFormatted = currencyFormat.format(item.unitPrice),
                                 quantity           = item.quantity,
                                 lineTotalFormatted = currencyFormat.format(item.lineTotal),
+                                discountFormatted  = if (item.discountAmount > 0)
+                                    "-${currencyFormat.format(item.discountAmount)}" else null,
                                 notes              = item.notes?.takeIf { it.isNotBlank() },
                             )
                         }
                         // Total: usa totalAmount del header si existe; si no, suma de líneas.
                         val total = order.totalAmount
                             ?: items.sumOf { it.lineTotal }
+                        val access = userAccessProvider.current()
+                        val uid = currentUserIdProvider.get()
+                        val canEdit = access.can(Permission.EDIT_ANY_ORDER) ||
+                            (access.can(Permission.EDIT_OWN_ORDER) &&
+                                !uid.isNullOrBlank() && order.vendedorId == uid)
                         _uiState.value = UiState.Success(
                             clientName    = order.clientName,
                             sellerName    = order.sellerName,
                             totalFormatted = currencyFormat.format(total),
                             items         = uiItems,
+                            createdAtFormatted = dateTimeFormat.formatDateTime(order.createdAt),
+                            canEdit       = canEdit,
                         )
                     }
                 }
@@ -92,6 +113,8 @@ data class OtrosDetalleItemUiModel(
     val unitPriceFormatted: String,   // "Q 25.00"
     val quantity: Int,
     val lineTotalFormatted: String,   // "Q 50.00"
+    /** "-Q 5.00" si el ítem tiene descuento; null si no (la línea se oculta). */
+    val discountFormatted: String? = null,
     /** Detalle / instrucción especial del ítem; null o blank si no hay. */
     val notes: String? = null,
 )

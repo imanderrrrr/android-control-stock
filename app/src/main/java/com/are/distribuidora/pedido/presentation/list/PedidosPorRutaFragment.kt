@@ -11,6 +11,9 @@ import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.ContextCompat
 import androidx.core.graphics.toColorInt
+import androidx.core.view.ViewCompat
+import androidx.core.view.WindowInsetsCompat
+import androidx.core.view.updatePadding
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.lifecycle.Lifecycle
@@ -24,7 +27,6 @@ import com.are.distribuidora.pedido.presentation.edit.EditPedidoFragment
 import com.are.distribuidora.pedido.presentation.print.BluetoothPrinterDialog
 import com.are.distribuidora.pedido.presentation.print.PdfTicketHelper
 import com.are.distribuidora.pedido.presentation.print.PrintTicketHelper
-import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.progressindicator.LinearProgressIndicator
 import com.google.android.material.snackbar.Snackbar
@@ -53,13 +55,20 @@ class PedidosPorRutaFragment : Fragment(R.layout.fragment_pedidos_por_ruta) {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val toolbar   = view.findViewById<MaterialToolbar>(R.id.toolbarPorRuta)
+        ViewCompat.setOnApplyWindowInsetsListener(view) { v, insets ->
+            v.updatePadding(top = insets.getInsets(WindowInsetsCompat.Type.statusBars()).top)
+            insets
+        }
+
+        val title     = view.findViewById<TextView>(R.id.textPorRutaTitle)
         val recycler  = view.findViewById<RecyclerView>(R.id.recyclerPorRuta)
         val textEmpty = view.findViewById<TextView>(R.id.textPorRutaEmpty)
         val progress  = view.findViewById<ProgressBar>(R.id.progressPorRuta)
 
-        toolbar.title = routeName
-        toolbar.setNavigationOnClickListener { parentFragmentManager.popBackStack() }
+        title.text = routeName
+        view.findViewById<View>(R.id.btnBackPorRuta).setOnClickListener {
+            parentFragmentManager.popBackStack()
+        }
 
         val adapter = PedidosClienteAdapter { pedido ->
             requireActivity().supportFragmentManager.beginTransaction()

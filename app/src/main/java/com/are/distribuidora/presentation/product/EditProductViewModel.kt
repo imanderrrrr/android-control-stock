@@ -28,6 +28,7 @@ class EditProductViewModel @Inject constructor(
     private val saveProductUseCase: SaveProductUseCase,
     private val pendingUploadDao: PendingUploadDao,
     private val imageUploadSyncScheduler: ImageUploadSyncScheduler,
+    private val createStockVoucher: com.are.distribuidora.stockmovement.domain.usecase.CreateStockVoucherUseCase,
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow<EditProductUiState>(EditProductUiState.Loading)
@@ -168,6 +169,19 @@ class EditProductViewModel @Inject constructor(
                 )
 
                 saveProductUseCase(updatedProduct)
+
+                // 4.1: el repositorio conserva el stock existente; si el usuario cambió el número,
+                // la diferencia se registra como vale AJUSTE (auditable) en lugar de sobrescribir.
+                val stockDelta = stock.value - product.stock.value
+                if (stockDelta != 0) {
+                    createStockVoucher(
+                        productId = product.id.value,
+                        type = com.are.distribuidora.stockmovement.domain.model.MovementType.fromDelta(stockDelta),
+                        quantity = kotlin.math.abs(stockDelta),
+                        reason = com.are.distribuidora.stockmovement.domain.model.MovementReason.AJUSTE,
+                        note = "Ajuste desde Editar producto",
+                    )
+                }
 
                 // If user selected a new image, enqueue pending upload
                 if (!newLocalPath.isNullOrBlank()) {

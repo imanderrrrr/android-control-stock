@@ -51,24 +51,23 @@ class FirestoreProductDataSource(
         Log.d(tag, "FirestoreProductDataSource.fetchProductsFlow: Querying products modified after $timestamp (lastId=$lastId) with batchSize=$batchSize")
         
         val queryTimestamp = if (timestamp > 0) Date(timestamp) else Date(0)
+
+        // ── BUG FIX: downsync que NO propagaba la actualización del producto más reciente ──
+        // ANTES, para "reanudar", se re-traía el documento `lastId` FRESCO de Firestore y se
+        // hacía startAfter(docFresco). Problema: `lastId` es el producto-frontera (el de mayor
+        // updatedAt que el dispositivo ya sincronizó). Si ese producto se actualiza luego, el
+        // documento fresco refleja su posición NUEVA (updatedAt mayor) y startAfter(él) lo SALTA
+        // → su propia actualización nunca se descarga en los demás dispositivos (Batches=0).
+        // Evidencia real: lastId = id del producto editado, "Resuming from cursor" → "No more
+        // documents". Efecto: las ediciones del producto más reciente no se propagaban nunca.
+        //
+        // Arreglo: NO usar cursor de arranque basado en un documento re-traído (blanco móvil).
+        // El filtro `updatedAt >= queryTimestamp` ya re-incluye al producto-frontera reeditado
+        // (su nuevo updatedAt sigue siendo >= el watermark local). La paginación DENTRO de esta
+        // corrida usa el último snapshot ya devuelto (no un blanco móvil), así que es estable.
+        // El borde se re-procesa de forma idempotente (LWW resuelve por timestamp de servidor).
         var lastVisible: com.google.firebase.firestore.DocumentSnapshot? = null
-        
-        // Initial Cursor Setup for Resumption
-        if (lastId != null && timestamp > 0) {
-            try {
-                // Enterprise-Grade: Explicitly fetch the exact cursor document to avoid ambiguity
-                val cursorDoc = firestore.collection(collectionName).document(lastId).get().await()
-                if (cursorDoc.exists()) {
-                    lastVisible = cursorDoc
-                    Log.d(tag, "Resuming from specific cursor document: $lastId")
-                } else {
-                    Log.w(tag, "Cursor document $lastId not found. Falling back to timestamp only.")
-                }
-            } catch (e: Exception) {
-                Log.w(tag, "Failed to fetch cursor document $lastId. Falling back to timestamp only.", e)
-            }
-        }
-        
+
         while (true) {
             // Composite Index Required: updatedAt ASC, __name__ ASC
             var query = firestore.collection(collectionName)
@@ -124,7 +123,6 @@ class FirestoreProductDataSource(
         val imageUrl = doc.getString("imagenUrl") ?: doc.getString("imageUrl")
         val barcode = doc.getString("codigoBarras") ?: doc.getString("barcode")
         val stock = (doc.getLong("stock") ?: doc.getLong("existencias"))?.toInt()
-        val comprometido = (doc.getLong("comprometido"))?.toInt()
         val isActive = doc.getBoolean("isActive")
         val isDeleted = doc.getBoolean("isDeleted")
 
@@ -145,7 +143,6 @@ class FirestoreProductDataSource(
             imageUrl = imageUrl,
             barcode = barcode,
             stock = stock,
-            comprometido = comprometido,
             isActive = isActive,
             isDeleted = isDeleted,
             createdRemoteAt = createdRemoteAt,
@@ -167,7 +164,9 @@ class FirestoreProductDataSource(
                 "price" to product.price,
                 "imageUrl" to product.imageUrl,
                 "barcode" to product.barcode,
-                "stock" to product.stock,
+                // NUNCA "stock": desde 4.1 el contador remoto solo se mueve con
+                // FieldValue.increment desde el libro de movimientos (stock_movements).
+                // Subirlo como valor absoluto es lo que hacía que dos teléfonos se pisaran.
                 "isActive" to product.isActive,
                 "isDeleted" to product.isDeleted,
                 "createdAt" to product.createdRemoteAt?.let { Date(it) },
@@ -191,6 +190,12 @@ class FirestoreProductDataSource(
             Log.e(tag, "FirestoreProductDataSource.uploadProduct: Error uploading product ${product.id}", e)
             throw e
         }
+    }
+
+    override suspend fun fetchProductById(id: String): RemoteProduct? {
+        val doc = firestore.collection(collectionName).document(id).get().await()
+        if (!doc.exists()) return null
+        return mapDocumentToRemoteProduct(doc)
     }
 
     override suspend fun softDeleteProduct(id: String, timestamp: Long) {

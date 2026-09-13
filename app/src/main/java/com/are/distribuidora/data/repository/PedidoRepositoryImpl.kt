@@ -27,6 +27,12 @@ import com.are.distribuidora.domain.pedido.model.DailySalesData
 import com.are.distribuidora.domain.pedido.model.TopProductData
 import com.are.distribuidora.domain.pedido.model.TopClientData
 import com.are.distribuidora.core.money.RoundToQuarterQuetzalUseCase
+import com.are.distribuidora.stockmovement.data.local.dao.StockMovementDao
+import com.are.distribuidora.stockmovement.data.local.entity.StockMovementEntity
+import com.are.distribuidora.stockmovement.domain.model.MovementReason
+import com.are.distribuidora.stockmovement.domain.model.MovementType
+import com.are.distribuidora.stockmovement.domain.model.StockMovement
+import com.are.distribuidora.stockmovement.domain.model.StockMovementIds
 import java.util.UUID
 import javax.inject.Inject
 import kotlinx.coroutines.flow.Flow
@@ -39,7 +45,52 @@ class PedidoRepositoryImpl @Inject constructor(
     private val productDao: ProductDao,
     private val remoteDataSource: PedidoRemoteDataSource,
     private val currentUserIdProvider: CurrentUserIdProvider,
+    private val movementDao: StockMovementDao,
 ) : PedidoRepository {
+
+    // ── Libro de movimientos (4.1) ─────────────────────────────────────────────
+    // Todo cambio de stock que provoca un pedido pasa por `stock_movements`. Los movimientos se
+    // insertan en la MISMA transacción Room que el pedido y mueven el contador local con
+    // ProductDao.applyMovement; el worker los sube junto con el pedido, y el servidor aplica
+    // FieldValue.increment. Ítems personalizados (`custom_*`) no tienen producto: no generan nada.
+
+    private fun movementFor(
+        id: String,
+        productId: String,
+        productName: String,
+        delta: Int,
+        reason: MovementReason,
+        orderId: String,
+        actorUid: String,
+        now: Long,
+    ): StockMovement? {
+        if (delta == 0 || !StockMovementIds.isCatalogProduct(productId)) return null
+        return StockMovement(
+            id = id,
+            productId = productId,
+            productName = productName,
+            type = MovementType.fromDelta(delta),
+            quantity = kotlin.math.abs(delta),
+            reason = reason,
+            orderId = orderId,
+            note = null,
+            createdBy = actorUid,
+            createdByName = currentUserIdProvider.getDisplayName() ?: actorUid,
+            createdAt = now,
+        )
+    }
+
+    /** Inserta los movimientos (idempotente por id) y aplica su efecto al stock local. Dentro de una transacción. */
+    private suspend fun recordMovementsLocally(movements: List<StockMovement>, status: SyncStatus = SyncStatus.PENDING_CREATE) {
+        movements.forEach { m ->
+            val inserted = movementDao.insert(StockMovementEntity.fromDomain(m, status))
+            if (inserted != -1L) productDao.applyMovement(m.productId, m.signedQuantity)
+        }
+    }
+
+    /** Movimientos del pedido que aún no están en Firestore (viajan con el pedido en el mismo batch). */
+    private suspend fun pendingMovementsOf(pedidoId: String): List<StockMovementEntity> =
+        movementDao.getUnsyncedByOrderId(pedidoId)
 
     override suspend fun createPedido(params: CreatePedidoParams): Result<String> {
         return try {
@@ -53,6 +104,7 @@ class PedidoRepositoryImpl @Inject constructor(
 
                 PedidoItemEntity(
                     id = UUID.randomUUID().toString(),
+                    // (id del ítem = base del id determinístico del movimiento, ver abajo)
                     pedidoId = pedidoId,
                     productoId = input.productoId,
                     nombre = input.nombre,
@@ -90,6 +142,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal = subtotal,
                 descuentoGlobal = params.descuentoGlobal,
                 total = total,
+                ivaAmount = params.ivaAmount,
                 version = 1,
                 actualizadoPor = params.vendedorId,
                 creadoEn = now,
@@ -100,13 +153,25 @@ class PedidoRepositoryImpl @Inject constructor(
                 orderKey = orderKey,
             )
 
+            // Un movimiento SALIDA/PEDIDO por ítem (versión 1 del pedido).
+            val movements = itemEntities.mapNotNull { item ->
+                movementFor(
+                    id = StockMovementIds.forOrderItem(pedidoId, item.id, version = 1),
+                    productId = item.productoId,
+                    productName = item.nombre,
+                    delta = -item.cantidad,
+                    reason = MovementReason.PEDIDO,
+                    orderId = pedidoId,
+                    actorUid = params.vendedorId,
+                    now = now,
+                )
+            }
+
             database.withTransaction {
                 pedidoDao.insert(pedidoEntity)
                 pedidoItemDao.insertAll(itemEntities)
-                // Descontar stock e incrementar comprometido por la diferencia, de forma atómica.
-                params.items.forEach { item ->
-                    productDao.deductStockAndCommit(item.productoId, item.cantidad)
-                }
+                // Pedido + movimientos + ajuste del stock local en UNA transacción.
+                recordMovementsLocally(movements)
             }
 
             Result.Success(pedidoId)
@@ -186,6 +251,7 @@ class PedidoRepositoryImpl @Inject constructor(
                     subtotal = entity.subtotal,
                     descuentoGlobal = entity.descuentoGlobal,
                     total = entity.total,
+                    ivaAmount = entity.ivaAmount,
                     version = entity.version,
                     actualizadoPor = entity.actualizadoPor,
                     creadoEn = entity.creadoEn,
@@ -232,6 +298,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal = entity.subtotal,
                 descuentoGlobal = entity.descuentoGlobal,
                 total = entity.total,
+                ivaAmount = entity.ivaAmount,
                 version = entity.version,
                 actualizadoPor = entity.actualizadoPor,
                 creadoEn = entity.creadoEn,
@@ -245,12 +312,17 @@ class PedidoRepositoryImpl @Inject constructor(
         val pedido = pedidoWithItems.pedido
         val now = System.currentTimeMillis()
 
+        // Movimientos del pedido pendientes de subir: viajan en la misma transacción remota.
+        val movements = pendingMovementsOf(pedido.id)
+        val movementIds = movements.map { it.id }
+
         // Marcar como SYNCING antes de subir
         database.withTransaction {
             pedidoDao.markPedidoSyncing(pedido.id, now)
             pedidoWithItems.items.forEach { item ->
                 pedidoItemDao.markItemSyncing(item.id, now)
             }
+            movementDao.markSyncing(movementIds)
         }
 
         try {
@@ -265,6 +337,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal = pedido.subtotal,
                 descuentoGlobal = pedido.descuentoGlobal,
                 total = pedido.total,
+                ivaAmount = pedido.ivaAmount,
                 version = pedido.version,
                 actualizadoPor = pedido.actualizadoPor,
                 creadoEn = pedido.creadoEn,
@@ -290,7 +363,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 )
             }
 
-            remoteDataSource.uploadPedido(pedido.id, pedidoPayload, itemPayloads)
+            remoteDataSource.uploadPedido(pedido.id, pedidoPayload, itemPayloads, movements.map { it.toDomain() })
 
             // Subida exitosa → marcar SYNCED
             val syncedAt = System.currentTimeMillis()
@@ -299,6 +372,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 pedidoWithItems.items.forEach { item ->
                     pedidoItemDao.markItemSynced(item.id, syncedAt)
                 }
+                movementDao.markSynced(movementIds, syncedAt)
             }
         } catch (e: Exception) {
             // Revertir a PENDING_CREATE para reintento
@@ -308,6 +382,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 pedidoWithItems.items.forEach { item ->
                     pedidoItemDao.revertItemSyncingToPendingCreate(item.id, revertAt)
                 }
+                movementDao.revertSyncingToPending(movementIds)
             }
             throw e
         }
@@ -345,6 +420,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal = entity.subtotal,
                 descuentoGlobal = entity.descuentoGlobal,
                 total = entity.total,
+                ivaAmount = entity.ivaAmount,
                 version = entity.version,
                 actualizadoPor = entity.actualizadoPor,
                 creadoEn = entity.creadoEn,
@@ -394,6 +470,7 @@ class PedidoRepositoryImpl @Inject constructor(
                     subtotal = entity.subtotal,
                     descuentoGlobal = entity.descuentoGlobal,
                     total = entity.total,
+                    ivaAmount = entity.ivaAmount,
                     version = entity.version,
                     actualizadoPor = entity.actualizadoPor,
                     creadoEn = entity.creadoEn,
@@ -443,6 +520,7 @@ class PedidoRepositoryImpl @Inject constructor(
                     subtotal         = entity.subtotal,
                     descuentoGlobal  = entity.descuentoGlobal,
                     total            = entity.total,
+                    ivaAmount        = entity.ivaAmount,
                     version          = entity.version,
                     actualizadoPor   = entity.actualizadoPor,
                     creadoEn         = entity.creadoEn,
@@ -511,18 +589,22 @@ class PedidoRepositoryImpl @Inject constructor(
             val now = System.currentTimeMillis()
 
             // Verificar que el pedido existe antes de modificarlo
-            pedidoDao.getById(params.pedidoId)
+            val existing = pedidoDao.getById(params.pedidoId)
                 ?: return Result.Error(Failure.NotFound)
 
             // Recalcular totales (itemsToUpsert ya son solo los activos)
             val subtotal = params.itemsToUpsert
                 .sumOf { (it.precioUnitario * it.cantidad) - it.descuentoItem }
-            // Redondear al múltiplo de Q 0.25 más cercano, igual que al crear el pedido
+            val netAfterDiscount = (subtotal - params.descuentoGlobal).coerceAtLeast(0.0)
+            // Conservar el estado de IVA del pedido original: si tenía IVA, se recalcula al 12%.
+            val applyIva = existing.ivaAmount > 0.0
             val total = RoundToQuarterQuetzalUseCase(
-                (subtotal - params.descuentoGlobal).coerceAtLeast(0.0)
+                if (applyIva) netAfterDiscount * 1.12 else netAfterDiscount
             )
+            val ivaAmount = if (applyIva) (total - netAfterDiscount).coerceAtLeast(0.0) else 0.0
 
-            // Construir entidades de ítems para upsert
+            // Construir entidades de ítems para upsert (el id se fija aquí para que el movimiento
+            // de un ítem nuevo comparta el mismo itemId).
             val itemEntities = params.itemsToUpsert.map { input ->
                 val totalItem = (input.precioUnitario * input.cantidad) - input.descuentoItem
                 PedidoItemEntity(
@@ -552,23 +634,31 @@ class PedidoRepositoryImpl @Inject constructor(
             // Ítems nuevos (existingItemId == null): descontar toda su cantidad.
 
             val prevByItemId = params.previousItems.associateBy { it.itemId }
+            val newVersion = existing.version + 1
+            val actorUid = params.vendedorId
 
-            // Ítems a eliminar: restaurar su cantidad completa
-            val deleteRestores: Map<String, Int> = params.itemIdsToDelete
-                .mapNotNull { itemId -> prevByItemId[itemId] }
-                .groupBy { it.productoId }
-                .mapValues { (_, snaps) -> snaps.sumOf { it.cantidad } }
-
-            // Ítems upsert: calcular delta respecto al anterior (o 0 si es nuevo)
-            data class StockDelta(val productoId: String, val delta: Int)
-            val upsertDeltas: List<StockDelta> = params.itemsToUpsert.map { input ->
-                val prevQty = if (input.itemId != null) prevByItemId[input.itemId]?.cantidad ?: 0 else 0
-                StockDelta(input.productoId, input.cantidad - prevQty)
+            // 4.1: un movimiento PEDIDO_EDICION por ÍTEM con la diferencia (no se escribe el contador).
+            //  - ítem eliminado  → ENTRADA por toda su cantidad
+            //  - ítem nuevo      → SALIDA por toda su cantidad
+            //  - ítem modificado → ±diferencia
+            val editMovements = mutableListOf<StockMovement>()
+            params.itemIdsToDelete.forEach { itemId ->
+                val prev = prevByItemId[itemId] ?: return@forEach
+                val name = pedidoItemDao.getById(itemId)?.nombre ?: productDao.getById(prev.productoId)?.name ?: prev.productoId
+                movementFor(
+                    id = StockMovementIds.forOrderItem(params.pedidoId, itemId, newVersion),
+                    productId = prev.productoId, productName = name, delta = +prev.cantidad,
+                    reason = MovementReason.PEDIDO_EDICION, orderId = params.pedidoId, actorUid = actorUid, now = now,
+                )?.let(editMovements::add)
             }
-            // Agrupa por producto sumando deltas (puede haber varios ítems del mismo producto)
-            val upsertDeltaByProducto: Map<String, Int> = upsertDeltas
-                .groupBy { it.productoId }
-                .mapValues { (_, ds) -> ds.sumOf { it.delta } }
+            itemEntities.forEach { item ->
+                val prevQty = prevByItemId[item.id]?.cantidad ?: 0
+                movementFor(
+                    id = StockMovementIds.forOrderItem(params.pedidoId, item.id, newVersion),
+                    productId = item.productoId, productName = item.nombre, delta = -(item.cantidad - prevQty),
+                    reason = MovementReason.PEDIDO_EDICION, orderId = params.pedidoId, actorUid = actorUid, now = now,
+                )?.let(editMovements::add)
+            }
 
             database.withTransaction {
                 // 1) Upsert ítems activos (nuevos o modificados)
@@ -579,27 +669,19 @@ class PedidoRepositoryImpl @Inject constructor(
                     pedidoItemDao.markItemDeleted(itemId, now)
                 }
 
-                // 3) Marcar pedido como PENDING_UPDATE con nuevos totales
+                // 3) Marcar pedido como PENDING_UPDATE con nuevos totales y versión + 1
+                //    (la versión persiste desde 4.1: es la base del id de los movimientos).
                 pedidoDao.markPedidoPendingUpdate(
                     id        = params.pedidoId,
                     subtotal  = subtotal,
                     total     = total,
+                    ivaAmount = ivaAmount,
                     updatedAt = now,
+                    version   = newVersion,
                 )
 
-                // 4) Restaurar stock de ítems eliminados
-                deleteRestores.forEach { (productoId, qty) ->
-                    if (qty > 0) productDao.restoreStock(productoId, qty)
-                }
-
-                // 5) Aplicar delta de stock por ítems modificados / nuevos
-                upsertDeltaByProducto.forEach { (productoId, delta) ->
-                    when {
-                        delta > 0 -> productDao.deductStockAndCommit(productoId, delta)
-                        delta < 0 -> productDao.restoreStock(productoId, -delta)
-                        // delta == 0 → sin cambio
-                    }
-                }
+                // 4) Movimientos por diferencia + ajuste del stock local (misma transacción)
+                recordMovementsLocally(editMovements)
             }
 
             Result.Success(Unit)
@@ -612,12 +694,16 @@ class PedidoRepositoryImpl @Inject constructor(
         val pedido = pedidoWithItems.pedido
         val now = System.currentTimeMillis()
 
+        val movements = pendingMovementsOf(pedido.id)
+        val movementIds = movements.map { it.id }
+
         // Marcar como SYNCING antes de subir
         database.withTransaction {
             pedidoDao.markPedidoSyncing(pedido.id, now)
             pedidoWithItems.items.forEach { item ->
                 pedidoItemDao.markItemSyncing(item.id, now)
             }
+            movementDao.markSyncing(movementIds)
         }
 
         try {
@@ -632,7 +718,9 @@ class PedidoRepositoryImpl @Inject constructor(
                 subtotal         = pedido.subtotal,
                 descuentoGlobal  = pedido.descuentoGlobal,
                 total            = pedido.total,
-                version          = pedido.version + 1,
+                ivaAmount        = pedido.ivaAmount,
+                // La versión ya se incrementó en Room al editar (4.1); se sube tal cual.
+                version          = pedido.version,
                 actualizadoPor   = pedido.vendedorId,
                 creadoEn         = pedido.creadoEn,
                 actualizadoEn    = now,
@@ -658,7 +746,7 @@ class PedidoRepositoryImpl @Inject constructor(
             }
 
             // uploadPedido usa set/merge en Firestore → funciona tanto para create como update
-            remoteDataSource.uploadPedido(pedido.id, pedidoPayload, itemPayloads)
+            remoteDataSource.uploadPedido(pedido.id, pedidoPayload, itemPayloads, movements.map { it.toDomain() })
 
             // Éxito → marcar SYNCED
             val syncedAt = System.currentTimeMillis()
@@ -667,6 +755,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 pedidoWithItems.items.forEach { item ->
                     pedidoItemDao.markItemSynced(item.id, syncedAt)
                 }
+                movementDao.markSynced(movementIds, syncedAt)
             }
         } catch (e: Exception) {
             // Revertir a PENDING_UPDATE para reintento
@@ -676,6 +765,7 @@ class PedidoRepositoryImpl @Inject constructor(
                 pedidoWithItems.items.forEach { item ->
                     pedidoItemDao.revertItemSyncingToPending(item.id, revertAt)
                 }
+                movementDao.revertSyncingToPending(movementIds)
             }
             throw e
         }
@@ -699,6 +789,7 @@ class PedidoRepositoryImpl @Inject constructor(
             subtotal        = entity.subtotal,
             descuentoGlobal = entity.descuentoGlobal,
             total           = entity.total,
+            ivaAmount       = entity.ivaAmount,
             version         = entity.version,
             actualizadoPor  = entity.actualizadoPor,
             creadoEn        = entity.creadoEn,
@@ -714,7 +805,9 @@ class PedidoRepositoryImpl @Inject constructor(
             else                                                           -> SyncStatusLabel.UNKNOWN
         }
 
-    override suspend fun recoverStuckSyncingPedidos() {        val revertAt = System.currentTimeMillis()
+    override suspend fun recoverStuckSyncingPedidos() {
+        val revertAt = System.currentTimeMillis()
+        movementDao.resetStaleSyncing()
         val stuckPedidos = pedidoDao.getPedidosBySyncStatus(SyncStatus.SYNCING)
         if (stuckPedidos.isEmpty()) return
 
@@ -733,27 +826,55 @@ class PedidoRepositoryImpl @Inject constructor(
         return try {
             val entity = pedidoDao.getById(pedidoId)
                 ?: return Result.Error(Failure.NotFound)
+            val now = System.currentTimeMillis()
+            val authUid = currentUserIdProvider.get() ?: entity.vendedorId
 
             when (entity.syncStatus) {
-                SyncStatus.SYNCED -> {
-                    // 1) Soft delete en Firestore (nunca borra físicamente el documento).
-                    //    Si lanza excepción, el catch externo retorna NetworkError y Room
-                    //    queda intacto — no hay estado intermedio huérfano.
-                    val authUid = currentUserIdProvider.get()
+                // ── El pedido EXISTE en Firestore (se subió al menos una vez) ─────────
+                SyncStatus.SYNCED, SyncStatus.PENDING_UPDATE -> {
+                    // 4.1: borrar DEVUELVE el stock. Un movimiento ENTRADA/PEDIDO_BORRADO por ítem
+                    // activo (los ítems quitados en ediciones previas ya recibieron su ENTRADA al
+                    // editar). Id determinístico → un reintento no devuelve dos veces.
+                    val activeItems = pedidoItemDao.getActiveItemsByPedidoId(pedidoId)
+                    val compensation = activeItems.mapNotNull { item ->
+                        movementFor(
+                            id = StockMovementIds.forOrderItemDeletion(pedidoId, item.id),
+                            productId = item.productoId, productName = item.nombre, delta = +item.cantidad,
+                            reason = MovementReason.PEDIDO_BORRADO, orderId = pedidoId, actorUid = authUid, now = now,
+                        )
+                    }
+                    // Movimientos de una edición aún no subida: viajan también en esta transacción.
+                    val stillPending = pendingMovementsOf(pedidoId)
+                    val toUpload = stillPending.map { it.toDomain() } + compensation
+
+                    // 1) Soft delete en Firestore + movimientos, en UNA transacción remota.
+                    //    Si lanza excepción, el catch externo retorna NetworkError y Room queda
+                    //    intacto — no hay estado intermedio huérfano.
                     remoteDataSource.softDeletePedido(
                         routeId = entity.routeId,
                         pedidoId = pedidoId,
                         orderKey = entity.orderKey,
                         deletedByUid = authUid,
+                        movements = toUpload,
                     )
-                    // 2) Firestore confirmó → marcar isDeleted=true + PENDING_DELETE en Room
-                    //    atómicamente con markPedidoDeleted (una sola query UPDATE).
-                    pedidoDao.markPedidoDeleted(pedidoId, System.currentTimeMillis())
+                    // 2) Firestore confirmó → Room: isDeleted + PENDING_DELETE, movimientos como
+                    //    SYNCED (ya están en el servidor) y stock local restaurado. Atómico.
+                    database.withTransaction {
+                        pedidoDao.markPedidoDeleted(pedidoId, now)
+                        movementDao.markSynced(stillPending.map { it.id }, now)
+                        recordMovementsLocally(compensation, status = SyncStatus.SYNCED)
+                    }
                 }
+                // ── Nunca llegó a Firestore: PENDING_CREATE / SYNCING / FAILED / ERROR ──
                 else -> {
-                    // PENDING_CREATE / PENDING_UPDATE / FAILED / SYNCING:
-                    // nunca llegó a Firestore (o falló) → borrar físicamente local.
-                    pedidoDao.deleteById(pedidoId)
+                    // Nada del pedido existe en el servidor, así que no hay nada que compensar:
+                    // se deshace el efecto local de sus movimientos aún no subidos y se borran.
+                    database.withTransaction {
+                        val unsynced = movementDao.getUnsyncedByOrderId(pedidoId)
+                        unsynced.forEach { m -> productDao.applyMovement(m.productId, -m.signedQuantity) }
+                        movementDao.deleteUnsyncedByOrderId(pedidoId)
+                        pedidoDao.deleteById(pedidoId)
+                    }
                 }
             }
 
@@ -791,17 +912,10 @@ class PedidoRepositoryImpl @Inject constructor(
 
                 try {
                     when (entity.syncStatus) {
-                        // ── Pedido nunca subido: borra solo local ──────────────────
-                        SyncStatus.PENDING_CREATE,
-                        SyncStatus.FAILED,
-                        SyncStatus.ERROR -> {
-                            pedidoItemDao.deleteByPedidoId(pedidoId)
-                            pedidoDao.deleteById(pedidoId)
-                            android.util.Log.d("PedidoExpire", "expireOldPedidos: local-only delete pedidoId=$pedidoId")
-                        }
-
-                        // ── Pedido sincronizado: pipeline en 2 fases ───────────────
-                        else -> {
+                        // ── Solo expiramos pedidos DURABLEMENTE SINCRONIZADOS ──────
+                        // Un pedido SYNCED ya está a salvo en Firestore; lo borramos
+                        // localmente tras soft/hard-delete remoto (pipeline en 2 fases).
+                        SyncStatus.SYNCED -> {
                             // Fase 1: marcar isDeleted=true en Firestore (primera vez)
                             // Fase 2: hard delete en Firestore si ya pasaron graceDays
                             //         desde que se marcó (usamos creadoEn + thresholdDays
@@ -825,12 +939,26 @@ class PedidoRepositoryImpl @Inject constructor(
                                 android.util.Log.d("PedidoExpire", "expireOldPedidos: soft-delete cloud pedidoId=$pedidoId")
                             }
 
-                            // En ambos casos borra localmente
+                            // Solo tras asegurar el remoto, borramos localmente.
                             pedidoItemDao.deleteByPedidoId(pedidoId)
                             pedidoDao.deleteById(pedidoId)
+                            successCount++
+                        }
+
+                        // ── Cualquier estado con intención local SIN subir ─────────
+                        // PENDING_CREATE / PENDING_UPDATE / SYNCING / FAILED / ERROR /
+                        // CONFLICT: NUNCA borrar. Son ventas o ediciones que todavía no
+                        // llegaron a Firestore; borrarlas localmente sería pérdida
+                        // permanente (no hay copia remota). Las conservamos hasta que el
+                        // sync las suba; una corrida posterior, ya en SYNCED, las expirará
+                        // de forma segura.
+                        else -> {
+                            android.util.Log.w(
+                                "PedidoExpire",
+                                "expireOldPedidos: SKIP pedido no sincronizado pedidoId=$pedidoId status=${entity.syncStatus} (se conserva hasta subir)",
+                            )
                         }
                     }
-                    successCount++
                 } catch (e: Exception) {
                     failureCount++
                     android.util.Log.e("PedidoExpire", "expireOldPedidos: failed pedidoId=$pedidoId", e)

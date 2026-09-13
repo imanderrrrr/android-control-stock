@@ -29,6 +29,12 @@ sealed class Failure {
         val totalInCents: Long,
     ) : Failure()
 
+    /**
+     * El rol del usuario no concede la acción (o el pedido no es suyo).
+     * Los casos de uso lo devuelven en lugar de un string; la UI lo traduce a mensaje.
+     */
+    data object Forbidden : Failure()
+
     data object UnknownError : Failure()
 
     override fun toString(): String = when (this) {
@@ -38,6 +44,7 @@ sealed class Failure {
         is ValidationError -> "ValidationError(message=${this.message})"
         is DuplicateOrder -> "DuplicateOrder(existingOrderId=${this.existingOrderId})"
         is OrderLimitExceeded -> "OrderLimitExceeded(limit=${this.limitInCents}, total=${this.totalInCents})"
+        Forbidden -> "Forbidden"
         UnknownError -> "UnknownError"
     }
 }

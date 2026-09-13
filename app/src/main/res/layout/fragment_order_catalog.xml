@@ -1,131 +1,256 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.coordinatorlayout.widget.CoordinatorLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<!-- Catálogo de pedido — réplica del diseño Pencil "06".
+     Conserva ids: editSearch, recyclerViewCatalog, chipGroupCategories (+chips), textEmptyState,
+     textCatalogCliente, cartBar, textCartBarCount, textCartBarTotal.
+     Nuevos: btnBackCatalog, textCatalogCartPill, btnScanCatalog. Inset superior por código. -->
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="?attr/colorSurface">
+    android:background="@color/bg_page">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
-        android:layout_height="match_parent">
-
-    <!-- Toolbar sin fondo hardcodeado -->
-    <com.google.android.material.appbar.MaterialToolbar
-        android:id="@+id/toolbar"
-        android:layout_width="0dp"
-        android:layout_height="?attr/actionBarSize"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent"
-        app:navigationIcon="@drawable/ic_arrow_back"
-        app:title="Catálogo" />
-
-    <!-- Search bar – OutlinedBox con corner 16dp, ícono lupa, padding horizontal -->
-    <com.google.android.material.textfield.TextInputLayout
-        android:id="@+id/searchInputLayout"
-        style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+    <!-- ── Encabezado ── -->
+    <LinearLayout
+        android:id="@+id/catalogHeader"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginTop="8dp"
-        android:hint="Buscar productos…"
-        app:boxCornerRadiusTopStart="16dp"
-        app:boxCornerRadiusTopEnd="16dp"
-        app:boxCornerRadiusBottomStart="16dp"
-        app:boxCornerRadiusBottomEnd="16dp"
-        app:startIconDrawable="@drawable/ic_search"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        android:layout_marginTop="14dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingHorizontal="24dp"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toTopOf="parent">
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/editSearch"
-            android:layout_width="match_parent"
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/btnBackCatalog"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:clickable="true"
+            android:focusable="true"
+            app:cardBackgroundColor="@color/bg_card"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:rippleColor="@color/brand_soft"
+            app:strokeColor="@color/border_subtle"
+            app:strokeWidth="1dp">
+
+            <ImageView
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_gravity="center"
+                android:contentDescription="Volver"
+                android:src="@drawable/ic_arrow_back"
+                app:tint="@color/text_primary" />
+        </com.google.android.material.card.MaterialCardView>
+
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:inputType="text"
-            android:singleLine="true" />
+            android:layout_marginStart="16dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
 
-    </com.google.android.material.textfield.TextInputLayout>
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif"
+                android:letterSpacing="0.13"
+                android:text="@string/order_confirmed_client_label"
+                android:textColor="@color/text_tertiary"
+                android:textSize="9sp"
+                android:textStyle="bold" />
 
-    <!-- Fila horizontal de chips de categoría -->
+            <TextView
+                android:id="@+id/textCatalogCliente"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:fontFamily="sans-serif"
+                android:maxLines="1"
+                android:textColor="@color/text_primary"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                tools:text="Tienda Rosita" />
+        </LinearLayout>
+
+        <com.google.android.material.card.MaterialCardView
+            android:id="@+id/cartPillCatalog"
+            android:layout_width="wrap_content"
+            android:layout_height="40dp"
+            app:cardBackgroundColor="@color/brand_primary"
+            app:cardCornerRadius="12dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="match_parent"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:paddingHorizontal="14dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:letterSpacing="0.1"
+                    android:text="CARRITO"
+                    android:textColor="@color/text_on_inverse_muted"
+                    android:textSize="8sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/textCatalogCartPill"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:textColor="@color/text_on_inverse"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    tools:text="12 · Q1,248" />
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+    </LinearLayout>
+
+    <!-- ── Búsqueda + escáner ── -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/searchCard"
+        android:layout_width="0dp"
+        android:layout_height="44dp"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginTop="16dp"
+        app:cardBackgroundColor="@color/bg_card"
+        app:cardCornerRadius="12dp"
+        app:cardElevation="0dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/catalogHeader"
+        app:strokeColor="@color/border_subtle"
+        app:strokeWidth="1dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingStart="14dp"
+            android:paddingEnd="8dp">
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_search"
+                app:tint="@color/text_tertiary" />
+
+            <EditText
+                android:id="@+id/editSearch"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_marginStart="10dp"
+                android:layout_weight="1"
+                android:background="@null"
+                android:fontFamily="sans-serif"
+                android:gravity="center_vertical"
+                android:hint="@string/order_catalog_search_hint"
+                android:imeOptions="actionSearch"
+                android:inputType="text"
+                android:maxLines="1"
+                android:textColor="@color/text_primary"
+                android:textColorHint="@color/text_tertiary"
+                android:textSize="14sp" />
+
+            <com.google.android.material.card.MaterialCardView
+                android:id="@+id/btnScanCatalog"
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:clickable="true"
+                android:focusable="true"
+                app:cardBackgroundColor="@color/brand_primary"
+                app:cardCornerRadius="6dp"
+                app:cardElevation="0dp"
+                app:strokeWidth="0dp">
+
+                <ImageView
+                    android:layout_width="16dp"
+                    android:layout_height="16dp"
+                    android:layout_gravity="center"
+                    android:contentDescription="Escanear código"
+                    android:src="@drawable/ic_qr_scan"
+                    app:tint="@color/text_on_inverse" />
+            </com.google.android.material.card.MaterialCardView>
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+    <!-- ── Chips de categoría ── -->
     <HorizontalScrollView
         android:id="@+id/categoryScrollView"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
+        android:layout_marginTop="14dp"
         android:scrollbars="none"
-        android:fillViewport="false"
-        app:layout_constraintTop_toBottomOf="@id/searchInputLayout"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/searchCard">
 
         <com.google.android.material.chip.ChipGroup
             android:id="@+id/chipGroupCategories"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp"
-            android:paddingTop="4dp"
-            android:paddingBottom="4dp"
-            app:singleSelection="true"
+            android:paddingHorizontal="24dp"
+            app:chipSpacingHorizontal="8dp"
+            app:selectionRequired="true"
             app:singleLine="true"
-            app:selectionRequired="true">
+            app:singleSelection="true">
 
-            <!-- Chip: Todos (seleccionado por defecto) -->
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipTodos"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Catalog.Chip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Todos"
-                android:checked="true" />
+                android:checked="true"
+                android:text="Todos" />
 
-            <!-- Chip: Alimentos -->
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipAlimentos"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Catalog.Chip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Alimentos" />
 
-            <!-- Chip: Bebidas -->
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipBebidas"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Catalog.Chip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Bebidas" />
 
-            <!-- Chip: Hogar y limpieza -->
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipHogarLimpieza"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Catalog.Chip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Hogar y limpieza" />
 
-            <!-- Chip: Snacks -->
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipSnacks"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Catalog.Chip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Snacks" />
 
-            <!-- Chip: Higiene -->
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipHigiene"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Catalog.Chip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Higiene" />
 
-            <!-- Chip: Varios -->
             <com.google.android.material.chip.Chip
                 android:id="@+id/chipVarios"
-                style="@style/Widget.MaterialComponents.Chip.Filter"
+                style="@style/Widget.Catalog.Chip"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="Varios" />
@@ -134,48 +259,110 @@
 
     </HorizontalScrollView>
 
-    <!-- Empty state: visible cuando no hay productos en la categoría -->
-    <TextView
-        android:id="@+id/textEmptyState"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        android:gravity="center"
-        android:text="No hay productos en esta categoría"
-        android:textAppearance="?attr/textAppearanceBody1"
-        android:textColor="?attr/colorOnSurface"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/categoryScrollView" />
-
-    <!-- Grid de productos con padding lateral propio -->
+    <!-- ── Lista ── -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerViewCatalog"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginTop="8dp"
         android:clipToPadding="false"
-        android:paddingStart="12dp"
-        android:paddingEnd="12dp"
-        android:paddingBottom="88dp"
+        android:paddingHorizontal="24dp"
+        android:paddingTop="4dp"
+        android:paddingBottom="96dp"
+        android:scrollbars="none"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/categoryScrollView" />
+        app:layout_constraintTop_toBottomOf="@id/categoryScrollView"
+        tools:listitem="@layout/item_order_catalog_product" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <!-- FAB carrito – overlay, esquina inferior derecha -->
-    <com.google.android.material.floatingactionbutton.FloatingActionButton
-        android:id="@+id/fabCart"
-        android:layout_width="wrap_content"
+    <TextView
+        android:id="@+id/textEmptyState"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_gravity="bottom|end"
-        android:layout_margin="16dp"
-        android:contentDescription="Ver carrito"
-        app:srcCompat="@drawable/ic_shopping_cart" />
+        android:fontFamily="sans-serif"
+        android:gravity="center"
+        android:text="No hay productos en esta categoría"
+        android:textColor="@color/text_secondary"
+        android:textSize="14sp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@id/recyclerViewCatalog"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="@id/recyclerViewCatalog" />
 
-</androidx.coordinatorlayout.widget.CoordinatorLayout>
+    <!-- ── Barra de carrito fija ── -->
+    <com.google.android.material.card.MaterialCardView
+        android:id="@+id/cartBar"
+        android:layout_width="0dp"
+        android:layout_height="64dp"
+        android:layout_marginHorizontal="24dp"
+        android:layout_marginBottom="20dp"
+        android:clickable="true"
+        android:focusable="true"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/brand_primary"
+        app:cardCornerRadius="18dp"
+        app:cardElevation="0dp"
+        app:rippleColor="@color/brand_accent"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:strokeWidth="0dp"
+        tools:visibility="visible">
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:paddingHorizontal="16dp">
 
+            <ImageView
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_shopping_cart"
+                app:tint="@color/text_on_inverse" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="12dp"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/textCartBarCount"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:letterSpacing="0.12"
+                    android:textColor="@color/text_on_inverse_muted"
+                    android:textSize="9sp"
+                    android:textStyle="bold"
+                    tools:text="12 PRODUCTOS" />
+
+                <TextView
+                    android:id="@+id/textCartBarTotal"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:fontFamily="sans-serif"
+                    android:textColor="@color/text_on_inverse"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    tools:text="Q1,248.50" />
+            </LinearLayout>
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:fontFamily="sans-serif"
+                android:text="Ver  →"
+                android:textColor="@color/brand_soft"
+                android:textSize="14sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </com.google.android.material.card.MaterialCardView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

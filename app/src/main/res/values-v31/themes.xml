@@ -1,0 +1,9 @@
+<resources>
+    <!-- Splash en el SplashScreen del sistema (Android 12+): fondo verde marca. -->
+    <style name="Theme.Distribuidora.Splash" parent="Theme.Distribuidora">
+        <item name="android:windowBackground">@color/brand_primary</item>
+        <item name="android:statusBarColor">@color/brand_primary</item>
+        <item name="android:navigationBarColor">@color/brand_primary</item>
+        <item name="android:windowSplashScreenBackground">@color/brand_primary</item>
+    </style>
+</resources>

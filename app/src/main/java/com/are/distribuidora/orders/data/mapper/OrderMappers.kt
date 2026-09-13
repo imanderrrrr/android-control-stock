@@ -28,6 +28,7 @@ internal fun OrderEntity.toDomain(): Order =
         createdAt = createdAt,
         updatedAt = updatedAt,
         isDeleted = isDeleted,
+        vendedorId = vendedorId,
     )
 
 internal fun OrderItemEntity.toDomain(): OrderItem =
@@ -37,6 +38,8 @@ internal fun OrderItemEntity.toDomain(): OrderItem =
         productName = productName,
         unitPrice = unitPrice,
         quantity = quantity,
+        discountAmount = discountAmount,
         notes = notes,
+        itemId = itemId,
     )
 

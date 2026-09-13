@@ -22,6 +22,9 @@ import kotlinx.coroutines.launch
 import java.util.UUID
 import javax.inject.Inject
 
+/** Tasa de IVA (12%) aplicada cuando el vendedor activa el IVA en el carrito. */
+private const val IVA_RATE = 0.12
+
 /**
  * DTO de presentación del carrito — sin lógica de negocio.
  *
@@ -40,6 +43,7 @@ data class CartItem(
     val category: String?,
     val quantity: Int,
     val imageUrl: String? = null,
+    val barcode: String? = null,
     val notes: String? = null,
     val discountAmount: Double = 0.0,
     val discountPercent: Double = 0.0,
@@ -76,14 +80,38 @@ class CreatePedidoFlowViewModel @Inject constructor(
     private val _cartItems = MutableStateFlow<Map<String, CartItem>>(emptyMap())
     val cartItems: StateFlow<Map<String, CartItem>> = _cartItems.asStateFlow()
 
-    /** Total del carrito redondeado al múltiplo de Q 0.25 más cercano (GT). */
-    val cartTotal: StateFlow<Double> = _cartItems
-        .map { map -> RoundToQuarterQuetzalUseCase(map.values.sumOf { it.subtotal }) }
+    // ── IVA (12%) opcional ─────────────────────────────────────────────────────
+    private val _ivaEnabled = MutableStateFlow(false)
+    /** Si el vendedor activó el IVA del 12% en el carrito. Por defecto desactivado. */
+    val ivaEnabled: StateFlow<Boolean> = _ivaEnabled.asStateFlow()
+
+    fun setIvaEnabled(enabled: Boolean) { _ivaEnabled.value = enabled }
+
+    /** Subtotal neto del carrito (suma de subtotales de ítems, sin IVA). */
+    val cartSubtotal: StateFlow<Double> = _cartItems
+        .map { map -> map.values.sumOf { it.subtotal } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
+
+    /** Total del carrito redondeado al Q 0.25; suma el IVA 12% cuando está activo. */
+    val cartTotal: StateFlow<Double> = combine(cartSubtotal, _ivaEnabled) { sub, on ->
+        RoundToQuarterQuetzalUseCase(if (on) sub * (1.0 + IVA_RATE) else sub)
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
+
+    /** Monto de IVA a mostrar (total − subtotal cuando está activo; 0 si no). */
+    val cartIva: StateFlow<Double> = combine(cartSubtotal, cartTotal, _ivaEnabled) { sub, total, on ->
+        if (on) (total - sub).coerceAtLeast(0.0) else 0.0
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, 0.0)
 
     /** Límite de compra del cliente seleccionado (centavos). null = sin límite. */
     private val _maxOrderAmountInCents = MutableStateFlow<Long?>(null)
     val maxOrderAmountInCents: StateFlow<Long?> = _maxOrderAmountInCents.asStateFlow()
+
+    /** Nombre/dirección del cliente seleccionado, para los encabezados del flujo. */
+    private val _clienteNombre = MutableStateFlow<String?>(null)
+    val clienteNombre: StateFlow<String?> = _clienteNombre.asStateFlow()
+
+    private val _clienteDireccion = MutableStateFlow<String?>(null)
+    val clienteDireccion: StateFlow<String?> = _clienteDireccion.asStateFlow()
 
     /**
      * true cuando el total del carrito excede el límite del cliente.
@@ -113,15 +141,19 @@ class CreatePedidoFlowViewModel @Inject constructor(
             is ClienteSelection.Existente -> {
                 viewModelScope.launch {
                     val result = clientRepository.getClientById(selection.clienteId)
-                    _maxOrderAmountInCents.value = if (result is Result.Success) {
-                        result.value?.maxOrderAmountInCents
+                    if (result is Result.Success) {
+                        _maxOrderAmountInCents.value = result.value?.maxOrderAmountInCents
+                        _clienteNombre.value = result.value?.name
+                        _clienteDireccion.value = result.value?.address
                     } else {
-                        null
+                        _maxOrderAmountInCents.value = null
                     }
                 }
             }
             is ClienteSelection.Temporal -> {
                 _maxOrderAmountInCents.value = null
+                _clienteNombre.value = selection.snapshot.nombre
+                _clienteDireccion.value = selection.snapshot.direccion
             }
         }
     }
@@ -131,6 +163,9 @@ class CreatePedidoFlowViewModel @Inject constructor(
         _deliveryDate.value = ""
         _clienteSelection.value = null
         _maxOrderAmountInCents.value = null
+        _clienteNombre.value = null
+        _clienteDireccion.value = null
+        _ivaEnabled.value = false
         _cartItems.value = emptyMap()
     }
 
@@ -149,6 +184,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
                 category    = product.category,
                 quantity    = 1,
                 imageUrl    = product.imageUrl,
+                barcode     = product.barcode,
             )
         }
         _cartItems.value = current
@@ -312,6 +348,7 @@ class CreatePedidoFlowViewModel @Inject constructor(
                 category    = product.category,
                 quantity    = quantity,
                 imageUrl    = product.imageUrl,
+                barcode     = product.barcode,
                 notes       = notes?.takeIf { it.isNotBlank() },
             )
         }

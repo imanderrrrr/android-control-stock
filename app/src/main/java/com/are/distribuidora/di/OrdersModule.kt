@@ -12,12 +12,15 @@ import com.are.distribuidora.orders.data.remote.OrderRemoteDataSource
 import com.are.distribuidora.orders.data.repository.OfflineFirstOrderRepository
 import com.are.distribuidora.orders.domain.repository.OrderRepository
 import com.are.distribuidora.orders.domain.usecase.DeleteOrderUseCase
+import com.are.distribuidora.screenaccess.domain.repository.UserAccessProvider
 import com.are.distribuidora.orders.domain.usecase.DownloadOrderItemsUseCase
+import com.are.distribuidora.orders.domain.usecase.EditOtrosOrderUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchAllOrdersHeaderUseCase
 import com.are.distribuidora.orders.domain.usecase.FetchOrdersHeaderUseCase
 import com.are.distribuidora.orders.domain.usecase.GetOtrosPedidoDetalleUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteAndDateUseCase
 import com.are.distribuidora.orders.domain.usecase.ObserveOtherOrdersByRouteUseCase
+import com.are.distribuidora.orders.domain.usecase.UploadPendingOrdersUseCase
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -40,11 +43,15 @@ object OrdersModule {
         orderDao: OrderDao,
         orderItemDao: OrderItemDao,
         stagingDao: OrderItemStagingDao,
+        movementDao: com.are.distribuidora.stockmovement.data.local.dao.StockMovementDao,
+        productDao: com.are.distribuidora.data.local.dao.ProductDao,
     ): OrderLocalDataSource = RoomOrderLocalDataSource(
         db = db,
         orderDao = orderDao,
         orderItemDao = orderItemDao,
         stagingDao = stagingDao,
+        movementDao = movementDao,
+        productDao = productDao,
     )
 
     @Provides
@@ -72,8 +79,11 @@ object OrdersModule {
         DownloadOrderItemsUseCase(repository)
 
     @Provides
-    fun provideDeleteOrderUseCase(repository: OrderRepository): DeleteOrderUseCase =
-        DeleteOrderUseCase(repository)
+    fun provideDeleteOrderUseCase(
+        repository: OrderRepository,
+        userAccessProvider: UserAccessProvider,
+        currentUserIdProvider: CurrentUserIdProvider,
+    ): DeleteOrderUseCase = DeleteOrderUseCase(repository, userAccessProvider, currentUserIdProvider)
 
     @Provides
     fun provideObserveOtherOrdersByRouteUseCase(repository: OrderRepository): ObserveOtherOrdersByRouteUseCase =
@@ -86,4 +96,15 @@ object OrdersModule {
     @Provides
     fun provideGetOtrosPedidoDetalleUseCase(repository: OrderRepository): GetOtrosPedidoDetalleUseCase =
         GetOtrosPedidoDetalleUseCase(repository)
+
+    @Provides
+    fun provideUploadPendingOrdersUseCase(repository: OrderRepository): UploadPendingOrdersUseCase =
+        UploadPendingOrdersUseCase(repository)
+
+    @Provides
+    fun provideEditOtrosOrderUseCase(
+        repository: OrderRepository,
+        userAccessProvider: UserAccessProvider,
+        currentUserIdProvider: CurrentUserIdProvider,
+    ): EditOtrosOrderUseCase = EditOtrosOrderUseCase(repository, userAccessProvider, currentUserIdProvider)
 }
