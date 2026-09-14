@@ -18,6 +18,8 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.core.images.DisplayableProductImage
+import com.are.distribuidora.core.images.FirestoreImageUrlValidator
 import com.are.distribuidora.core.images.ProductImageUrl
 import com.are.distribuidora.domain.model.Product
 import com.bumptech.glide.Glide
@@ -152,7 +154,9 @@ class EditProductFragment : Fragment() {
 
                                 // Prioridad: imageUrl (remota https) -> imageLocalUri -> placeholder
                                 when {
-                                    state.product.imageUrl?.startsWith("http") == true ->
+                                    // Solo la remota utilizable: una de Drive es un 404 y
+                                    // dejaría la vista previa en blanco pidiéndola en bucle.
+                                    DisplayableProductImage.remoteUrlOrNull(state.product.imageUrl) != null ->
                                         Glide.with(imagePreview).load(state.product.imageUrl).into(imagePreview)
                                     !state.product.imageLocalUri.isNullOrBlank() ->
                                         Glide.with(imagePreview).load(java.io.File(state.product.imageLocalUri)).into(imagePreview)
@@ -214,9 +218,9 @@ class EditProductFragment : Fragment() {
             val uiState = viewModel.uiState.value
             if (uiState is EditProductViewModel.EditProductUiState.Success) {
                 val product = uiState.product
-                val hasExisting = product.imageUrl?.startsWith("http") == true ||
+                // Mismo criterio que el ViewModel: una URL de Drive no cuenta como imagen.
+                val hasExisting = FirestoreImageUrlValidator.isUsableForDisplay(product.imageUrl) ||
                         !product.imageLocalUri.isNullOrBlank() ||
-                        ProductImageUrl.isRemoteHttp(product.imageUrl) ||
                         ProductImageUrl.isLocal(product.imageUrl)
                 val hasSelected = !viewModel.localImageAbsolutePath.value.isNullOrBlank()
                 if (!hasExisting && !hasSelected) {

@@ -8,6 +8,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.core.images.DisplayableProductImage
 import com.bumptech.glide.Glide
 import com.google.android.material.imageview.ShapeableImageView
 import java.io.File
@@ -43,8 +44,9 @@ class PedidoDetalleAdapter :
                 textNotes.visibility = View.GONE
             }
 
-            // Imagen: remote URL tiene prioridad; si no, intenta como archivo local
-            val imageSource: Any? = item.imageUrl?.takeIf { it.isNotBlank() }?.let { url ->
+            // Imagen: remote URL tiene prioridad; si no, intenta como archivo local.
+            // `loadableSourceOrNull` descarta las URLs que no pueden cargar (host muerto).
+            val imageSource: Any? = DisplayableProductImage.loadableSourceOrNull(item.imageUrl)?.let { url ->
                 if (url.startsWith("http")) url
                 else File(url)
             }

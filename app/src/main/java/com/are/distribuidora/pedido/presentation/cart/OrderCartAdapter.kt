@@ -13,6 +13,9 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.pedido.presentation.create.CartItem
+import com.are.distribuidora.core.glide.GlideFailures
+import com.are.distribuidora.core.images.DisplayableProductImage
+import com.are.distribuidora.core.images.ImageLoadFailureMemo
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
@@ -107,7 +110,7 @@ class OrderCartAdapter(
         }
 
         private fun bindImage(rawUrl: String?) {
-            val raw = rawUrl?.trim()?.takeIf { it.isNotEmpty() }
+            val raw = DisplayableProductImage.loadableSourceOrNull(rawUrl)
 
             if (raw == null) {
                 Glide.with(imageProduct).clear(imageProduct)
@@ -152,6 +155,7 @@ class OrderCartAdapter(
                     ): Boolean {
                         imageProduct.visibility = View.INVISIBLE
                         imagePlaceholder.visibility = View.VISIBLE
+                        if (GlideFailures.isPermanent(e)) ImageLoadFailureMemo.rememberPermanentFailure(raw)
                         return true
                     }
                     override fun onResourceReady(

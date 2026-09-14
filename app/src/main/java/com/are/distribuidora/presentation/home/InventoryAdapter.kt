@@ -13,6 +13,10 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import androidx.core.content.ContextCompat
 import com.are.distribuidora.R
+import com.are.distribuidora.core.glide.GlideFailures
+import com.are.distribuidora.core.images.DisplayableProductImage
+import com.are.distribuidora.core.images.FirestoreImageUrlValidator
+import com.are.distribuidora.core.images.ImageLoadFailureMemo
 import com.are.distribuidora.presentation.home.model.ProductUiModel
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
@@ -134,29 +138,21 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
             // Logic for active color/visibility if needed (Client uses emoji so string is enough)
 
             // 1. Extract image sources with priority: imageUrl (remote https) -> imageLocalUri -> imageUrl (legacy)
-            val remoteUrl = product.imageUrl?.trim()
-                ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+            val remoteUrl = DisplayableProductImage.remoteUrlOrNull(product.imageUrl)
             val localUri = product.imageLocalUri?.trim()?.takeIf { it.isNotEmpty() }
-            val raw = product.imageUrl?.trim()?.takeIf { it.isNotEmpty() }
+            // El fallback legacy también tiene que descartar los hosts muertos: si no, la
+            // rama `raw.startsWith("http")` de más abajo volvía a pedir la URL de Drive.
+            val raw = product.imageUrl?.trim()
+                ?.takeIf { it.isNotEmpty() && !FirestoreImageUrlValidator.isUnusableHost(it) }
 
             // 2. Resolve source with priority
             when {
                 remoteUrl != null -> {
-                    Glide.with(image).load(remoteUrl)
-                        .placeholder(R.drawable.ic_image_placeholder)
-                        .error(R.drawable.ic_image_error)
-                        .centerCrop()
-                        .transition(DrawableTransitionOptions.withCrossFade())
-                        .into(image)
+                    applyAndLoad(Glide.with(image).load(remoteUrl), product, remoteUrl)
                     return
                 }
                 localUri != null -> {
-                    Glide.with(image).load(File(localUri))
-                        .placeholder(R.drawable.ic_image_placeholder)
-                        .error(R.drawable.ic_image_error)
-                        .centerCrop()
-                        .transition(DrawableTransitionOptions.withCrossFade())
-                        .into(image)
+                    applyAndLoad(Glide.with(image).load(File(localUri)), product, localUri)
                     return
                 }
                 raw == null -> {
@@ -197,7 +193,22 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
             }
 
             // 4. Apply Configuration & Listener
-            loadRequest
+            applyAndLoad(loadRequest, product, raw)
+        }
+
+        /**
+         * Configuración común de Glide + el listener que anota los fallos PERMANENTES.
+         *
+         * Antes cada rama tenía su propia cadena y solo la legacy llevaba listener, así que
+         * una URL remota que devolvía 404 se volvía a pedir en cada bind de la fila. `source`
+         * es la fuente que de verdad se pidió, que es la clave del memo.
+         */
+        private fun applyAndLoad(
+            request: com.bumptech.glide.RequestBuilder<Drawable>,
+            product: com.are.distribuidora.domain.model.Product,
+            source: String,
+        ) {
+            request
                 .placeholder(R.drawable.ic_image_placeholder)
                 .error(R.drawable.ic_image_error)
                 .centerCrop()
@@ -209,7 +220,10 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
                         target: Target<Drawable>,
                         isFirstResource: Boolean
                     ): Boolean {
-                        android.util.Log.e("InventoryImage", "Load failed for id=${product.id.value} raw=$raw", e)
+                        if (GlideFailures.isPermanent(e)) {
+                            ImageLoadFailureMemo.rememberPermanentFailure(source)
+                        }
+                        android.util.Log.e("InventoryImage", "Load failed for id=${product.id.value} source=$source", e)
                         return false // Allow Glide to handle error drawable
                     }
 

@@ -1,5 +1,6 @@
 package com.are.distribuidora.presentation.productdetail
 
+import android.graphics.drawable.Drawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -15,9 +16,16 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.core.glide.GlideFailures
+import com.are.distribuidora.core.images.DisplayableProductImage
+import com.are.distribuidora.core.images.ImageLoadFailureMemo
 import com.are.distribuidora.core.images.ProductImageUrl
 import com.bumptech.glide.Glide
+import com.bumptech.glide.load.DataSource
+import com.bumptech.glide.load.engine.GlideException
 import com.bumptech.glide.load.resource.drawable.DrawableTransitionOptions
+import com.bumptech.glide.request.RequestListener
+import com.bumptech.glide.request.target.Target
 import com.google.android.material.chip.Chip
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.EntryPointAccessors
@@ -255,9 +263,8 @@ class ProductDetailFragment : Fragment() {
     }
 
     private fun bindImage(imageView: ImageView, imageUrl: String?, localUri: String?) {
-        // Priority: imageUrl (remote https) -> localUri -> placeholder
-        val remoteUrl = imageUrl?.trim()
-            ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        // Priority: imageUrl (remote https utilizable) -> localUri -> placeholder
+        val remoteUrl = DisplayableProductImage.remoteUrlOrNull(imageUrl)
         val effectiveLocal = localUri?.trim()?.takeIf { it.isNotEmpty() }
 
         when {
@@ -268,6 +275,27 @@ class ProductDetailFragment : Fragment() {
                     .override(300, 300)
                     .centerCrop()
                     .transition(DrawableTransitionOptions.withCrossFade())
+                    .listener(object : RequestListener<Drawable> {
+                        override fun onLoadFailed(
+                            e: GlideException?,
+                            model: Any?,
+                            target: Target<Drawable>,
+                            isFirstResource: Boolean,
+                        ): Boolean {
+                            if (GlideFailures.isPermanent(e)) {
+                                ImageLoadFailureMemo.rememberPermanentFailure(remoteUrl)
+                            }
+                            return false // Glide pinta el drawable de error
+                        }
+
+                        override fun onResourceReady(
+                            resource: Drawable,
+                            model: Any,
+                            target: Target<Drawable>,
+                            dataSource: DataSource,
+                            isFirstResource: Boolean,
+                        ): Boolean = false
+                    })
                     .into(imageView)
             }
             effectiveLocal != null -> {

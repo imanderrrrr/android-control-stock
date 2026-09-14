@@ -28,6 +28,9 @@ import com.are.distribuidora.domain.valueobject.ProductId
 import com.are.distribuidora.domain.valueobject.Quantity
 import com.are.distribuidora.pedido.presentation.common.FlowAnimations
 import com.are.distribuidora.pedido.presentation.create.CreatePedidoFlowViewModel
+import com.are.distribuidora.core.glide.GlideFailures
+import com.are.distribuidora.core.images.DisplayableProductImage
+import com.are.distribuidora.core.images.ImageLoadFailureMemo
 import com.bumptech.glide.Glide
 import com.bumptech.glide.load.DataSource
 import com.bumptech.glide.load.engine.GlideException
@@ -225,7 +228,9 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
     // ── Imagen con Glide ────────────────────────────────────────────────────────
 
     private fun bindImage(rawUrl: String?, image: ShapeableImageView, placeholder: ImageView) {
-        val raw = rawUrl?.trim()?.takeIf { it.isNotEmpty() }
+        // null también cuando la URL no se puede cargar (host muerto de Drive o 4xx ya
+        // conocido): se pinta el placeholder sin pedir nada a la red.
+        val raw = DisplayableProductImage.loadableSourceOrNull(rawUrl)
         if (raw == null) {
             Glide.with(image).clear(image)
             image.visibility = View.INVISIBLE
@@ -254,6 +259,7 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
                 override fun onLoadFailed(e: GlideException?, model: Any?, target: Target<Drawable>, isFirstResource: Boolean): Boolean {
                     image.visibility = View.INVISIBLE
                     placeholder.visibility = View.VISIBLE
+                    if (GlideFailures.isPermanent(e)) ImageLoadFailureMemo.rememberPermanentFailure(raw)
                     return true
                 }
                 override fun onResourceReady(resource: Drawable, model: Any, target: Target<Drawable>, dataSource: DataSource, isFirstResource: Boolean) = false

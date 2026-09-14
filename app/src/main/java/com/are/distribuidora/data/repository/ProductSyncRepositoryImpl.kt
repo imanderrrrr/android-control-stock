@@ -477,20 +477,30 @@ class ProductSyncRepositoryImpl @Inject constructor(
             return false
         }
 
-        // Remote imageUrl is always the authoritative remote URL (https://...)
-        val remoteImageUrl = r.imageUrl?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+        // Remote imageUrl is always the authoritative remote URL (https://...), pero solo
+        // vale si se puede mostrar: una de drive.google.com es un 404 permanente.
+        val remoteImageUrl = FirestoreImageUrlValidator.usableForDisplayOrNull(r.imageUrl)
 
-        // FIX: Proteger imageUrl contra sobreescritura con null.
+        // Proteger imageUrl contra sobreescritura con null.
         // Si el remoto no trae imageUrl pero localmente ya tenemos una URL válida
         // (subida por UploadPendingProductImagesWorker), NO sobrescribir con null.
         // Esto cubre el caso donde el product sync usó merge() y no envió imageUrl,
         // pero el ImageWorker ya actualizó Room con la URL real.
-        val finalImageUrl = remoteImageUrl ?: existing?.imageUrl?.takeIf {
-            it.startsWith("http://") || it.startsWith("https://")
-        }
+        //
+        // IMPORTANTE: el guard preserva solo lo que la app considera UTILIZABLE. Con el
+        // `startsWith("http")` de antes, poner `imageUrl` a null en Firestore no servía de
+        // nada: el teléfono resucitaba su URL muerta de Drive en cada bajada y seguía
+        // pidiéndola para siempre. Ahora el remoto sí puede borrar la imagen, y solo
+        // sobrevive una de Storage que de verdad carga.
+        val preservableLocalImageUrl =
+            FirestoreImageUrlValidator.usableForDisplayOrNull(existing?.imageUrl)
+        val finalImageUrl = remoteImageUrl ?: preservableLocalImageUrl
 
         if (finalImageUrl != remoteImageUrl) {
             Log.d(TAG, "saveRemoteProductToLocal: Preserved local imageUrl for ${r.id} (remote was null, local=${finalImageUrl})")
+        }
+        if (finalImageUrl == null && existing?.imageUrl != null) {
+            Log.i(TAG, "saveRemoteProductToLocal: Cleared unusable local imageUrl for ${r.id} (was=${existing.imageUrl})")
         }
 
          val entity = com.are.distribuidora.data.local.entity.ProductEntity(
