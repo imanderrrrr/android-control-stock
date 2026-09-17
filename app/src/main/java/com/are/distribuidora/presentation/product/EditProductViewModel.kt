@@ -122,17 +122,18 @@ class EditProductViewModel @Inject constructor(
             return
         }
 
-        val stock = try {
-            val stockValue = stockText.trim().toIntOrNull()
-            if (stockValue == null || stockValue < 0) {
-                sendEvent(Event.Error("El stock debe ser un número entero mayor o igual a 0"))
-                return
-            }
-            Quantity.of(stockValue)
-        } catch (e: Exception) {
-            sendEvent(Event.Error("Stock inválido: ${e.message}"))
+        // 4.1: el stock PUEDE ser negativo (lo mueven los pedidos, no este formulario) y el campo
+        // llega pre-llenado con el valor actual, negativo incluido. Rechazar "< 0" aquí bloqueaba
+        // cualquier edición de precio sobre un producto ya vendido (producción 2026-09-17: 179 de
+        // 450 productos en negativo) con el mensaje "El stock debe ser un número entero mayor o
+        // igual a 0". Solo se exige un entero; la diferencia con el stock actual sigue
+        // convirtiéndose en un vale AJUSTE (ver más abajo), y el repositorio conserva el stock.
+        val stockValue = stockText.trim().toIntOrNull()
+        if (stockValue == null) {
+            sendEvent(Event.Error("El stock debe ser un número entero"))
             return
         }
+        val stock = Quantity.of(stockValue)
 
         viewModelScope.launch {
             _isSaving.value = true
