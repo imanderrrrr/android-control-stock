@@ -28,6 +28,19 @@ import com.are.distribuidora.orders.domain.repository.OrderRepository
 import com.are.distribuidora.orders.domain.usecase.DeleteOrderUseCase
 import com.are.distribuidora.orders.domain.usecase.EditOtrosOrderUseCase
 import com.are.distribuidora.screenaccess.domain.model.UserAccess
+import com.are.distribuidora.domain.model.Product
+import com.are.distribuidora.domain.product.ProductRepository
+import com.are.distribuidora.domain.valueobject.Money
+import com.are.distribuidora.domain.valueobject.ProductId
+import com.are.distribuidora.domain.valueobject.Quantity
+import com.are.distribuidora.stockmovement.FakeCurrentUser
+import com.are.distribuidora.stockmovement.FakeStockMovementRepository
+import com.are.distribuidora.stockmovement.domain.model.MovementReason
+import com.are.distribuidora.stockmovement.domain.model.MovementType
+import com.are.distribuidora.stockmovement.domain.usecase.CreateStockVoucherUseCase
+import io.mockk.coEvery
+import io.mockk.mockk
+import java.math.BigDecimal
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import kotlinx.coroutines.flow.flowOf
@@ -222,5 +235,46 @@ class AccessGatesTest {
         val repo = FakeOrderRepository(owner = me)
         val r = DeleteOrderUseCase(repo, { vendedor() }, uid(null)).execute("r1", "o1")
         assertFalse(r is Result.Success)
+    }
+
+    // ── CreateStockVoucherUseCase (4.1.4: el SENTIDO del vale es un permiso) ──
+    // Entrada → CREATE_INBOUND_VOUCHER (admin y vendedor); salida → CREATE_OUTBOUND_VOUCHER (admin).
+
+    private fun voucherProduct() = Product(
+        id = ProductId.of("prod-1"), name = "Prod", price = Money.of(BigDecimal("5.00")),
+        stock = Quantity.of(-3), createdAt = 0L, updatedAt = 0L,
+    )
+
+    private fun voucherUseCase(access: UserAccess): Pair<CreateStockVoucherUseCase, FakeStockMovementRepository> {
+        val movements = FakeStockMovementRepository()
+        val products = mockk<ProductRepository>()
+        coEvery { products.getById(any()) } returns voucherProduct()
+        return CreateStockVoucherUseCase(movements, products, FakeCurrentUser(), { access }) to movements
+    }
+
+    @Test fun `Vale ENTRADA - vendedor registra`() = runTest {
+        val (uc, movements) = voucherUseCase(vendedor())
+        val r = uc("prod-1", MovementType.ENTRADA, 5, MovementReason.COMPRA, null)
+        assertTrue(r is Result.Success)
+        assertEquals(MovementType.ENTRADA, movements.recorded.single().type)
+    }
+
+    @Test fun `Vale SALIDA - vendedor rechazado con Forbidden y no queda movimiento`() = runTest {
+        val (uc, movements) = voucherUseCase(vendedor())
+        val r = uc("prod-1", MovementType.SALIDA, 5, MovementReason.MERMA, null)
+        assertTrue(r is Result.Error && r.failure == Failure.Forbidden)
+        assertEquals(0, movements.recorded.size)
+    }
+
+    @Test fun `Vale SALIDA - admin registra`() = runTest {
+        val (uc, movements) = voucherUseCase(admin())
+        assertTrue(uc("prod-1", MovementType.SALIDA, 5, MovementReason.MERMA, null) is Result.Success)
+        assertEquals(MovementType.SALIDA, movements.recorded.single().type)
+    }
+
+    @Test fun `Vale ENTRADA - admin registra`() = runTest {
+        val (uc, movements) = voucherUseCase(admin())
+        assertTrue(uc("prod-1", MovementType.ENTRADA, 5, MovementReason.DEVOLUCION, null) is Result.Success)
+        assertEquals(1, movements.recorded.size)
     }
 }

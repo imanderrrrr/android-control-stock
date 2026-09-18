@@ -516,7 +516,7 @@
     <string name="voucher_error_quantity">La cantidad debe ser mayor a 0</string>
     <string name="voucher_error_product">Selecciona un producto</string>
     <string name="voucher_error_generic">No se pudo registrar el vale</string>
-    <string name="voucher_no_permission">Solo un administrador puede registrar vales</string>
+    <string name="voucher_no_permission">No tienes permiso para registrar este vale. Pídeselo a un administrador.</string>
     <string name="voucher_current_stock">Stock actual: %1$d</string>
     <string name="voucher_resulting_stock">Stock resultante: %1$d</string>
     <string name="reason_COMPRA">Compra</string>

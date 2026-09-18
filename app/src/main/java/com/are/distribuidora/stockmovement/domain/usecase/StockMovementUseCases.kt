@@ -24,9 +24,11 @@ import java.util.UUID
  * - cantidad > 0; el motivo debe ser manual (COMPRA, DEVOLUCION, AJUSTE, MERMA, OTRO).
  * - El producto debe existir en el catálogo local.
  * - Se permite dejar el stock en negativo: es información, no un error.
- * - Autorización (integración 4.0+4.1): exige [Permission.CREATE_VOUCHER] vía [UserAccessProvider],
- *   la misma fuente única (RolePolicy) que usan los gates de pedidos. La UI oculta las entradas,
- *   pero el permiso se vuelve a comprobar aquí: ocultar un botón no es control de acceso.
+ * - Autorización (integración 4.0+4.1, afinada en 4.1.4): exige vía [UserAccessProvider] el permiso
+ *   del SENTIDO del vale ([MovementType.requiredPermission]: entrada → CREATE_INBOUND_VOUCHER,
+ *   salida → CREATE_OUTBOUND_VOUCHER), la misma fuente única (RolePolicy) que usan los gates de
+ *   pedidos. La UI oculta lo no permitido, pero se vuelve a comprobar aquí: ocultar un botón no es
+ *   control de acceso. Un vendedor puede sumar (recibe producto) pero no restar sin pedido.
  */
 class CreateStockVoucherUseCase(
     private val movements: StockMovementRepository,
@@ -41,7 +43,7 @@ class CreateStockVoucherUseCase(
         reason: MovementReason,
         note: String?,
     ): Result<StockMovement> {
-        if (!userAccessProvider.current().can(Permission.CREATE_VOUCHER)) {
+        if (!userAccessProvider.current().can(type.requiredPermission)) {
             return Result.Error(Failure.Forbidden)
         }
         if (quantity <= 0) return Result.Error(Failure.ValidationError("La cantidad debe ser mayor a 0"))

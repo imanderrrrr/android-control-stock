@@ -4,7 +4,8 @@ import com.are.distribuidora.screenaccess.domain.model.AppScreen
 import java.util.EnumSet
 
 /**
- * ÚNICA tabla rol → permisos (matriz de acceso v2, plan "DailyStock 4.0").
+ * ÚNICA tabla rol → permisos (matriz de acceso v2, plan "DailyStock 4.0"; ajuste 4.1.4: el
+ * vendedor también crea cuentas por cobrar y registra vales de ENTRADA).
  *
  * Agregar un tercer rol es una fila aquí y un valor en el panel web.
  * `RolePolicyTest` tiene una aserción por celda: cualquier cambio debe reflejarse allí.
@@ -22,6 +23,10 @@ object RolePolicy {
         Permission.VIEW_ALL_ORDERS,
         Permission.VIEW_RECEIVABLES,
         Permission.COLLECT_RECEIVABLE,
+        // 4.1.4: registra la deuda en la calle; editar el monto o borrarla sigue siendo del admin.
+        Permission.CREATE_RECEIVABLE,
+        // 4.1.4: suma lo que recibe o le devuelven; las SALIDAS libres siguen siendo del admin.
+        Permission.CREATE_INBOUND_VOUCHER,
     )
 
     fun permissionsFor(role: Role): Set<Permission> = when (role) {

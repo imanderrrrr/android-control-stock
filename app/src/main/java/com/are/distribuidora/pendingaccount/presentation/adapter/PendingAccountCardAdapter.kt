@@ -25,6 +25,14 @@ class PendingAccountCardAdapter(
     private val onDelete: (PendingAccountUiModel) -> Unit,
 ) : ListAdapter<PendingAccountUiModel, PendingAccountCardAdapter.VH>(DIFF) {
 
+    /** 4.1.4: borrar una cuenta exige MANAGE_RECEIVABLES; sin él la tarjeta no ofrece el botón. */
+    var canDelete: Boolean = true
+        set(value) {
+            if (field == value) return
+            field = value
+            notifyItemRangeChanged(0, itemCount)
+        }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): VH {
         val view = LayoutInflater.from(parent.context)
             .inflate(R.layout.item_pending_account_card, parent, false)
@@ -79,6 +87,7 @@ class PendingAccountCardAdapter(
 
             card.setOnClickListener { onClick(item) }
             btnPaid.setOnClickListener { onMarkPaid(item) }
+            btnDelete.visibility = if (canDelete) View.VISIBLE else View.GONE
             btnDelete.setOnClickListener { onDelete(item) }
         }
 

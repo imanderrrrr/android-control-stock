@@ -15,6 +15,7 @@ import androidx.core.view.WindowInsetsCompat
 import androidx.core.view.updatePadding
 import androidx.core.widget.doAfterTextChanged
 import androidx.fragment.app.Fragment
+import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
@@ -22,6 +23,8 @@ import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.presentation.product.BarcodeScannerFragment
+import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import com.are.distribuidora.stockmovement.domain.model.MovementReason
 import com.are.distribuidora.stockmovement.domain.model.MovementType
 import com.google.android.material.button.MaterialButton
@@ -35,13 +38,15 @@ import kotlinx.coroutines.launch
 
 /**
  * Pantalla "Nuevo vale": movimiento manual de ENTRADA o SALIDA de un producto que no viene de un
- * pedido (compra, devolución, ajuste, merma, otro). Gate: Permission.CREATE_VOUCHER (lo aplica
- * quien navega aquí; ver InventoryFragment).
+ * pedido (compra, devolución, ajuste, merma, otro). Gate (4.1.4): el SENTIDO es un permiso —
+ * CREATE_INBOUND_VOUCHER (admin y vendedor) / CREATE_OUTBOUND_VOUCHER (solo admin). Aquí se oculta
+ * el botón del sentido no concedido y CreateStockVoucherUseCase lo vuelve a comprobar.
  */
 @AndroidEntryPoint
 class NewVoucherFragment : Fragment() {
 
     private val viewModel: NewVoucherViewModel by viewModels()
+    private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
 
     private lateinit var toggleType: MaterialButtonToggleGroup
     private lateinit var searchLayout: TextInputLayout
@@ -110,12 +115,29 @@ class NewVoucherFragment : Fragment() {
             viewModel.preset(presetType, arguments?.getString(ARG_PRODUCT_ID))
         }
 
+        // 4.1.4: solo se ofrece el sentido que el rol concede; se aplica YA con el valor actual
+        // (sin esperar al primer frame, para que "Salida" no parpadee ante un vendedor) y se sigue
+        // observando por si el rol cambia. Ocultar un botón no es control de acceso: el caso de
+        // uso responde Forbidden igualmente.
+        applyVoucherDirectionAccess(view, screenAccessViewModel.access.value)
+
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 launch { viewModel.uiState.collect(::render) }
                 launch { viewModel.events.collect(::handleEvent) }
+                launch { screenAccessViewModel.access.collect { applyVoucherDirectionAccess(view, it) } }
             }
         }
+    }
+
+    private fun applyVoucherDirectionAccess(view: View, access: com.are.distribuidora.screenaccess.domain.model.UserAccess) {
+        val canIn = access.can(Permission.CREATE_INBOUND_VOUCHER)
+        val canOut = access.can(Permission.CREATE_OUTBOUND_VOUCHER)
+        view.findViewById<View>(R.id.btnTypeIn).visibility = if (canIn) View.VISIBLE else View.GONE
+        view.findViewById<View>(R.id.btnTypeOut).visibility = if (canOut) View.VISIBLE else View.GONE
+        val type = viewModel.uiState.value.type
+        if (type == MovementType.SALIDA && !canOut && canIn) viewModel.setType(MovementType.ENTRADA)
+        if (type == MovementType.ENTRADA && !canIn && canOut) viewModel.setType(MovementType.SALIDA)
     }
 
     private fun render(state: NewVoucherUiState) {
@@ -190,6 +212,7 @@ class NewVoucherFragment : Fragment() {
                 val msg = when (event.message) {
                     "PRODUCT" -> getString(R.string.voucher_error_product)
                     "QUANTITY" -> getString(R.string.voucher_error_quantity)
+                    "FORBIDDEN" -> getString(R.string.role_forbidden_action)
                     "GENERIC" -> getString(R.string.voucher_error_generic)
                     else -> event.message
                 }

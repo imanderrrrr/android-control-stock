@@ -21,6 +21,8 @@ import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.pendingaccount.presentation.adapter.PendingAccountCardAdapter
 import com.are.distribuidora.pendingaccount.presentation.model.PendingAccountUiModel
+import androidx.core.view.doOnLayout
+import androidx.core.view.updateLayoutParams
 import com.are.distribuidora.roles.domain.Permission
 import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import com.google.android.material.floatingactionbutton.FloatingActionButton
@@ -37,6 +39,7 @@ class PendingAccountsFragment : Fragment(R.layout.fragment_pending_accounts) {
 
     // Roles 4.0 (scope de Activity, mismo listener que HomeActivity).
     private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
+    /** 4.1.4: borrar exige MANAGE_RECEIVABLES (admin); crear, CREATE_RECEIVABLE (también vendedor). */
     private var canManage = false
 
     private lateinit var adapter: PendingAccountCardAdapter
@@ -81,13 +84,27 @@ class PendingAccountsFragment : Fragment(R.layout.fragment_pending_accounts) {
         btnBack.visibility = if (parentFragmentManager.backStackEntryCount == 0) View.INVISIBLE else View.VISIBLE
         view.findViewById<View>(R.id.btnViewActivity).setOnClickListener { openActivity() }
         val fabAdd = view.findViewById<FloatingActionButton>(R.id.fabAdd)
-        fabAdd.setOnClickListener { openForm(null) }
-        // Roles 4.0: crear/borrar cuentas solo con MANAGE_RECEIVABLES (el VM vuelve a comprobarlo).
+        fabAdd.setOnClickListener {
+            if (screenAccessViewModel.access.value.can(Permission.CREATE_RECEIVABLE)) openForm(null)
+            else toast(R.string.role_forbidden_action)
+        }
+        // 4.1.4: como pestaña raíz ("Cobros" del vendedor) la barra inferior de HomeActivity se
+        // dibuja ENCIMA de este fragment y tapaba el FAB y la última tarjeta: el vendedor no podía
+        // tocar "nueva cuenta". Se desplazan por la altura real de esa barra, medida tras su layout.
+        if (parentFragmentManager.backStackEntryCount == 0) {
+            requireActivity().findViewById<View>(R.id.navBarContainer)?.doOnLayout { nav ->
+                fabAdd.updateLayoutParams<ViewGroup.MarginLayoutParams> { bottomMargin += nav.height }
+                recycler.updatePadding(bottom = recycler.paddingBottom + nav.height)
+            }
+        }
+        // Roles 4.0 / 4.1.4: crear con CREATE_RECEIVABLE (vendedor incluido); borrar solo con
+        // MANAGE_RECEIVABLES. El VM vuelve a comprobar ambos: ocultar un botón no es control de acceso.
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 screenAccessViewModel.access.collect { access ->
+                    fabAdd.visibility = if (access.can(Permission.CREATE_RECEIVABLE)) View.VISIBLE else View.GONE
                     canManage = access.can(Permission.MANAGE_RECEIVABLES)
-                    fabAdd.visibility = if (canManage) View.VISIBLE else View.GONE
+                    adapter.canDelete = canManage
                 }
             }
         }

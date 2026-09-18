@@ -14,8 +14,17 @@ enum class Permission {
     VIEW_CATALOG,
     /** Crear y editar producto (precio, foto, código), agregar stock, venta directa, borrar. */
     EDIT_PRODUCT,
-    /** Vales de entrada y salida de stock (4.1). Decisión #1 del plan: solo admin por defecto. */
-    CREATE_VOUCHER,
+    /**
+     * Vale de ENTRADA (compra, devolución, ajuste al alza): SUMA inventario. 4.1.4: también el
+     * vendedor, que es quien recibe producto y devoluciones en la calle. Sin esto los pedidos
+     * solo restaban y nadie salvo el admin podía sumar (179/450 productos en negativo el 17/09).
+     */
+    CREATE_INBOUND_VOUCHER,
+    /**
+     * Vale de SALIDA (merma, ajuste a la baja, otro): RESTA inventario sin pedido de por medio.
+     * Solo admin: dejarlo libre sería una vía para descuadrar el inventario sin rastro de venta.
+     */
+    CREATE_OUTBOUND_VOUCHER,
     /** Pedido nuevo completo, con impresión. */
     CREATE_ORDER,
     /** Mis pedidos con sus montos y la suma del día. */
@@ -32,7 +41,12 @@ enum class Permission {
     VIEW_RECEIVABLES,
     /** Registrar un cobro y marcar pagada. */
     COLLECT_RECEIVABLE,
-    /** Crear, editar y borrar cuentas por cobrar. */
+    /** Crear una cuenta por cobrar: registrar la deuda es el trabajo diario del vendedor (4.1.4). */
+    CREATE_RECEIVABLE,
+    /**
+     * Editar el monto/datos de una cuenta por cobrar y borrarla. Equivale a hacer desaparecer
+     * dinero, así que se queda con el admin (criterio: riesgo del dinero, no comodidad).
+     */
     MANAGE_RECEIVABLES,
     /** Pestaña Reportes. */
     VIEW_REPORTS,

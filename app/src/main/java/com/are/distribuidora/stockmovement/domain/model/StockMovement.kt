@@ -1,5 +1,7 @@
 package com.are.distribuidora.stockmovement.domain.model
 
+import com.are.distribuidora.roles.domain.Permission
+
 /**
  * Sentido físico de un movimiento de inventario.
  * La cantidad del movimiento SIEMPRE es positiva; el signo lo da el tipo.
@@ -10,6 +12,14 @@ enum class MovementType {
 
     /** +1 para entradas, -1 para salidas. */
     val sign: Int get() = if (this == ENTRADA) 1 else -1
+
+    /**
+     * Permiso de [com.are.distribuidora.roles.domain.RolePolicy] que autoriza un vale manual de
+     * este sentido (4.1.4). El sentido es un permiso y no una comprobación de rol para que la
+     * matriz siga viviendo en un solo sitio.
+     */
+    val requiredPermission: Permission
+        get() = if (this == ENTRADA) Permission.CREATE_INBOUND_VOUCHER else Permission.CREATE_OUTBOUND_VOUCHER
 
     companion object {
         fun fromDelta(delta: Int): MovementType = if (delta >= 0) ENTRADA else SALIDA

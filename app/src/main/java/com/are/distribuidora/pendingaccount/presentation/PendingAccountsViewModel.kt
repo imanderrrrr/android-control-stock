@@ -71,7 +71,11 @@ class PendingAccountsViewModel @Inject constructor(
     private val userAccessProvider: UserAccessProvider,
 ) : ViewModel() {
 
-    /** Roles 4.0: crear/editar/borrar cuentas exige MANAGE_RECEIVABLES; cobrar, COLLECT_RECEIVABLE. */
+    /**
+     * Roles 4.0 (afinado en 4.1.4): crear una cuenta exige CREATE_RECEIVABLE (también vendedor:
+     * registra la deuda en la calle); editar el monto o borrarla, MANAGE_RECEIVABLES (solo admin:
+     * equivale a mover dinero); cobrar, COLLECT_RECEIVABLE. Segunda barrera tras la UI.
+     */
     private suspend fun denied(permission: Permission): Boolean {
         val ok = userAccessProvider.current().can(permission)
         if (!ok) _events.send(Event.Error(appContext.getString(R.string.role_forbidden_action)))
@@ -211,7 +215,7 @@ class PendingAccountsViewModel @Inject constructor(
         notes: String?,
     ) {
         viewModelScope.launch {
-            if (denied(Permission.MANAGE_RECEIVABLES)) return@launch
+            if (denied(Permission.CREATE_RECEIVABLE)) return@launch
             val now = System.currentTimeMillis()
             val accountId = UUID.randomUUID().toString()
             val localFilePath = invoiceLocalPath?.takeIf { File(it).exists() }

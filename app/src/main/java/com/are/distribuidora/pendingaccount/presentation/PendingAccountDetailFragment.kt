@@ -59,7 +59,8 @@ class PendingAccountDetailFragment : Fragment(R.layout.fragment_pending_account_
         view.findViewById<MaterialButton>(R.id.btnMarkPaid).setOnClickListener { current?.let { confirmMarkPaid(it) } }
         view.findViewById<MaterialButton>(R.id.btnDelete).setOnClickListener { current?.let { confirmDelete(it) } }
 
-        // Roles 4.0: editar/borrar solo con MANAGE_RECEIVABLES; cobrar (btnMarkPaid) con COLLECT_RECEIVABLE.
+        // Roles 4.0 / 4.1.4: editar el monto y borrar solo con MANAGE_RECEIVABLES (admin); cobrar
+        // (btnMarkPaid) con COLLECT_RECEIVABLE. Crear (CREATE_RECEIVABLE) vive en la lista.
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 screenAccessViewModel.access.collect { access ->

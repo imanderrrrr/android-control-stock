@@ -16,6 +16,7 @@ import androidx.fragment.app.Fragment
 import androidx.fragment.app.activityViewModels
 import androidx.fragment.app.viewModels
 import com.are.distribuidora.roles.domain.Permission
+import com.are.distribuidora.screenaccess.domain.model.UserAccess
 import com.are.distribuidora.screenaccess.presentation.ScreenAccessViewModel
 import com.are.distribuidora.stockmovement.presentation.NewVoucherFragment
 import androidx.lifecycle.Lifecycle
@@ -40,12 +41,20 @@ class InventoryFragment : Fragment() {
     /**
      * Rol/permisos del usuario (compartido con HomeActivity).
      * - 4.0: EDIT_PRODUCT gobierna nuevo producto, editar y borrar.
-     * - 4.1: CREATE_VOUCHER gobierna "Agregar stock" y "Nuevo vale" (mueven inventario).
+     * - 4.1.4: "Agregar stock" (= vale de entrada) → CREATE_INBOUND_VOUCHER, que el vendedor
+     *   también tiene; "Nuevo vale" → cualquiera de los dos sentidos que conceda el rol.
      */
     private val screenAccessViewModel: ScreenAccessViewModel by activityViewModels()
 
     private fun canEditProduct(): Boolean =
         screenAccessViewModel.access.value.can(Permission.EDIT_PRODUCT)
+
+    private fun UserAccess.canCreateAnyVoucher(): Boolean =
+        can(Permission.CREATE_INBOUND_VOUCHER) || can(Permission.CREATE_OUTBOUND_VOUCHER)
+
+    /** El "+" se muestra a quien pueda hacer AL MENOS una de las acciones de su menú. */
+    private fun UserAccess.canOpenPlusMenu(): Boolean =
+        can(Permission.EDIT_PRODUCT) || canCreateAnyVoucher()
 
     private fun showForbidden() {
         Snackbar.make(requireView(), R.string.role_forbidden_action, Snackbar.LENGTH_SHORT).show()
@@ -81,27 +90,29 @@ class InventoryFragment : Fragment() {
         }
 
         newProductButton.setOnClickListener { anchor ->
-            if (!canEditProduct()) { showForbidden(); return@setOnClickListener }
+            val access = screenAccessViewModel.access.value
+            if (!access.canOpenPlusMenu()) { showForbidden(); return@setOnClickListener }
             val popup = PopupMenu(requireContext(), anchor)
             popup.menuInflater.inflate(R.menu.menu_product_plus, popup.menu)
-            // 4.1: "Agregar stock" y "Nuevo vale" mueven inventario → Permission.CREATE_VOUCHER
-            // (por defecto solo admin, RolePolicy). "Agregar producto" → EDIT_PRODUCT.
-            val access = screenAccessViewModel.access.value
+            // Cada entrada del "+" lleva su propio permiso (RolePolicy):
+            // - "Agregar producto" → EDIT_PRODUCT (admin).
+            // - "Agregar stock" (escáner) = vale de ENTRADA → CREATE_INBOUND_VOUCHER (4.1.4: también vendedor).
+            // - "Nuevo vale" → entrada o salida según conceda el rol; la pantalla oculta el sentido no permitido.
             popup.menu.findItem(R.id.action_add_product).isVisible = access.can(Permission.EDIT_PRODUCT)
-            popup.menu.findItem(R.id.action_add_stock).isVisible = access.can(Permission.CREATE_VOUCHER)
-            popup.menu.findItem(R.id.action_new_voucher).isVisible = access.can(Permission.CREATE_VOUCHER)
+            popup.menu.findItem(R.id.action_add_stock).isVisible = access.can(Permission.CREATE_INBOUND_VOUCHER)
+            popup.menu.findItem(R.id.action_new_voucher).isVisible = access.canCreateAnyVoucher()
             popup.setOnMenuItemClickListener { item ->
                 when (item.itemId) {
                     R.id.action_add_product -> {
-                        navigateToAddProduct()
+                        if (canEditProduct()) navigateToAddProduct() else showForbidden()
                         true
                     }
                     R.id.action_add_stock -> {
-                        if (requireVoucherPermission()) navigateToAddStock()
+                        if (requireVoucherPermission { it.can(Permission.CREATE_INBOUND_VOUCHER) }) navigateToAddStock()
                         true
                     }
                     R.id.action_new_voucher -> {
-                        if (requireVoucherPermission()) navigateToNewVoucher()
+                        if (requireVoucherPermission { it.canCreateAnyVoucher() }) navigateToNewVoucher()
                         true
                     }
                     else -> false
@@ -119,13 +130,14 @@ class InventoryFragment : Fragment() {
 
         val adapter = InventoryAdapter()
 
-        // Vendedor: catálogo en modo consulta (sin botón "+" ni menú de editar/borrar).
+        // Editar/borrar producto siguen siendo de admin (EDIT_PRODUCT). El "+" se muestra a quien
+        // pueda hacer al menos una de sus acciones: desde 4.1.4 el vendedor lo ve para registrar
+        // entradas de stock y el menú solo le ofrece lo que su rol concede.
         viewLifecycleOwner.lifecycleScope.launch {
             viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 screenAccessViewModel.access.collect { access ->
-                    val canEdit = access.can(Permission.EDIT_PRODUCT)
-                    newProductButton.visibility = if (canEdit) View.VISIBLE else View.GONE
-                    adapter.canEdit = canEdit
+                    newProductButton.visibility = if (access.canOpenPlusMenu()) View.VISIBLE else View.GONE
+                    adapter.canEdit = access.can(Permission.EDIT_PRODUCT)
                 }
             }
         }
@@ -253,8 +265,8 @@ class InventoryFragment : Fragment() {
     }
 
     /** Segunda barrera del gate (el menú ya oculta la opción): evita el acceso por carrera de estado. */
-    private fun requireVoucherPermission(): Boolean {
-        val allowed = screenAccessViewModel.access.value.can(Permission.CREATE_VOUCHER)
+    private fun requireVoucherPermission(allowedBy: (UserAccess) -> Boolean): Boolean {
+        val allowed = allowedBy(screenAccessViewModel.access.value)
         if (!allowed) {
             Snackbar.make(requireView(), getString(R.string.voucher_no_permission), Snackbar.LENGTH_LONG).show()
         }

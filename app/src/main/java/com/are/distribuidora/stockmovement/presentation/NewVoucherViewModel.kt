@@ -147,6 +147,8 @@ class NewVoucherViewModel @Inject constructor(
                         when (val f = result.failure) {
                             is Failure.ValidationError -> f.message
                             Failure.NotFound -> "PRODUCT"
+                            // 4.1.4: el caso de uso rechaza el sentido no permitido (p. ej. SALIDA a un vendedor).
+                            Failure.Forbidden -> "FORBIDDEN"
                             else -> "GENERIC"
                         }
                     )
