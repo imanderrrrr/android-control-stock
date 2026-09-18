@@ -2,6 +2,7 @@ package com.are.distribuidora.presentation.product
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.are.distribuidora.core.images.FirestoreImageUrlValidator
 import com.are.distribuidora.data.local.dao.PendingUploadDao
 import com.are.distribuidora.data.local.entity.PendingUploadEntity
 import com.are.distribuidora.domain.model.Product
@@ -91,7 +92,10 @@ class EditProductViewModel @Inject constructor(
 
         val product = currentProduct ?: return
 
-        val hasRemoteImage = product.imageUrl?.startsWith("http") == true
+        // Una URL de Drive NO cuenta como "ya tiene foto": está muerta y el producto sale
+        // sin imagen en el catálogo. Exigir una nueva es justo lo que se quiere para volver
+        // a fotografiar los 250 productos afectados.
+        val hasRemoteImage = FirestoreImageUrlValidator.isUsableForDisplay(product.imageUrl)
         val hasLocalImage = product.imageLocalUri != null
         val hasLocalSelection = !_localImageAbsolutePath.value.isNullOrBlank()
         val hasAnyImage = hasRemoteImage || hasLocalImage || hasLocalSelection

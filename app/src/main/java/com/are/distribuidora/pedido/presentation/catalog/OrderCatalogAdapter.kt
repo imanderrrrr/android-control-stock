@@ -12,6 +12,9 @@ import androidx.paging.PagingDataAdapter
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
+import com.are.distribuidora.core.glide.GlideFailures
+import com.are.distribuidora.core.images.DisplayableProductImage
+import com.are.distribuidora.core.images.ImageLoadFailureMemo
 import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.domain.model.Product
 import com.bumptech.glide.Glide
@@ -318,9 +321,11 @@ class OrderCatalogAdapter(
         }
 
         private fun bindImage(product: Product) {
-            // Prioridad: imageUrl (https remota) → imageLocalUri → sin imagen
-            val remoteUrl = product.imageUrl?.trim()
-                ?.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+            // Prioridad: imageUrl (https remota utilizable) → imageLocalUri → sin imagen.
+            // `remoteUrlOrNull` descarta de una vez las URLs que no pueden cargar (host
+            // muerto de Drive, o ya falló con 4xx en esta sesión), así que la fila pinta el
+            // placeholder SIN pedir nada a la red.
+            val remoteUrl = DisplayableProductImage.remoteUrlOrNull(product.imageUrl)
             val localUri = product.imageLocalUri?.trim()?.takeIf { it.isNotEmpty() }
 
             // Resolver fuente con prioridad
@@ -328,13 +333,13 @@ class OrderCatalogAdapter(
                 remoteUrl != null -> {
                     placeholder.visibility = View.GONE
                     image.visibility = View.VISIBLE
-                    loadWithGlide(product, Glide.with(image).load(remoteUrl))
+                    loadWithGlide(product, remoteUrl, Glide.with(image).load(remoteUrl))
                     return
                 }
                 localUri != null -> {
                     placeholder.visibility = View.GONE
                     image.visibility = View.VISIBLE
-                    loadWithGlide(product, Glide.with(image).load(File(localUri)))
+                    loadWithGlide(product, localUri, Glide.with(image).load(File(localUri)))
                     return
                 }
                 else -> {
@@ -350,6 +355,7 @@ class OrderCatalogAdapter(
 
         private fun loadWithGlide(
             product: Product,
+            source: String,
             request: com.bumptech.glide.RequestBuilder<Drawable>,
         ) {
             request
@@ -365,6 +371,11 @@ class OrderCatalogAdapter(
                     ): Boolean {
                         image.visibility = View.INVISIBLE
                         placeholder.visibility = View.VISIBLE
+                        // Un 404 no se arregla reintentando: se anota para no volver a
+                        // pedirla en cada bind. Un fallo de red sí se reintenta.
+                        if (GlideFailures.isPermanent(e)) {
+                            ImageLoadFailureMemo.rememberPermanentFailure(source)
+                        }
                         logger.e("ORDER_CATALOG", "Image load failed id=${product.id.value}", e)
                         return true
                     }

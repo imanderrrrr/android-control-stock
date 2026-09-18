@@ -1,5 +1,6 @@
 package com.are.distribuidora.domain.product
 
+import com.are.distribuidora.core.images.DisplayableProductImage
 import com.are.distribuidora.domain.valueobject.ProductId
 import javax.inject.Inject
 
@@ -19,7 +20,9 @@ class GetProductImageUseCase @Inject constructor(
      */
     suspend operator fun invoke(productoId: String): String? {
         val product = productRepository.getById(ProductId.of(productoId)) ?: return null
-        return product.imageUrl?.takeIf { it.isNotBlank() }
+        // Una URL inutilizable (host muerto) cuenta como "no hay imagen remota", así se cae
+        // al archivo local si existe en vez de propagar un 404 a los ítems del pedido.
+        return DisplayableProductImage.loadableSourceOrNull(product.imageUrl)
             ?: product.imageLocalUri?.takeIf { it.isNotBlank() }
     }
 }

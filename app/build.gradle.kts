@@ -40,8 +40,8 @@ android {
         applicationId = "com.are.distribuidora"
         minSdk = 30
         targetSdk = 36
-        val appVersionName = "4.1.4"
-        versionCode = 40104
+        val appVersionName = "4.1.5"
+        versionCode = 40105
         versionName = appVersionName
 
         // Etiquetas de versión visibles (splash + footer de login) generadas desde

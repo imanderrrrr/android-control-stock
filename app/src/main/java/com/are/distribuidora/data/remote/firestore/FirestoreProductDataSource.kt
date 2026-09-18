@@ -157,12 +157,21 @@ class FirestoreProductDataSource(
             // VALIDACIÓN G: NUNCA escribir rutas locales en Firestore
             FirestoreImageUrlValidator.validateForFirestore(product.imageUrl)
 
+            // Tampoco re-subir una URL que la app ya considera inutilizable (drive.google.com).
+            // Sin esto, un teléfono que aún tenga la URL muerta en Room la volvería a escribir
+            // en Firestore al editar el producto y desharía la limpieza del panel. Queda null,
+            // y el filtro de nulls de más abajo hace que el campo simplemente no se envíe.
+            val uploadableImageUrl = FirestoreImageUrlValidator.usableForDisplayOrNull(product.imageUrl)
+            if (uploadableImageUrl == null && product.imageUrl != null) {
+                Log.w(tag, "uploadProduct: imageUrl inutilizable, no se sube para ${product.id} (${product.imageUrl})")
+            }
+
             val data = hashMapOf<String, Any?>(
                 "name" to product.name,
                 "description" to product.description,
                 "category" to product.category,
                 "price" to product.price,
-                "imageUrl" to product.imageUrl,
+                "imageUrl" to uploadableImageUrl,
                 "barcode" to product.barcode,
                 // NUNCA "stock": desde 4.1 el contador remoto solo se mueve con
                 // FieldValue.increment desde el libro de movimientos (stock_movements).
