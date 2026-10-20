@@ -21,6 +21,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.core.stock.StockDisplay
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.presentation.product.BarcodeScannerFragment
 import com.are.distribuidora.roles.domain.Permission
@@ -152,7 +153,7 @@ class NewVoucherFragment : Fragment() {
             val meta = listOfNotNull(product.category?.takeIf { it.isNotBlank() }, product.barcode?.takeIf { it.isNotBlank() })
             selectedMeta.text = meta.joinToString(" · ")
             selectedMeta.visibility = if (meta.isEmpty()) View.GONE else View.VISIBLE
-            selectedStock.text = getString(R.string.voucher_current_stock, product.stock.value)
+            selectedStock.text = getString(R.string.voucher_current_stock, StockDisplay.of(product.stock.value).shortText())
             selectedStock.setTextColor(
                 ContextCompat.getColor(requireContext(), if (product.stock.value < 0) R.color.danger_text else R.color.text_secondary)
             )
@@ -172,12 +173,12 @@ class NewVoucherFragment : Fragment() {
         val product = state.product ?: return
         val qty = quantityInput.text?.toString()?.trim()?.toIntOrNull()
         if (qty == null || qty <= 0) {
-            selectedStock.text = getString(R.string.voucher_current_stock, product.stock.value)
+            selectedStock.text = getString(R.string.voucher_current_stock, StockDisplay.of(product.stock.value).shortText())
             return
         }
         val resulting = product.stock.value + state.type.sign * qty
-        selectedStock.text = getString(R.string.voucher_current_stock, product.stock.value) +
-            "  →  " + getString(R.string.voucher_resulting_stock, resulting)
+        selectedStock.text = getString(R.string.voucher_current_stock, StockDisplay.of(product.stock.value).shortText()) +
+            "  →  " + getString(R.string.voucher_resulting_stock, StockDisplay.of(resulting).shortText())
         selectedStock.setTextColor(
             ContextCompat.getColor(requireContext(), if (resulting < 0) R.color.danger_text else R.color.text_secondary)
         )
@@ -192,7 +193,7 @@ class NewVoucherFragment : Fragment() {
             row.findViewById<TextView>(R.id.resultName).text = product.name
             row.findViewById<TextView>(R.id.resultMeta).text = buildString {
                 product.barcode?.takeIf { it.isNotBlank() }?.let { append(it).append(" · ") }
-                append("Stock ").append(product.stock.value)
+                append("Stock ").append(StockDisplay.of(product.stock.value).shortText())
             }
             row.setOnClickListener { viewModel.selectProduct(product) }
             resultsContainer.addView(row)

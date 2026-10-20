@@ -26,6 +26,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.core.stock.StockDisplay
 import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
@@ -280,7 +281,7 @@ class AddStockScannerFragment : Fragment() {
                 if (isNotEmpty()) append(" · ")
                 append(it)
             }
-            append("\nStock actual: ${product.stock.value}")
+            append("\nStock actual: ${StockDisplay.of(product.stock.value).shortText()}")
             append(" · Precio: Q${String.format(Locale.US, "%.2f", product.price.amount)}")
         }
         productDetailsText.text = details

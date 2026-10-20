@@ -18,6 +18,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.core.stock.StockDisplay
 import com.are.distribuidora.core.images.DisplayableProductImage
 import com.are.distribuidora.core.images.FirestoreImageUrlValidator
 import com.are.distribuidora.core.images.ProductImageUrl
@@ -27,6 +28,7 @@ import com.google.android.material.appbar.MaterialToolbar
 import com.google.android.material.button.MaterialButton
 import com.google.android.material.switchmaterial.SwitchMaterial
 import com.google.android.material.textfield.TextInputEditText
+import com.google.android.material.textfield.TextInputLayout
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.launch
 
@@ -284,6 +286,15 @@ class EditProductFragment : Fragment() {
         if (stockInput.text.toString() != stock) {
             stockInput.setText(stock)
         }
+        // El campo conserva el número con signo (la diferencia con él crea el vale AJUSTE), pero
+        // en el resto de la app un negativo se ve como "comprometido": se explica la equivalencia.
+        val display = StockDisplay.of(product.stock.value)
+        view?.findViewById<TextInputLayout>(R.id.layoutStock)?.helperText =
+            if (display.hasCommitted) {
+                getString(R.string.edit_product_stock_committed_helper, product.stock.value, display.committedText())
+            } else {
+                null
+            }
 
         // Si hay un barcode escaneado en el ViewModel, usarlo; si no, usar el del producto.
         val scannedBarcode = viewModel.barcode.value

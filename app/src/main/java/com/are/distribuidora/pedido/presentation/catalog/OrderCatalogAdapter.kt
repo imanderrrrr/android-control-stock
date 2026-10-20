@@ -13,6 +13,7 @@ import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.are.distribuidora.R
 import com.are.distribuidora.core.glide.GlideFailures
+import com.are.distribuidora.core.stock.StockDisplay
 import com.are.distribuidora.core.images.DisplayableProductImage
 import com.are.distribuidora.core.images.ImageLoadFailureMemo
 import com.are.distribuidora.domain.core.Logger
@@ -229,11 +230,11 @@ class OrderCatalogAdapter(
             subtitle.text = subtitleParts.joinToString(" · ")
             subtitle.visibility = if (subtitleParts.isEmpty()) View.GONE else View.VISIBLE
 
-            // 4.1: el stock es INFORMACIÓN, no un bloqueo. Se muestra siempre el número; en rojo
-            // si es cero o negativo (un negativo significa "entregado antes del vale de entrada").
+            // 4.1: el stock es INFORMACIÓN, no un bloqueo. En rojo si no hay existencias; un
+            // negativo (vendido sin existencias) se muestra como "STOCK 0 · COMP. N".
             // Nunca se impide vender: la venta real manda y el libro de movimientos la explica.
             val stock = product.stock.value
-            textStock.text = "STOCK $stock"
+            textStock.text = StockDisplay.of(stock).catalogLabel()
             if (stock > 0) {
                 textStock.backgroundTintList = ContextCompat.getColorStateList(ctx, R.color.brand_soft)
                 textStock.setTextColor(ContextCompat.getColor(ctx, R.color.success_text))

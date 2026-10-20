@@ -14,6 +14,7 @@ import androidx.recyclerview.widget.RecyclerView
 import androidx.core.content.ContextCompat
 import com.are.distribuidora.R
 import com.are.distribuidora.core.glide.GlideFailures
+import com.are.distribuidora.core.stock.StockDisplay
 import com.are.distribuidora.core.images.DisplayableProductImage
 import com.are.distribuidora.core.images.FirestoreImageUrlValidator
 import com.are.distribuidora.core.images.ImageLoadFailureMemo
@@ -116,19 +117,17 @@ class InventoryAdapter : PagingDataAdapter<ProductUiModel, InventoryAdapter.Prod
             price.text = priceText
 
             val ctx = itemView.context
-            val s = product.stock.value
-            val stockLabel: String
+            // 4.1: el contador puede ser negativo (vendido sin existencias). Se muestra como en la
+            // 3.x: "Sin stock · N comprometidos", en rojo; el número con signo no sale de la UI.
+            val display = StockDisplay.of(product.stock.value)
             val stockBg: Int
             val stockTx: Int
             when {
-                // 4.1: el stock puede ser negativo (entregado antes del vale de entrada). Se muestra
-                // en rojo como información, no se oculta ni se normaliza.
-                s < 0 -> { stockLabel = "$s en stock"; stockBg = R.color.danger_bg; stockTx = R.color.danger_text }
-                s == 0 -> { stockLabel = "Sin stock"; stockBg = R.color.danger_bg; stockTx = R.color.danger_text }
-                s <= 5 -> { stockLabel = "$s · bajo"; stockBg = R.color.warning_bg; stockTx = R.color.warning_text }
-                else -> { stockLabel = "$s en stock"; stockBg = R.color.success_bg; stockTx = R.color.success_text }
+                display.onHand == 0 -> { stockBg = R.color.danger_bg; stockTx = R.color.danger_text }
+                display.onHand <= StockDisplay.LOW_STOCK_THRESHOLD -> { stockBg = R.color.warning_bg; stockTx = R.color.warning_text }
+                else -> { stockBg = R.color.success_bg; stockTx = R.color.success_text }
             }
-            stock.text = stockLabel
+            stock.text = display.inventoryLabel()
             stock.backgroundTintList = ContextCompat.getColorStateList(ctx, stockBg)
             stock.setTextColor(ContextCompat.getColor(ctx, stockTx))
 

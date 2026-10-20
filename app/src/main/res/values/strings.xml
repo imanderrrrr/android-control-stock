@@ -94,6 +94,7 @@
     <string name="edit_product_category_hint">Categoría</string>
     <string name="edit_product_price_hint">Precio (Q) *</string>
     <string name="edit_product_stock_hint">Stock *</string>
+    <string name="edit_product_stock_committed_helper">%1$d = %2$s (vendido sin existencias)</string>
     <string name="edit_product_barcode_hint">Código de Barras</string>
     <string name="edit_product_active_label">Producto Activo</string>
     <string name="edit_product_save_button">Guardar Cambios</string>
@@ -517,8 +518,8 @@
     <string name="voucher_error_product">Selecciona un producto</string>
     <string name="voucher_error_generic">No se pudo registrar el vale</string>
     <string name="voucher_no_permission">No tienes permiso para registrar este vale. Pídeselo a un administrador.</string>
-    <string name="voucher_current_stock">Stock actual: %1$d</string>
-    <string name="voucher_resulting_stock">Stock resultante: %1$d</string>
+    <string name="voucher_current_stock">Stock actual: %1$s</string>
+    <string name="voucher_resulting_stock">Stock resultante: %1$s</string>
     <string name="reason_COMPRA">Compra</string>
     <string name="reason_DEVOLUCION">Devolución</string>
     <string name="reason_AJUSTE">Ajuste</string>
@@ -530,7 +531,8 @@
     <string name="section_movements">Movimientos</string>
     <string name="movements_empty">Sin movimientos registrados en este teléfono</string>
     <string name="movement_pending">Pendiente de subir</string>
-    <string name="product_stock_negative_hint">Negativo: se entregó antes del vale de entrada</string>
+    <string name="product_stock_negative_hint">Vendido sin existencias: se cubre con la próxima entrada de mercadería</string>
+    <string name="product_stock_committed_hint">%1$s · se cubre con la próxima entrada de mercadería</string>
 
     <!-- Abandono explícito del flujo de pedido (atrás desde el catálogo) -->
     <string name="catalog_abandon_title">¿Salir del pedido?</string>

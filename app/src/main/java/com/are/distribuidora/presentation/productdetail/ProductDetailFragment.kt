@@ -179,15 +179,19 @@ class ProductDetailFragment : Fragment() {
 
                             // Resumen destacado
                             priceValue.text = "Q" + product.price.amount.toPlainString()
-                            stockValue.text = product.stock.value.toString()
-                            // 4.1: negativo en rojo (información, no error)
-                            val negative = product.stock.value < 0
+                            // 4.1: un negativo es lo vendido sin existencias. Se muestra como en la
+                            // 3.x: stock 0 y el faltante como "comprometido", en rojo (información).
+                            val display = com.are.distribuidora.core.stock.StockDisplay.of(product.stock.value)
+                            stockValue.text = display.onHand.toString()
                             stockValue.setTextColor(
                                 androidx.core.content.ContextCompat.getColor(
-                                    requireContext(), if (negative) R.color.danger_text else R.color.text_primary
+                                    requireContext(), if (display.hasCommitted) R.color.danger_text else R.color.text_primary
                                 )
                             )
-                            stockHint.visibility = if (negative) View.VISIBLE else View.GONE
+                            if (display.hasCommitted) {
+                                stockHint.text = getString(R.string.product_stock_committed_hint, display.committedText())
+                            }
+                            stockHint.visibility = if (display.hasCommitted) View.VISIBLE else View.GONE
 
                             renderMovements(movementsContainer, movementsEmpty, state.movements)
 

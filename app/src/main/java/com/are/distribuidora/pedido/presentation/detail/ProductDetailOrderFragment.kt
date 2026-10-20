@@ -22,6 +22,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
 import com.are.distribuidora.R
+import com.are.distribuidora.core.stock.StockDisplay
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.domain.valueobject.Money
 import com.are.distribuidora.domain.valueobject.ProductId
@@ -115,7 +116,14 @@ class ProductDetailOrderFragment : Fragment(R.layout.fragment_product_detail_ord
         if (stockValue > 0) {
             textStock.text = "STOCK · $stockValue"
         } else {
-            textStock.text = getString(R.string.order_no_stock).uppercase(Locale("es", "GT"))
+            // Negativo = vendido sin existencias: "SIN STOCK · 10 COMPROMETIDOS".
+            val display = StockDisplay.of(stockValue)
+            val label = if (display.hasCommitted) {
+                getString(R.string.order_no_stock) + " · " + display.committedText()
+            } else {
+                getString(R.string.order_no_stock)
+            }
+            textStock.text = label.uppercase(Locale("es", "GT"))
             textStock.backgroundTintList = ContextCompat.getColorStateList(requireContext(), R.color.danger_bg)
             textStock.setTextColor(ContextCompat.getColor(requireContext(), R.color.danger_text))
         }
