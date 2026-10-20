@@ -16,11 +16,16 @@ private const val BATCH_LIMIT = 20
  *  2. PENDING_UPDATE            → [repository.updateAndMarkSynced]    (edición)
  *
  * Exclusión mutua: garantizada por enqueueUniqueWork(KEEP) + estado SYNCING en Room.
+ *
+ * Si al menos un pedido llegó al servidor, su stock ya está descontado allí: se pide bajar el
+ * catálogo ([requestCatalogRefresh]) para traer también lo que vendieron los demás teléfonos,
+ * en vez de esperar al periódico.
  */
 class SyncPedidosUseCase(
     private val repository: PedidoRepository,
     private val connectivityChecker: ConnectivityChecker,
-    private val logger: Logger
+    private val logger: Logger,
+    private val requestCatalogRefresh: () -> Unit = {},
 ) {
 
     suspend operator fun invoke(): Result<Unit> {
@@ -79,6 +84,16 @@ class SyncPedidosUseCase(
             }
 
             logger.d(TAG, "SyncPedidosUseCase finished: success=$successCount failure=$failureCount")
+
+            if (successCount > 0) {
+                // Los pedidos ya están arriba: un fallo al encolar la bajada no debe marcar
+                // como fallida esta subida.
+                try {
+                    requestCatalogRefresh()
+                } catch (e: Exception) {
+                    logger.e(TAG, "No se pudo pedir la bajada del catálogo tras subir pedidos", e)
+                }
+            }
 
             if (failureCount > 0 && successCount == 0) {
                 throw RuntimeException("All $failureCount pedido(s) failed to sync")

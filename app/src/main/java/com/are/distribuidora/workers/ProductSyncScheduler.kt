@@ -35,18 +35,23 @@ class ProductSyncScheduler @Inject constructor(
             .putString(SyncDebug.KEY_RUN_ID, runId)
             .build()
 
-        val request = PeriodicWorkRequestBuilder<ProductSyncWorker>(6, TimeUnit.HOURS)
+        // 1 h (antes 6 h): red de seguridad para pantallas que quedan abiertas y teléfonos que no
+        // venden; la bajada es incremental (solo docs con updatedAt >= watermark), así que cuesta
+        // pocas lecturas. UPDATE y no KEEP: con KEEP el cambio de intervalo nunca llegaba a los
+        // teléfonos ya instalados, y UPDATE conserva el trabajo existente (no lo reinicia ni
+        // corta una corrida en curso) aunque se llame en cada arranque.
+        val request = PeriodicWorkRequestBuilder<ProductSyncWorker>(1, TimeUnit.HOURS)
             .setConstraints(constraints)
             .setInputData(input)
             .build()
 
         getWorkManager().enqueueUniquePeriodicWork(
             SyncDebug.UNIQUE_WORK_NAME_PRODUCTS,
-            ExistingPeriodicWorkPolicy.KEEP,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request
         )
         
-        Log.d(SyncDebug.TAG_SYNC, "${SyncDebug.prefix(runId)} SCHEDULE_PERIODIC_OK uniqueName=${SyncDebug.UNIQUE_WORK_NAME_PRODUCTS} interval=6h policy=KEEP")
+        Log.d(SyncDebug.TAG_SYNC, "${SyncDebug.prefix(runId)} SCHEDULE_PERIODIC_OK uniqueName=${SyncDebug.UNIQUE_WORK_NAME_PRODUCTS} interval=1h policy=UPDATE")
     }
 
     fun scheduleOneTimeNow(reason: String) {

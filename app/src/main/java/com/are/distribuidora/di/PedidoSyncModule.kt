@@ -6,6 +6,7 @@ import com.are.distribuidora.domain.core.ConnectivityChecker
 import com.are.distribuidora.domain.core.Logger
 import com.are.distribuidora.domain.pedido.PedidoRepository
 import com.are.distribuidora.domain.pedido.usecase.SyncPedidosUseCase
+import com.are.distribuidora.workers.ProductSyncScheduler
 import com.google.firebase.firestore.FirebaseFirestore
 import dagger.Binds
 import dagger.Module
@@ -44,6 +45,14 @@ object PedidoSyncUseCaseModule {
         repository: PedidoRepository,
         connectivityChecker: ConnectivityChecker,
         logger: Logger,
-    ): SyncPedidosUseCase = SyncPedidosUseCase(repository, connectivityChecker, logger)
+        productSyncScheduler: ProductSyncScheduler,
+    ): SyncPedidosUseCase = SyncPedidosUseCase(
+        repository = repository,
+        connectivityChecker = connectivityChecker,
+        logger = logger,
+        // Una venta subida ya descontó el stock en el servidor: bajar el catálogo trae
+        // también lo que vendieron los demás teléfonos.
+        requestCatalogRefresh = { productSyncScheduler.scheduleOneTimeNow("PEDIDO_UPLOADED") },
+    )
 }
 

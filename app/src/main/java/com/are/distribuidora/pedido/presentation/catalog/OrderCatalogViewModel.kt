@@ -7,6 +7,7 @@ import androidx.paging.cachedIn
 import androidx.paging.filter
 import com.are.distribuidora.domain.model.Product
 import com.are.distribuidora.domain.product.ObserveProductsUseCase
+import com.are.distribuidora.workers.ProductSyncScheduler
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.FlowPreview
@@ -25,7 +26,16 @@ import kotlinx.coroutines.flow.map
 @HiltViewModel
 class OrderCatalogViewModel @Inject constructor(
     private val observeProductsUseCase: ObserveProductsUseCase,
+    private val productSyncScheduler: ProductSyncScheduler,
 ) : ViewModel() {
+
+    init {
+        // El catálogo lee Room, y Room solo recibía lo que vendieron los demás teléfonos con el
+        // periódico o al abrir Inventario: el vendedor veía stock viejo al armar el pedido.
+        // Igual que InventoryViewModel, pedimos la bajada al abrir. Room invalida el
+        // PagingSource y la lista se refresca sola cuando llega.
+        productSyncScheduler.scheduleOneTimeNow("ORDER_CATALOG_OPEN")
+    }
 
     // ── Filtro de búsqueda por texto ──────────────────────────────────────────
     private val _searchQuery = MutableStateFlow("")
