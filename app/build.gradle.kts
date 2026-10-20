@@ -157,6 +157,7 @@ dependencies {
     testImplementation("io.mockk:mockk:1.13.12")
     testImplementation("org.robolectric:robolectric:4.11.1")
     testImplementation("androidx.test:core:1.6.1")
+    testImplementation("androidx.work:work-testing:2.9.0")
     kaptTest("androidx.room:room-compiler:2.6.1")
 
     // Android instrumented tests separados

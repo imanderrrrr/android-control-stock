@@ -15,6 +15,9 @@ object SyncDebug {
     /** Unique name for one-time work that syncs pending pedidos. */
     const val UNIQUE_WORK_NAME_PEDIDOS_ONE_TIME: String = "sync_pedidos_now"
 
+    /** Unique name for the periodic safety-net work that syncs any pedido left pending. */
+    const val UNIQUE_WORK_NAME_PEDIDOS_PERIODIC: String = "sync_pedidos_periodic"
+
     /** Unique name for one-time work that uploads edited "otros" orders. */
     const val UNIQUE_WORK_NAME_ORDERS_UPLOAD_ONE_TIME: String = "upload_orders_now"
 

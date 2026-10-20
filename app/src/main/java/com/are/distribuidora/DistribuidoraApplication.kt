@@ -29,6 +29,7 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
     @Inject lateinit var pedidoExpireScheduler: com.are.distribuidora.workers.PedidoExpireScheduler
     @Inject lateinit var imageUploadSyncScheduler: com.are.distribuidora.workers.ImageUploadSyncScheduler
     @Inject lateinit var ordersUploadScheduler: com.are.distribuidora.workers.OrdersUploadScheduler
+    @Inject lateinit var pedidoSyncScheduler: com.are.distribuidora.workers.PedidoSyncScheduler
 
     /**
      * Capturador de crashes con persistencia local en `filesDir/crash_reports/`.
@@ -103,6 +104,10 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
         // Drain pending "otros" order edits from previous sessions (preserva el dueño).
         ordersUploadScheduler.enqueueUploadWorker(reason = "STARTUP_DRAIN")
 
+        // Red de seguridad de la subida de pedidos: ningún pedido confirmado se queda en el
+        // teléfono más de ~15 min con red, aunque el disparo al confirmar haya fallado.
+        pedidoSyncScheduler.schedulePeriodic()
+
         // Expira y borra pedidos con ≥ 14 días de antigüedad (local + Firestore)
         pedidoExpireScheduler.schedule()
 
@@ -121,6 +126,8 @@ class DistribuidoraApplication : Application(), Configuration.Provider {
                 } catch (e: Exception) {
                     Log.e("PedidoSync", "recoverStuckSyncingPedidos: error (no bloqueante)", e)
                 }
+                // Subir ya lo que quedó pendiente de la sesión anterior (incluidos los recién revertidos).
+                pedidoSyncScheduler.scheduleOneTimeSync("STARTUP_DRAIN")
 
                 // 1. Descargar rutas
                 Log.d("RouteSync", "Descargando rutas desde Firestore...")
