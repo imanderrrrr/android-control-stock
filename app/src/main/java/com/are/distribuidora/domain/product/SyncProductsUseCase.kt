@@ -10,6 +10,7 @@ package com.are.distribuidora.domain.product
 import com.are.distribuidora.domain.core.ConnectivityChecker
 import com.are.distribuidora.domain.core.Logger
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 private const val TAG = "SYNC_PRODUCT"
 
@@ -38,11 +39,21 @@ class SyncProductsUseCase(
             return Result.success(Unit)
         }
 
-        if (!syncMutex.tryLock()) {
-            logger.d(TAG, "Sync already in progress - skipping")
-            return Result.success(Unit)
+        // Esperar y no saltarse: quien pide una bajada con otra en curso la pide porque algo cambió
+        // en el servidor después de que esa empezó (venta subida, vale, pantalla abierta). Además
+        // scheduleOneTimeNow encola con REPLACE: cancela el worker en curso, que puede tardar en
+        // soltar el mutex (p. ej. dentro de una transacción de Room); saltarse ahí dejaba la
+        // bajada cancelada y ninguna en su lugar. La espera es cancelable y la bajada incremental.
+        if (syncMutex.isLocked) {
+            logger.d(TAG, "Sync already in progress - waiting for it to finish")
         }
 
+        return syncMutex.withLock {
+            runSync()
+        }
+    }
+
+    private suspend fun runSync(): Result<Unit> {
         return try {
             logger.d(TAG, "Starting upload pending products")
             repository.uploadPendingProducts()
@@ -57,8 +68,6 @@ class SyncProductsUseCase(
         } catch (e: Exception) {
             logger.e(TAG, "SyncProductsUseCase failed with exception", e)
             Result.failure(e)
-        } finally {
-            syncMutex.unlock()
         }
     }
 }
