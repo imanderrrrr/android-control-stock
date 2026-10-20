@@ -7,7 +7,9 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.are.distribuidora.core.sync.SyncDebug
 import com.are.distribuidora.domain.core.Logger
+import com.are.distribuidora.domain.pedido.usecase.PedidoSyncIncompleteException
 import com.are.distribuidora.domain.pedido.usecase.SyncPedidosUseCase
+import com.google.firebase.firestore.FirebaseFirestoreException
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import kotlinx.coroutines.CancellationException
@@ -36,19 +38,14 @@ class PedidoSyncWorker @AssistedInject constructor(
                 Result.success()
             } else {
                 val ex = result.exceptionOrNull()
+                val willRetry = ex?.isTransient() == true && runAttemptCount < MAX_RETRIES
                 Log.e(
                     SyncDebug.TAG_SYNC,
-                    "${SyncDebug.prefix(runId)} PEDIDO_WORKER_RESULT failure willRetry=${runAttemptCount < 3} ex=${ex?.javaClass?.simpleName} msg=${ex?.message}",
+                    "${SyncDebug.prefix(runId)} PEDIDO_WORKER_RESULT failure willRetry=$willRetry ex=${ex?.javaClass?.simpleName} msg=${ex?.message}",
                     ex
                 )
 
-                val isTransient = ex is java.io.IOException ||
-                    (ex is com.google.firebase.firestore.FirebaseFirestoreException &&
-                        (ex.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.UNAVAILABLE ||
-                         ex.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.DEADLINE_EXCEEDED ||
-                         ex.code == com.google.firebase.firestore.FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED))
-
-                if (isTransient && runAttemptCount < 3) {
+                if (willRetry) {
                     Log.d(SyncDebug.TAG_SYNC, "${SyncDebug.prefix(runId)} PEDIDO_WORKER_RETRY scheduling retry")
                     Result.retry()
                 } else {
@@ -70,6 +67,29 @@ class PedidoSyncWorker @AssistedInject constructor(
                 e
             )
             Result.failure()
+        }
+    }
+
+    private companion object {
+        /**
+         * Reintentos con el backoff por defecto (30 s, 1 min, 2 min). Tras el tope, el periódico de
+         * [PedidoSyncScheduler] recoge lo que quede; sin tope el backoff crecería hasta 5 h y, con
+         * KEEP, ese trabajo en espera absorbería los disparos de las confirmaciones siguientes.
+         */
+        const val MAX_RETRIES = 3
+
+        val TRANSIENT_CODES = setOf(
+            FirebaseFirestoreException.Code.UNAVAILABLE,
+            FirebaseFirestoreException.Code.DEADLINE_EXCEEDED,
+            FirebaseFirestoreException.Code.RESOURCE_EXHAUSTED,
+        )
+
+        /** Mira el error original aunque venga envuelto: el caso de uso agrupa los de cada pedido. */
+        fun Throwable.isTransient(): Boolean = when (this) {
+            is PedidoSyncIncompleteException -> causes.any { it.isTransient() }
+            is java.io.IOException -> true
+            is FirebaseFirestoreException -> code in TRANSIENT_CODES
+            else -> cause?.isTransient() == true
         }
     }
 }
